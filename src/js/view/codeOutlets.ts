@@ -472,7 +472,7 @@ export class CtorInitializerOutlet extends ConstructOutlet<RuntimeCtorInitialize
             else {
                 first = false;
             }
-            this.element.append(construct.baseInitializer.target.type.className);
+            this.element.append(htmlDecoratedName(construct.baseInitializer.target.type.className));
             this.element.append("(");
             this.baseInitializer = construct.baseInitializer.createDefaultOutlet(
                 $("<span></span>").appendTo(this.element),
@@ -487,7 +487,7 @@ export class CtorInitializerOutlet extends ConstructOutlet<RuntimeCtorInitialize
             else {
                 first = false;
             }
-            this.element.append(construct.baseInitializer.target.type.className);
+            this.element.append(htmlDecoratedName(construct.baseInitializer.target.type.className));
             this.element.append("(");
             this.baseInitializer = construct.baseInitializer.createDefaultOutlet(
                 $("<span></span>").appendTo(this.element),
@@ -504,7 +504,7 @@ export class CtorInitializerOutlet extends ConstructOutlet<RuntimeCtorInitialize
             else {
                 first = false;
             }
-            this.element.append((<MemberVariableEntity>(memInit.target)).name);
+            this.element.append(htmlDecoratedName((<MemberVariableEntity>(memInit.target)).name));
             this.element.append("(");
             let memInitOutlet = memInit.createDefaultOutlet($("<span></span>").appendTo(this.element), this);
             this.element.append(")");
@@ -2013,7 +2013,7 @@ export class DotExpressionOutlet extends ExpressionOutlet<RuntimeObjectDotExpres
         super(element, construct, parent, false);
         this.operand = addChildExpressionOutlet(this.exprElem, this.construct.operand, this);
         this.exprElem.append(htmlDecoratedOperator(".", "code-postfixOp"));
-        this.exprElem.append(construct.entity.name);
+        this.exprElem.append(htmlDecoratedName(construct.entity.name, construct.entity.type));
 
     }
 

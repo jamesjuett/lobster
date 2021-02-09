@@ -497,7 +497,7 @@ abs_declarator_simple
 
 dname
   = n:name ! { return KEYWORDS.has(n.identifier); } { return n; }
-  / "~" ws n:name ! { return KEYWORDS.has(n.identifier); } { return {identifier: "~"+n.identifier}; }
+  / "~" ws n:class_name { return {identifier: "~"+n.identifier}; }
 
   /* / class_name
   / "~" ws class_name 

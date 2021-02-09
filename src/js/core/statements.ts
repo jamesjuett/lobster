@@ -1,9 +1,9 @@
-import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, TranslationUnitContext, ASTNode, CPPConstruct, BlockContext, FunctionContext, InvalidConstruct, createLoopContext } from "./constructs";
+import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, TranslationUnitContext, ASTNode, CPPConstruct, BlockContext, FunctionContext, InvalidConstruct, createLoopContext, createBlockContext } from "./constructs";
 import { CPPError } from "./errors";
 import { ExpressionASTNode, createExpressionFromAST, createRuntimeExpression, standardConversion } from "./expressions";
 import { DeclarationASTNode, FunctionDefinition, VariableDefinition, ClassDefinition, AnalyticCompiledDeclaration, LocalDeclaration, createLocalDeclarationFromAST, LocalDeclarationASTNode, LocalSimpleDeclaration } from "./declarations";
 import { DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
-import { VoidType, ReferenceType, Bool, isType, Int } from "./types";
+import { VoidType, ReferenceType, Bool, isType, Int, isCompleteObjectType, isReferenceType, isReferenceToCompleteType, isCompleteClassType, CompleteClassType } from "./types";
 import { ReturnByReferenceEntity, ReturnObjectEntity, BlockScope, LocalObjectEntity, LocalReferenceEntity } from "./entities";
 import { Mutable, asMutable, assertNever, assert } from "../util/util";
 import { Expression, CompiledExpression, RuntimeExpression } from "./expressionBase";
@@ -11,6 +11,9 @@ import { StatementOutlet, ConstructOutlet, ExpressionStatementOutlet, NullStatem
 import { RuntimeFunction } from "./functions";
 import { Predicates } from "./predicates";
 import { Value } from "./runtimeEnvironment";
+import { RuntimePotentialFullExpression } from "./PotentialFullExpression";
+import { CompiledFunctionCall, FunctionCall } from "./functionCall";
+import { AutoObject } from "./objects";
 
 export type StatementASTNode =
     LabeledStatementASTNode |
@@ -512,16 +515,12 @@ export interface BlockASTNode extends ASTNode {
     readonly statements: readonly StatementASTNode[];
 }
 
-export function createBlockContext(parentContext: FunctionContext): BlockContext {
-    return Object.assign({}, parentContext, {
-        contextualScope: new BlockScope(parentContext.translationUnit, parentContext.contextualScope)
-    });
-}
-
 export class Block extends Statement<BlockASTNode> {
     public readonly construct_type = "block";
 
     public readonly statements: readonly Statement[] = [];
+
+    public readonly localDeallocator: LocalDeallocator;
 
     public static createFromAST(ast: BlockASTNode, context: FunctionContext) : Block {
         let blockContext = createBlockContext(context);
@@ -531,6 +530,8 @@ export class Block extends Statement<BlockASTNode> {
     public constructor(context: BlockContext, ast: BlockASTNode, statements: readonly Statement[]) {
         super(context, ast);
         this.attachAll(this.statements = statements);
+
+        this.attach(this.localDeallocator = new LocalDeallocator(context)); 
     }
 
     public isBlock(): this is Block {
@@ -573,17 +574,21 @@ export class Block extends Statement<BlockASTNode> {
 
 export interface CompiledBlock extends Block, SuccessfullyCompiled {
     readonly statements: readonly CompiledStatement[];
+    readonly localDeallocator: CompiledLocalDeallocator;
 }
 
 export class RuntimeBlock extends RuntimeStatement<CompiledBlock> {
 
     public readonly statements: readonly RuntimeStatement[];
 
+    public readonly localDeallocator: RuntimeLocalDeallocator;
+
     private index = 0;
 
     public constructor(model: CompiledBlock, parent: RuntimeStatement | RuntimeFunction) {
         super(model, parent);
         this.statements = model.statements.map((stmt) => createRuntimeStatement(stmt, this));
+        this.localDeallocator = model.localDeallocator.createRuntimeConstruct(this);
     }
 
     protected upNextImpl() {
@@ -591,15 +596,16 @@ export class RuntimeBlock extends RuntimeStatement<CompiledBlock> {
             this.observable.send("index", this.index);
             this.sim.push(this.statements[this.index++]);
         }
+        else if (!this.localDeallocator.isDone) {
+            this.sim.push(this.localDeallocator);
+        }
         else {
             this.startCleanup();
         }
     }
 
     public stepForwardImpl() {
-        // Nothing to do here, block doesn't actually do anything but run individual statements.
-        // TODO: However, something will ultimately need to be added to run destructors when a
-        // block finishes, rather than just when a function finishes.
+
     }
 
 
@@ -610,6 +616,116 @@ export class RuntimeBlock extends RuntimeStatement<CompiledBlock> {
 }
 
 
+
+export class LocalDeallocator extends BasicCPPConstruct<BlockContext, ASTNode> {
+    public readonly construct_type = "LocalDeallocator";
+
+    public readonly localDtors: (FunctionCall | undefined)[];
+
+    public constructor(context: BlockContext) {
+        super(context, undefined); // Has no AST
+        
+        let localVariables = context.blockLocals.localVariables;
+
+        this.localDtors = localVariables.map((local) => {
+            if (local.variableKind === "object" && local.isTyped(isCompleteClassType)) {
+                let dtor = local.type.classDefinition.destructor;
+                if (dtor) {
+                    let dtorCall = new FunctionCall(context, dtor, [], local.type);
+                    this.attach(dtorCall);
+                    return dtorCall;
+                }
+                else{
+                    this.addNote(CPPError.declaration.dtor.no_destructor_local(local.firstDeclaration, local));
+                }
+            }
+            return undefined;
+        });
+    }
+
+    public createRuntimeConstruct(this: CompiledLocalDeallocator, parent: RuntimeBlock) {
+        return new RuntimeLocalDeallocator(this, parent);
+    }
+
+    // public isTailChild(child: ExecutableConstruct) {
+    //     return {isTail: true};
+    // }
+}
+
+export interface CompiledLocalDeallocator extends LocalDeallocator, SuccessfullyCompiled {
+
+    readonly localDtors: (CompiledFunctionCall | undefined)[];
+
+}
+
+export class RuntimeLocalDeallocator extends RuntimeConstruct<CompiledLocalDeallocator> {
+
+    private index = 0;
+    private justDestructed: AutoObject<CompleteClassType> | undefined = undefined;
+    public readonly parent!: RuntimeBlock; // narrows type from base class
+
+    public constructor(model: CompiledLocalDeallocator, parent: RuntimeBlock) {
+        super(model, "expression", parent);
+    }
+
+    protected upNextImpl() {
+
+        // TEMPORARY CODE THAT JUST DESTROYS ALL TEMPORARY OBJECTS ASSUMING NO DTORS
+        let blockLocals = this.model.context.blockLocals;
+        blockLocals.localObjects.forEach(local => {
+            let localObj = local.runtimeLookup(this);
+            
+        });
+        blockLocals.localReferences.forEach(refEntity => {
+            if (refEntity.isTyped(isReferenceToCompleteType)) {
+                let referredObj = refEntity.runtimeLookup(this);
+                referredObj?.onReferenceUnbound(refEntity);
+            }
+        });
+
+        let locals = this.model.context.blockLocals.localVariables;
+
+        if (this.justDestructed) {
+            this.sim.memory.killObject(this.justDestructed, this);
+            this.justDestructed = undefined;
+        }
+
+        while(this.index < locals.length) {
+            // Destroy local at given index
+            let local = locals[this.index];
+            let dtor = this.model.localDtors[this.index];
+            ++this.index;
+
+            if (local.variableKind === "reference") {
+                // destroying a reference doesn't really require doing anything,
+                // but we notify the referred object this reference has been removed
+                local.isTyped(isReferenceToCompleteType) && local.runtimeLookup(this).onReferenceUnbound(local);
+            }
+            else if (local.isTyped(isCompleteClassType)) {
+                // a local class-type object, so we call the dtor
+                assert(dtor);
+                let obj = local.runtimeLookup(this);
+                this.sim.push(dtor.createRuntimeFunctionCall(this, obj));
+
+                // need to destroy the object once dtor is done, so we keep track of it here
+                this.justDestructed = obj;
+
+                // return so that the dtor, which is now on top of the stack, can run instead
+                return;
+            }
+            else {
+                // a local non-class-type object, no dtor needed.
+                this.sim.memory.killObject(local.runtimeLookup(this), this);
+            }
+        }
+
+        this.startCleanup();
+    }
+
+    public stepForwardImpl() {
+
+    }
+}
 
 
 

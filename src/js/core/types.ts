@@ -217,6 +217,10 @@ abstract class TypeBase {
         return this instanceof ReferenceType;
     }
 
+    public isReferenceToCompleteType(): this is ReferenceToCompleteType {
+        return this.isReferenceType() && this.refTo.isCompleteObjectType();
+    }
+
     public isPotentiallyCompleteClassType(): this is PotentiallyCompleteClassType {
         return this instanceof ClassTypeBase;
     }
@@ -443,6 +447,10 @@ export function isObjectPointerType(type: Type): type is ObjectPointerType {
 
 export function isReferenceType(type: Type): type is ReferenceType {
     return type.isReferenceType();
+}
+
+export function isReferenceToCompleteType(type: Type): type is ReferenceToCompleteType {
+    return type.isReferenceToCompleteType();
 }
 
 export function isPotentiallyCompleteClassType(type: Type): type is PotentiallyCompleteClassType {
@@ -1199,6 +1207,8 @@ export class ReferenceType<RefTo extends PotentiallyCompleteObjectType = Potenti
         return false;
     }
 }
+
+export type ReferenceToCompleteType = ReferenceType<CompleteObjectType>;
 
 export type ReferredType<T extends ReferenceType> = T["refTo"];
 

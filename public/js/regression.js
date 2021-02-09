@@ -43772,7 +43772,7 @@ exports.SimulationInputStream = SimulationInputStream;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.RuntimeGlobalObjectAllocator = exports.GlobalObjectAllocator = exports.RuntimeTemporaryDeallocator = exports.TemporaryDeallocator = exports.FunctionLocals = exports.InvalidConstruct = exports.BasicCPPConstruct = exports.RuntimeConstruct = exports.CPPConstruct = exports.createMemberSpecificationContext = exports.isMemberSpecificationContext = exports.createClassContext = exports.isClassContext = exports.createLoopContext = exports.isBlockContext = exports.isMemberFunctionContext = exports.createFunctionContext = exports.createExpressionContextWithReceiverType = exports.createExpressionContextWithParameterTypes = exports.createLibraryContext = exports.createTranslationUnitContext = exports.createImplicitContext = exports.EMPTY_SOURCE = void 0;
+exports.RuntimeGlobalObjectAllocator = exports.GlobalObjectAllocator = exports.RuntimeTemporaryDeallocator = exports.TemporaryDeallocator = exports.ContextualLocals = exports.InvalidConstruct = exports.BasicCPPConstruct = exports.RuntimeConstruct = exports.CPPConstruct = exports.createMemberSpecificationContext = exports.isMemberSpecificationContext = exports.createClassContext = exports.isClassContext = exports.createLoopContext = exports.isBlockContext = exports.isMemberBlockContext = exports.createBlockContext = exports.isMemberFunctionContext = exports.createFunctionContext = exports.createExpressionContextWithReceiverType = exports.createExpressionContextWithParameterTypes = exports.createLibraryContext = exports.createTranslationUnitContext = exports.createImplicitContext = exports.EMPTY_SOURCE = void 0;
 const entities_1 = __webpack_require__(8397);
 const errors_1 = __webpack_require__(5244);
 const util_1 = __webpack_require__(6560);
@@ -43802,7 +43802,7 @@ exports.createExpressionContextWithReceiverType = createExpressionContextWithRec
 function createFunctionContext(parentContext, containingFunction, contextualReceiverType) {
     return Object.assign({}, parentContext, {
         containingFunction: containingFunction,
-        functionLocals: new FunctionLocals(),
+        functionLocals: new ContextualLocals(),
         contextualReceiverType: contextualReceiverType
     });
 }
@@ -43811,6 +43811,17 @@ function isMemberFunctionContext(context) {
     return !!context.contextualReceiverType;
 }
 exports.isMemberFunctionContext = isMemberFunctionContext;
+function createBlockContext(parentContext) {
+    return Object.assign({}, parentContext, {
+        contextualScope: new entities_1.BlockScope(parentContext.translationUnit, parentContext.contextualScope),
+        blockLocals: new ContextualLocals()
+    });
+}
+exports.createBlockContext = createBlockContext;
+function isMemberBlockContext(context) {
+    return !!context.contextualReceiverType;
+}
+exports.isMemberBlockContext = isMemberBlockContext;
 function isBlockContext(context) {
     return context.contextualScope instanceof entities_1.BlockScope;
 }
@@ -44119,8 +44130,9 @@ class InvalidConstruct extends BasicCPPConstruct {
     }
 }
 exports.InvalidConstruct = InvalidConstruct;
-class FunctionLocals {
+class ContextualLocals {
     constructor() {
+        this.localVariables = [];
         this.localObjects = [];
         this.localReferences = [];
         this.localVariablesByEntityId = {};
@@ -44128,6 +44140,7 @@ class FunctionLocals {
     registerLocalVariable(local) {
         util_1.assert(!this.localVariablesByEntityId[local.entityId]);
         this.localVariablesByEntityId[local.entityId] = local;
+        util_1.asMutable(this.localVariables).push(local);
         if (local.variableKind === "object") {
             util_1.asMutable(this.localObjects).push(local);
         }
@@ -44136,12 +44149,12 @@ class FunctionLocals {
         }
     }
 }
-exports.FunctionLocals = FunctionLocals;
+exports.ContextualLocals = ContextualLocals;
 class TemporaryDeallocator extends BasicCPPConstruct {
     // public readonly dtors: (MemberFunctionCall | null)[];
     constructor(context, temporaryObjects) {
         super(context, undefined); // Has no AST
-        this.construct_type = "TemporaryDeallacator";
+        this.construct_type = "TemporaryDeallocator";
         this.temporaryObjects = temporaryObjects;
         // TODO CLASSES: add back in destructor calls and dtors member function above
         // this.dtors = temporaryObjects.map((tempEnt) => {
@@ -44824,7 +44837,8 @@ class LocalVariableDefinition extends VariableDefinitionBase {
         let entityOrError = context.contextualScope.declareVariableEntity(this.declaredEntity);
         if (entityOrError instanceof entities_1.LocalObjectEntity || entityOrError instanceof entities_1.LocalReferenceEntity) {
             this.declaredEntity = entityOrError;
-            this.context.functionLocals.registerLocalVariable(this.declaredEntity);
+            context.blockLocals.registerLocalVariable(this.declaredEntity);
+            context.functionLocals.registerLocalVariable(this.declaredEntity);
         }
         else {
             this.addNote(entityOrError);
@@ -44907,6 +44921,7 @@ class ParameterDeclaration extends constructs_1.BasicCPPConstruct {
         let entityOrError = context.contextualScope.declareVariableEntity(this.declaredEntity);
         if (entityOrError instanceof entities_1.LocalObjectEntity || entityOrError instanceof entities_1.LocalReferenceEntity) {
             this.declaredEntity = entityOrError;
+            context.blockLocals.registerLocalVariable(this.declaredEntity);
             context.functionLocals.registerLocalVariable(this.declaredEntity);
         }
         else {
@@ -44959,7 +44974,7 @@ class Declarator extends constructs_1.BasicCPPConstruct {
         let findName = ast;
         while (findName) {
             if (findName.name) {
-                this.name = findName.name.identifier;
+                this.name = findName.name.identifier.replace(/<.*>/g, ""); // remove template parameters
                 lexical_1.checkIdentifier(this, findName.name.identifier, this.notes);
                 break;
             }
@@ -45189,30 +45204,6 @@ class FunctionDefinition extends constructs_1.BasicCPPConstruct {
         this.type = declaration.type;
         this.declaration.declaredEntity.setDefinition(this);
         this.context.translationUnit.program.registerFunctionDefinition(this.declaration.declaredEntity.qualifiedName, this);
-        // TODO CLASSES: Add destructors, but this should be moved to Block, not just FunctionDefinition
-        // this.autosToDestruct = this.bodyScope.automaticObjects.filter(function(obj){
-        //     return isA(obj.type, Types.Class);
-        // });
-        // this.bodyScope.automaticObjects.filter(function(obj){
-        //   return isA(obj.type, Types.Array) && isA(obj.type.elemType, Types.Class);
-        // }).map(function(arr){
-        //   for(var i = 0; i < arr.type.length; ++i){
-        //     self.autosToDestruct.push(ArraySubobjectEntity.instance(arr, i));
-        //   }
-        // });
-        // this.autosToDestruct = this.autosToDestruct.map(function(entityToDestruct){
-        //     var dest = entityToDestruct.type.destructor;
-        //     if (dest){
-        //         var call = FunctionCall.instance({args: []}, {parent: self, scope: self.bodyScope});
-        //         call.compile({
-        //             func: dest,
-        //             receiver: entityToDestruct});
-        //         return call;
-        //     }
-        //     else{
-        //         self.addNote(CPPError.declaration.dtor.no_destructor_auto(entityToDestruct.decl, entityToDestruct));
-        //     }
-        // });
     }
     static createFromAST(ast, context, declaration) {
         var _a;
@@ -45225,7 +45216,7 @@ class FunctionDefinition extends constructs_1.BasicCPPConstruct {
         }
         // Create implementation and body block (before params and body statements added yet)
         let functionContext = constructs_1.createFunctionContext(context, declaration.declaredEntity, (_a = context.containingClass) === null || _a === void 0 ? void 0 : _a.type);
-        let bodyContext = statements_1.createBlockContext(functionContext);
+        let bodyContext = constructs_1.createBlockContext(functionContext);
         // Add declared entities from the parameters to the body block's context.
         // As the context refers back to the implementation, local objects/references will be registerd there.
         declaration.parameterDeclarations.forEach(paramDecl => {
@@ -45237,7 +45228,7 @@ class FunctionDefinition extends constructs_1.BasicCPPConstruct {
             }
         });
         let ctorInitializer;
-        if (declaration.isConstructor && constructs_1.isMemberFunctionContext(bodyContext)) {
+        if (declaration.isConstructor && constructs_1.isMemberBlockContext(bodyContext)) {
             if (ast.ctor_initializer) {
                 ctorInitializer = initializers_1.CtorInitializer.createFromAST(ast.ctor_initializer, bodyContext);
             }
@@ -45412,6 +45403,7 @@ class ClassDefinition extends constructs_1.BasicCPPConstruct {
         // These need to happen after setting the definition on the entity above
         this.createImplicitlyDefinedDefaultConstructorIfAppropriate();
         this.createImplicitlyDefinedCopyConstructorIfAppropriate();
+        this.createImplicitlyDefinedDestructorIfAppropriate();
         this.context.program.registerClassDefinition(this.declaration.declaredEntity.qualifiedName, this);
     }
     //     public readonly members: MemberVariableDeclaration | MemberFunctionDeclaration | MemberFunctionDefinition;
@@ -45504,8 +45496,8 @@ class ClassDefinition extends constructs_1.BasicCPPConstruct {
         let subobjectTypes = this.baseClass
             ? [this.baseClass, ...this.memberObjectEntities.map(e => e.type)]
             : this.memberObjectEntities.map(e => e.type);
-        // All subobjects (bases and members) must be default constructibe and destructible
-        if (subobjectTypes.some(t => !t.isDefaultConstructible() || !t.isDestructible())) {
+        // All subobjects (bases and members) must be default constructible and destructible
+        if (!subobjectTypes.every(t => t.isDefaultConstructible() && t.isDestructible())) {
             return;
         }
         // If any const data members do not have a user-provided
@@ -45522,7 +45514,7 @@ class ClassDefinition extends constructs_1.BasicCPPConstruct {
         let iddc = FunctionDefinition.createFromAST(cpp_parser_util_1.parseFunctionDefinition(src), this.implicitPublicContext);
         this.attach(iddc);
         let declEntity = iddc.declaration.declaredEntity;
-        util_1.assert(declEntity.returnsVoid()); // check cast above with assertion
+        util_1.assert(declEntity.returnsVoid());
         this.defaultConstructor = declEntity;
         util_1.asMutable(this.constructors).push(declEntity);
     }
@@ -45554,7 +45546,8 @@ class ClassDefinition extends constructs_1.BasicCPPConstruct {
         // here may be parsed as a class name (because C++ parsing is dumb). Normally, the
         // class name would be recognized when the parser previously encounters the class head,
         // but that doesn't happen since this is an isolated call to the parser for just the
-        // implicitly defined copy ctor. 
+        // implicitly defined copy ctor. Specifically, this is necessary because the grammar
+        // is ambiguous for the parameter to the copy ctor (the actual "name" of the ctor would be ok)
         let src = `//@className=${this.name}\n${this.name}(${refParamCanBeConst ? "const " : ""}${this.name} &other)`;
         let memInits = this.memberVariableEntities.map(mem => `${mem.name}(other.${mem.name})`);
         if (this.baseClass) {
@@ -45576,35 +45569,29 @@ class ClassDefinition extends constructs_1.BasicCPPConstruct {
         }
         util_1.asMutable(this.constructors).push(declEntity);
     }
-    //     createImplicitCopyConstructor : function(){
-    //         var self = this;
-    //         // If any subobjects are missing a copy constructor, do not create implicit copy ctor
-    //         if (!this.type.subobjectEntities.every(function(subObj){
-    //                 return !isA(subObj.type, Types.Class) ||
-    //                     subObj.type.getCopyConstructor(subObj.type.isConst);
-    //             })){
-    //             return;
-    //         }
-    //         // If any subobjects are missing a destructor, do not create implicit copy ctor
-    //         if (!this.type.subobjectEntities.every(function(subObj){
-    //                 return !isA(subObj.type, Types.Class) ||
-    //                     subObj.type.destructor;
-    //             })){
-    //             return;
-    //         }
-    //         var src = this.name + "(const " + this.name + " &other)";
-    //         if (this.type.subobjectEntities.length > 0){
-    //             src += "\n : ";
-    //         }
-    //         src += this.type.baseClassEntities.map(function(subObj){
-    //             return subObj.type.className + "(other)";
-    //         }).concat(this.type.memberEntities.map(function(subObj){
-    //             return subObj.name + "(other." + subObj.name + ")";
-    //         })).join(", ");
-    //         src += " {}";
-    //         src = Lobster.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
-    //         return ConstructorDefinition.instance(src, {parent:this, scope: this.classScope, containingClass: this.type, access:"public", implicit:true});
-    //     },
+    createImplicitlyDefinedDestructorIfAppropriate() {
+        // If there is a user-provided dtor, do not create the implicitly-defined dtor
+        if (this.destructor) {
+            return;
+        }
+        let subobjectTypes = this.baseClass
+            ? [this.baseClass, ...this.memberObjectEntities.map(e => e.type)]
+            : this.memberObjectEntities.map(e => e.type);
+        // All subobjects (bases and members) must be destructible
+        if (!subobjectTypes.every(t => t.isDestructible())) {
+            return;
+        }
+        // The //@className=${this.name} is hack to let the parser know that the class name
+        // here may be parsed as a class name (because C++ parsing is dumb). Normally, the
+        // class name would be recognized when the parser previously encounters the class head,
+        // but that doesn't happen since this is an isolated call to the parser.
+        let src = `//@className=${this.name}\n~${this.name}() {}`;
+        let idd = FunctionDefinition.createFromAST(cpp_parser_util_1.parseFunctionDefinition(src), this.implicitPublicContext);
+        this.attach(idd);
+        let declEntity = idd.declaration.declaredEntity;
+        util_1.assert(declEntity.returnsVoid());
+        this.destructor = declEntity;
+    }
     //     compileDeclaration : function(){
     //         var ast = this.ast;
     //         // Check that no other type with the same name already exists
@@ -45744,19 +45731,6 @@ class ClassDefinition extends constructs_1.BasicCPPConstruct {
     //         src += "return *this;}";
     //         src = Lobster.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
     //         return FunctionDefinition.instance(src, {parent:this, scope: this.classScope, containingClass: this.type, access:"public", implicit:true});
-    //     },
-    //     createImplicitDestructor : function(){
-    //         var self = this;
-    //         // If any subobjects are missing a destructor, do not create implicit destructor
-    //         if (!this.type.subobjectEntities.every(function(subObj){
-    //                 return !isA(subObj.type, Types.Class) ||
-    //                     subObj.type.destructor;
-    //             })){
-    //             return;
-    //         }
-    //         var src = "~" + this.type.name + "(){}";
-    //         src = Lobster.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
-    //         return DestructorDefinition.instance(src, {parent:this, scope: this.classScope, containingClass: this.type, access:"public", implicit:true});
     //     },
     //     createInstance : function(sim: Simulation, rtConstruct: RuntimeConstruct){
     //         return RuntimeConstruct.instance(sim, this, {decl:0, step:"decl"}, "stmt", inst);
@@ -47713,17 +47687,17 @@ exports.CPPError = {
             },
         },
         dtor: {
-            no_destructor_auto: function (construct, entity) {
-                return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.no_destructor_auto", "The local variable " + entity.name + " needs to be destroyed when it \"goes out of scope\", but I can't find a destructor for the " + entity.type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor. (Or, if you've violated the rule of the Big Three.)");
+            no_destructor_local: function (construct, entity) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.no_destructor_local", "The local variable " + entity.name + " needs to be destroyed when it \"goes out of scope\", but I can't find a destructor for the " + entity.type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor.");
             },
             // no_destructor_member : function(construct: TranslationUnitConstruct, entity: ObjectEntity, containingClass) {
-            //     return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.no_destructor_member", "The member variable " + entity.name + " needs to be destroyed as part of the " + containingClass.className + " destructor, but I can't find a destructor for the " + entity.type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor. (Or, if you've violated the rule of the Big Three.)");
+            //     return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.no_destructor_member", "The member variable " + entity.name + " needs to be destroyed as part of the " + containingClass.className + " destructor, but I can't find a destructor for the " + entity.type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor.");
             // },
             // no_destructor_base : function(construct: TranslationUnitConstruct, entity, containingClass) {
-            //     return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.no_destructor_base", "The base class " + entity.name + " needs to be destroyed as part of the " + containingClass.className + " destructor, but I can't find a destructor for the " + entity.type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor. (Or, if you've violated the rule of the Big Three.)");
+            //     return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.no_destructor_base", "The base class " + entity.name + " needs to be destroyed as part of the " + containingClass.className + " destructor, but I can't find a destructor for the " + entity.type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor.");
             // },
             no_destructor_temporary: function (construct, entity) {
-                return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.no_destructor_temporary", "This expression creates a temporary object of type " + entity.type + " that needs to be destroyed, but I can't find a destructor for the " + entity.type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor. (Or, if you've violated the rule of the Big Three.)");
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.no_destructor_temporary", "This expression creates a temporary object of type " + entity.type + " that needs to be destroyed, but I can't find a destructor for the " + entity.type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor.");
             },
             return_type_prohibited: function (construct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.return_type_prohibited", "A destructor is not allowed to specify a return type.");
@@ -48084,7 +48058,7 @@ exports.CPPError = {
         },
         delete: {
             no_destructor: function (construct, type) {
-                return new CompilerNote(construct, NoteKind.ERROR, "expr.delete.no_destructor", "I can't find a destructor for the " + type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor. (Or, if you've violated the rule of the Big Three.)");
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.delete.no_destructor", "I can't find a destructor for the " + type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor.");
             },
             pointer: function (construct, type) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.delete.pointer", "The delete operator requires an operand of pointer type. (Current operand is " + type + " ).");
@@ -54404,13 +54378,12 @@ class Memory {
         this.observable.send("objectAllocated", object);
     }
     /**
-     * Ends the lifetime of an object at the given address. Its data actually remains in memory, but is marked as dead and invalid.
-     * If no object exists at the given address, does nothing. If the object is already dead, does nothing.
+     * Ends the lifetime of an object. Its data actually remains in memory, but is marked as dead and invalid.
+     * If the object is already dead, does nothing.
      * @param addr
      * @param killer The runtime construct that killed the object
      */
-    killObject(addr, killer) {
-        let obj = this.objects[addr];
+    killObject(obj, killer) {
         if (obj && obj.isAlive) {
             obj.kill(killer);
             this.observable.send("objectKilled", obj);
@@ -54464,7 +54437,7 @@ class Memory {
     }
     // TODO: think of some way to prevent accidentally calling the other deallocate directly with a temporary obj
     deallocateTemporaryObject(obj, killer) {
-        this.killObject(obj.address, killer);
+        this.killObject(obj, killer);
         //this.temporaryBottom += obj.type.size;
         delete this.temporaryObjects[obj.address];
         this.observable.send("temporaryObjectDeallocated", obj);
@@ -54516,7 +54489,6 @@ class MemoryStack {
         if (!frame) {
             return util_1.assertFalse();
         }
-        frame.pop(rtConstruct);
         this.top -= frame.size;
         this.memory.observable.send("framePopped", frame);
     }
@@ -54554,7 +54526,7 @@ class MemoryHeap {
         var obj = this.objectMap[addr];
         if (obj) {
             delete this.objectMap[addr];
-            this.memory.killObject(addr, killer);
+            this.memory.killObject(obj, killer);
             this.memory.observable.send("heapObjectDeleted", obj);
             // Note: responsibility for running destructor lies elsewhere
         }
@@ -54620,24 +54592,6 @@ class MemoryFrame {
         this.localReferencesByEntityId[entity.entityId] = obj;
         obj.onReferenceBound(entity);
         this.observable.send("referenceBound", { entity: entity, object: obj });
-    }
-    // public setUpReferenceInstances() {
-    //     this.scope.referenceObjects.forEach((ref: LocalReferenceEntity) => {
-    //         this.localReferencesByEntityId[ref.entityId] = undefined;
-    //         //self.memory.allocateObject(ref, addr);
-    //         //addr += ref.type.size;
-    //     });
-    // }
-    pop(rtConstruct) {
-        for (let key in this.localObjectsByEntityId) {
-            let obj = this.localObjectsByEntityId[key];
-            // Note this does nothing if the object was already deallocated (e.g. going out of scope of a nested block, destructor was called)
-            this.memory.killObject(obj.address, rtConstruct);
-        }
-        this.localReferenceEntities.forEach(refEntity => {
-            let referredObj = this.localReferencesByEntityId[refEntity.entityId];
-            referredObj === null || referredObj === void 0 ? void 0 : referredObj.onReferenceUnbound(refEntity);
-        });
     }
 }
 exports.MemoryFrame = MemoryFrame;
@@ -55030,7 +54984,7 @@ exports.synchronousCloneSimulation = synchronousCloneSimulation;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.RuntimeForStatement = exports.ForStatement = exports.RuntimeWhileStatement = exports.WhileStatement = exports.RuntimeIfStatement = exports.IfStatement = exports.RuntimeBlock = exports.Block = exports.createBlockContext = exports.RuntimeReturnStatement = exports.ReturnStatement = exports.RuntimeBreakStatement = exports.BreakStatement = exports.RuntimeDeclarationStatement = exports.DeclarationStatement = exports.RuntimeNullStatement = exports.NullStatement = exports.RuntimeExpressionStatement = exports.ExpressionStatement = exports.UnsupportedStatement = exports.RuntimeStatement = exports.Statement = exports.createRuntimeStatement = exports.createStatementFromAST = void 0;
+exports.RuntimeForStatement = exports.ForStatement = exports.RuntimeWhileStatement = exports.WhileStatement = exports.RuntimeIfStatement = exports.IfStatement = exports.RuntimeLocalDeallocator = exports.LocalDeallocator = exports.RuntimeBlock = exports.Block = exports.RuntimeReturnStatement = exports.ReturnStatement = exports.RuntimeBreakStatement = exports.BreakStatement = exports.RuntimeDeclarationStatement = exports.DeclarationStatement = exports.RuntimeNullStatement = exports.NullStatement = exports.RuntimeExpressionStatement = exports.ExpressionStatement = exports.UnsupportedStatement = exports.RuntimeStatement = exports.Statement = exports.createRuntimeStatement = exports.createStatementFromAST = void 0;
 const constructs_1 = __webpack_require__(4293);
 const errors_1 = __webpack_require__(5244);
 const expressions_1 = __webpack_require__(6597);
@@ -55042,6 +54996,7 @@ const util_1 = __webpack_require__(6560);
 const codeOutlets_1 = __webpack_require__(3004);
 const functions_1 = __webpack_require__(2367);
 const predicates_1 = __webpack_require__(941);
+const functionCall_1 = __webpack_require__(4796);
 const StatementConstructsMap = {
     "labeled_statement": (ast, context) => new UnsupportedStatement(context, ast, "labeled statement"),
     "block": (ast, context) => Block.createFromAST(ast, context),
@@ -55340,21 +55295,16 @@ class RuntimeReturnStatement extends RuntimeStatement {
     }
 }
 exports.RuntimeReturnStatement = RuntimeReturnStatement;
-function createBlockContext(parentContext) {
-    return Object.assign({}, parentContext, {
-        contextualScope: new entities_1.BlockScope(parentContext.translationUnit, parentContext.contextualScope)
-    });
-}
-exports.createBlockContext = createBlockContext;
 class Block extends Statement {
     constructor(context, ast, statements) {
         super(context, ast);
         this.construct_type = "block";
         this.statements = [];
         this.attachAll(this.statements = statements);
+        this.attach(this.localDeallocator = new LocalDeallocator(context));
     }
     static createFromAST(ast, context) {
-        let blockContext = createBlockContext(context);
+        let blockContext = constructs_1.createBlockContext(context);
         return new Block(blockContext, ast, ast.statements.map(s => createStatementFromAST(s, blockContext)));
     }
     isBlock() {
@@ -55370,23 +55320,103 @@ class RuntimeBlock extends RuntimeStatement {
         super(model, parent);
         this.index = 0;
         this.statements = model.statements.map((stmt) => createRuntimeStatement(stmt, this));
+        this.localDeallocator = model.localDeallocator.createRuntimeConstruct(this);
     }
     upNextImpl() {
         if (this.index < this.statements.length) {
             this.observable.send("index", this.index);
             this.sim.push(this.statements[this.index++]);
         }
+        else if (!this.localDeallocator.isDone) {
+            this.sim.push(this.localDeallocator);
+        }
         else {
             this.startCleanup();
         }
     }
     stepForwardImpl() {
-        // Nothing to do here, block doesn't actually do anything but run individual statements.
-        // TODO: However, something will ultimately need to be added to run destructors when a
-        // block finishes, rather than just when a function finishes.
     }
 }
 exports.RuntimeBlock = RuntimeBlock;
+class LocalDeallocator extends constructs_1.BasicCPPConstruct {
+    constructor(context) {
+        super(context, undefined); // Has no AST
+        this.construct_type = "LocalDeallocator";
+        let localVariables = context.blockLocals.localVariables;
+        this.localDtors = localVariables.map((local) => {
+            if (local.variableKind === "object" && local.isTyped(types_1.isCompleteClassType)) {
+                let dtor = local.type.classDefinition.destructor;
+                if (dtor) {
+                    let dtorCall = new functionCall_1.FunctionCall(context, dtor, [], local.type);
+                    this.attach(dtorCall);
+                    return dtorCall;
+                }
+                else {
+                    this.addNote(errors_1.CPPError.declaration.dtor.no_destructor_local(local.firstDeclaration, local));
+                }
+            }
+            return undefined;
+        });
+    }
+    createRuntimeConstruct(parent) {
+        return new RuntimeLocalDeallocator(this, parent);
+    }
+}
+exports.LocalDeallocator = LocalDeallocator;
+class RuntimeLocalDeallocator extends constructs_1.RuntimeConstruct {
+    constructor(model, parent) {
+        super(model, "expression", parent);
+        this.index = 0;
+        this.justDestructed = undefined;
+    }
+    upNextImpl() {
+        // TEMPORARY CODE THAT JUST DESTROYS ALL TEMPORARY OBJECTS ASSUMING NO DTORS
+        let blockLocals = this.model.context.blockLocals;
+        blockLocals.localObjects.forEach(local => {
+            let localObj = local.runtimeLookup(this);
+        });
+        blockLocals.localReferences.forEach(refEntity => {
+            if (refEntity.isTyped(types_1.isReferenceToCompleteType)) {
+                let referredObj = refEntity.runtimeLookup(this);
+                referredObj === null || referredObj === void 0 ? void 0 : referredObj.onReferenceUnbound(refEntity);
+            }
+        });
+        let locals = this.model.context.blockLocals.localVariables;
+        if (this.justDestructed) {
+            this.sim.memory.killObject(this.justDestructed, this);
+            this.justDestructed = undefined;
+        }
+        while (this.index < locals.length) {
+            // Destroy local at given index
+            let local = locals[this.index];
+            let dtor = this.model.localDtors[this.index];
+            ++this.index;
+            if (local.variableKind === "reference") {
+                // destroying a reference doesn't really require doing anything,
+                // but we notify the referred object this reference has been removed
+                local.isTyped(types_1.isReferenceToCompleteType) && local.runtimeLookup(this).onReferenceUnbound(local);
+            }
+            else if (local.isTyped(types_1.isCompleteClassType)) {
+                // a local class-type object, so we call the dtor
+                util_1.assert(dtor);
+                let obj = local.runtimeLookup(this);
+                this.sim.push(dtor.createRuntimeFunctionCall(this, obj));
+                // need to destroy the object once dtor is done, so we keep track of it here
+                this.justDestructed = obj;
+                // return so that the dtor, which is now on top of the stack, can run instead
+                return;
+            }
+            else {
+                // a local non-class-type object, no dtor needed.
+                this.sim.memory.killObject(local.runtimeLookup(this), this);
+            }
+        }
+        this.startCleanup();
+    }
+    stepForwardImpl() {
+    }
+}
+exports.RuntimeLocalDeallocator = RuntimeLocalDeallocator;
 class IfStatement extends Statement {
     constructor(context, ast, condition, then, otherwise) {
         super(context, ast);
@@ -55411,7 +55441,7 @@ class IfStatement extends Statement {
         // (If the substatement is a block, it creates its own block context, so we don't do that here.)
         let then = ast.then.construct_type === "block" ?
             createStatementFromAST(ast.then, context) :
-            createStatementFromAST(ast.then, createBlockContext(context));
+            createStatementFromAST(ast.then, constructs_1.createBlockContext(context));
         if (!ast.otherwise) { // no else branch
             return new IfStatement(context, ast, condition, then);
         }
@@ -55419,7 +55449,7 @@ class IfStatement extends Statement {
             // See note above about substatement implicit block context
             let otherwise = ast.otherwise.construct_type === "block" ?
                 createStatementFromAST(ast.otherwise, context) :
-                createStatementFromAST(ast.otherwise, createBlockContext(context));
+                createStatementFromAST(ast.otherwise, constructs_1.createBlockContext(context));
             return new IfStatement(context, ast, condition, then, otherwise);
         }
     }
@@ -55483,7 +55513,7 @@ class WhileStatement extends Statement {
         // (If the substatement is a block, it creates its own block context, so we don't do that here.)
         let body = ast.body.construct_type === "block" ?
             createStatementFromAST(ast.body, whileContext) :
-            createStatementFromAST(ast.body, createBlockContext(whileContext));
+            createStatementFromAST(ast.body, constructs_1.createBlockContext(whileContext));
         return new WhileStatement(whileContext, ast, expressions_1.createExpressionFromAST(ast.condition, whileContext), body);
     }
     createDefaultOutlet(element, parent) {
@@ -55602,7 +55632,7 @@ class ForStatement extends Statement {
         // We always do this, even if the body isn't a block in the source code:
         //    for(...) stmt; is treated equivalently
         // to for(...) { stmt; } according to the C++ standard.
-        let bodyBlockContext = createBlockContext(loopContext);
+        let bodyBlockContext = constructs_1.createBlockContext(loopContext);
         // NOTE: the use of the body block context for all the children.
         // e.g. for(int i = 0; i < 10; ++i) { cout << i; }
         // All children (initial, condition, post, body) share the same block
@@ -55698,8 +55728,8 @@ RuntimeForStatement.upNextFns = [
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.ArrayPointerType = exports.PointerType = exports.toHexadecimalString = exports.Double = exports.Float = exports.FloatingPointType = exports.Bool = exports.Size_t = exports.Int = exports.Char = exports.IntegralType = exports.ArithmeticType = exports.SimpleType = exports.AtomicType = exports.ObjectTypeBase = exports.VoidType = exports.isCompleteParameterType = exports.isPotentialParameterType = exports.isCompleteReturnType = exports.isPotentialReturnType = exports.isCompleteObjectType = exports.isIncompleteObjectType = exports.isPotentiallyCompleteObjectType = exports.isVoidType = exports.isFunctionType = exports.isArrayElemType = exports.isGenericArrayType = exports.isArrayOfUnknownBoundType = exports.isBoundedArrayOfType = exports.isBoundedArrayType = exports.isCompleteClassType = exports.isPotentiallyCompleteClassType = exports.isReferenceType = exports.isObjectPointerType = exports.isArrayPointerToType = exports.isArrayPointerType = exports.isPointerToCompleteType = exports.isPointerToType = exports.isPointerType = exports.isFloatingPointType = exports.isIntegralType = exports.isArithmeticType = exports.isAtomicType = exports.isCvConvertible = exports.referenceCompatible = exports.covariantType = exports.subType = exports.similarType = exports.sameType = exports.isType = void 0;
-exports.builtInTypes = exports.isBuiltInTypeName = exports.FunctionType = exports.createClassType = exports.ArrayOfUnknownBoundType = exports.BoundedArrayType = exports.peelReference = exports.ReferenceType = exports.ObjectPointerType = void 0;
+exports.PointerType = exports.toHexadecimalString = exports.Double = exports.Float = exports.FloatingPointType = exports.Bool = exports.Size_t = exports.Int = exports.Char = exports.IntegralType = exports.ArithmeticType = exports.SimpleType = exports.AtomicType = exports.ObjectTypeBase = exports.VoidType = exports.isCompleteParameterType = exports.isPotentialParameterType = exports.isCompleteReturnType = exports.isPotentialReturnType = exports.isCompleteObjectType = exports.isIncompleteObjectType = exports.isPotentiallyCompleteObjectType = exports.isVoidType = exports.isFunctionType = exports.isArrayElemType = exports.isGenericArrayType = exports.isArrayOfUnknownBoundType = exports.isBoundedArrayOfType = exports.isBoundedArrayType = exports.isCompleteClassType = exports.isPotentiallyCompleteClassType = exports.isReferenceToCompleteType = exports.isReferenceType = exports.isObjectPointerType = exports.isArrayPointerToType = exports.isArrayPointerType = exports.isPointerToCompleteType = exports.isPointerToType = exports.isPointerType = exports.isFloatingPointType = exports.isIntegralType = exports.isArithmeticType = exports.isAtomicType = exports.isCvConvertible = exports.referenceCompatible = exports.covariantType = exports.subType = exports.similarType = exports.sameType = exports.isType = void 0;
+exports.builtInTypes = exports.isBuiltInTypeName = exports.FunctionType = exports.createClassType = exports.ArrayOfUnknownBoundType = exports.BoundedArrayType = exports.peelReference = exports.ReferenceType = exports.ObjectPointerType = exports.ArrayPointerType = void 0;
 const util_1 = __webpack_require__(6560);
 const runtimeEnvironment_1 = __webpack_require__(5320);
 var vowels = ["a", "e", "i", "o", "u"];
@@ -55857,6 +55887,9 @@ class TypeBase {
     }
     isReferenceType() {
         return this instanceof ReferenceType;
+    }
+    isReferenceToCompleteType() {
+        return this.isReferenceType() && this.refTo.isCompleteObjectType();
     }
     isPotentiallyCompleteClassType() {
         return this instanceof ClassTypeBase;
@@ -56020,6 +56053,10 @@ function isReferenceType(type) {
     return type.isReferenceType();
 }
 exports.isReferenceType = isReferenceType;
+function isReferenceToCompleteType(type) {
+    return type.isReferenceToCompleteType();
+}
+exports.isReferenceToCompleteType = isReferenceToCompleteType;
 function isPotentiallyCompleteClassType(type) {
     return type.isPotentiallyCompleteClassType();
 }
@@ -64957,7 +64994,7 @@ function peg$parse(input, options) {
         return s0;
     }
     function peg$parsedname() {
-        let s0, s1, s2, s3, s4;
+        let s0, s1, s2, s3;
         s0 = peg$currPos;
         s1 = peg$parsename();
         if (s1 !== peg$FAILED) {
@@ -64998,25 +65035,11 @@ function peg$parse(input, options) {
             if (s1 !== peg$FAILED) {
                 s2 = peg$parsews();
                 if (s2 !== peg$FAILED) {
-                    s3 = peg$parsename();
+                    s3 = peg$parseclass_name();
                     if (s3 !== peg$FAILED) {
-                        peg$savedPos = peg$currPos;
-                        s4 = peg$c181(s3);
-                        if (s4) {
-                            s4 = peg$FAILED;
-                        }
-                        else {
-                            s4 = undefined;
-                        }
-                        if (s4 !== peg$FAILED) {
-                            peg$savedPos = s0;
-                            s1 = peg$c185(s3);
-                            s0 = s1;
-                        }
-                        else {
-                            peg$currPos = s0;
-                            s0 = peg$FAILED;
-                        }
+                        peg$savedPos = s0;
+                        s1 = peg$c185(s3);
+                        s0 = s1;
                     }
                     else {
                         peg$currPos = s0;
@@ -75334,7 +75357,7 @@ class CtorInitializerOutlet extends ConstructOutlet {
             else {
                 first = false;
             }
-            this.element.append(construct.baseInitializer.target.type.className);
+            this.element.append(util_1.htmlDecoratedName(construct.baseInitializer.target.type.className));
             this.element.append("(");
             this.baseInitializer = construct.baseInitializer.createDefaultOutlet($("<span></span>").appendTo(this.element), this);
             this.element.append(")");
@@ -75346,7 +75369,7 @@ class CtorInitializerOutlet extends ConstructOutlet {
             else {
                 first = false;
             }
-            this.element.append(construct.baseInitializer.target.type.className);
+            this.element.append(util_1.htmlDecoratedName(construct.baseInitializer.target.type.className));
             this.element.append("(");
             this.baseInitializer = construct.baseInitializer.createDefaultOutlet($("<span></span>").appendTo(this.element), this);
             this.element.append(")");
@@ -75358,7 +75381,7 @@ class CtorInitializerOutlet extends ConstructOutlet {
             else {
                 first = false;
             }
-            this.element.append((memInit.target).name);
+            this.element.append(util_1.htmlDecoratedName((memInit.target).name));
             this.element.append("(");
             let memInitOutlet = memInit.createDefaultOutlet($("<span></span>").appendTo(this.element), this);
             this.element.append(")");
@@ -76317,7 +76340,7 @@ class DotExpressionOutlet extends ExpressionOutlet {
         super(element, construct, parent, false);
         this.operand = addChildExpressionOutlet(this.exprElem, this.construct.operand, this);
         this.exprElem.append(util_1.htmlDecoratedOperator(".", "code-postfixOp"));
-        this.exprElem.append(construct.entity.name);
+        this.exprElem.append(util_1.htmlDecoratedName(construct.entity.name, construct.entity.type));
     }
 }
 exports.DotExpressionOutlet = DotExpressionOutlet;

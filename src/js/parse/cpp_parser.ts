@@ -4971,7 +4971,7 @@ function peg$parse(input: string, options?: IParseOptions) {
   }
 
   function peg$parsedname(): any {
-    let s0, s1, s2, s3, s4;
+    let s0, s1, s2, s3;
 
     s0 = peg$currPos;
     s1 = peg$parsename();
@@ -5007,23 +5007,11 @@ function peg$parse(input: string, options?: IParseOptions) {
       if (s1 !== peg$FAILED) {
         s2 = peg$parsews();
         if (s2 !== peg$FAILED) {
-          s3 = peg$parsename();
+          s3 = peg$parseclass_name();
           if (s3 !== peg$FAILED) {
-            peg$savedPos = peg$currPos;
-            s4 = peg$c181(s3);
-            if (s4) {
-              s4 = peg$FAILED;
-            } else {
-              s4 = undefined;
-            }
-            if (s4 !== peg$FAILED) {
-              peg$savedPos = s0;
-              s1 = peg$c185(s3);
-              s0 = s1;
-            } else {
-              peg$currPos = s0;
-              s0 = peg$FAILED;
-            }
+            peg$savedPos = s0;
+            s1 = peg$c185(s3);
+            s0 = s1;
           } else {
             peg$currPos = s0;
             s0 = peg$FAILED;
