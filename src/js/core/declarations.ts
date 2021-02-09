@@ -1,11 +1,11 @@
-import { BasicCPPConstruct, ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, BlockContext, createClassContext, ClassContext, isClassContext, createMemberSpecificationContext, MemberSpecificationContext, isMemberSpecificationContext, createImplicitContext, isMemberFunctionContext, EMPTY_SOURCE } from "./constructs";
+import { BasicCPPConstruct, ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, BlockContext, createClassContext, ClassContext, isClassContext, createMemberSpecificationContext, MemberSpecificationContext, isMemberSpecificationContext, createImplicitContext, isMemberFunctionContext, EMPTY_SOURCE, createBlockContext, isMemberBlockContext } from "./constructs";
 import { CPPError, Note, CompilerNote, NoteHandler } from "./errors";
 import { asMutable, assertFalse, assert, Mutable, Constructor, assertNever, DiscriminateUnion } from "../util/util";
 import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, CompleteObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, PotentialReturnType, PeelReference, AtomicType, ArithmeticType, IntegralType, FloatingPointType, CompleteClassType, PotentiallyCompleteClassType, IncompleteClassType, PotentiallyCompleteObjectType, ReferredType, CompleteParameterType, IncompleteObjectType, CompleteReturnType, isAtomicType, isCompleteClassType } from "./types";
 import { Initializer, DefaultInitializer, DirectInitializer, InitializerASTNode, CompiledInitializer, DirectInitializerASTNode, CopyInitializerASTNode, CtorInitializer, CompiledCtorInitializer, ListInitializer, ListInitializerASTNode } from "./initializers";
 import { LocalObjectEntity, LocalReferenceEntity, GlobalObjectEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity, BlockScope, ClassEntity, MemberObjectEntity, MemberReferenceEntity, MemberVariableEntity, ObjectEntityType } from "./entities";
 import { ExpressionASTNode, NumericLiteralASTNode, createExpressionFromAST, parseNumericLiteralValueFromAST, isConvertible } from "./expressions";
-import { BlockASTNode, Block, createStatementFromAST, CompiledBlock, createBlockContext } from "./statements";
+import { BlockASTNode, Block, createStatementFromAST, CompiledBlock } from "./statements";
 import { IdentifierASTNode, checkIdentifier } from "./lexical";
 import { CPPObject, ArraySubobject } from "./objects";
 import { RuntimeFunctionCall } from "./functionCall";
@@ -931,7 +931,8 @@ export class LocalVariableDefinition extends VariableDefinitionBase<BlockContext
 
         if (entityOrError instanceof LocalObjectEntity || entityOrError instanceof LocalReferenceEntity) {
             this.declaredEntity = entityOrError;
-            this.context.functionLocals.registerLocalVariable(this.declaredEntity);
+            context.blockLocals.registerLocalVariable(this.declaredEntity);
+            context.functionLocals.registerLocalVariable(this.declaredEntity);
         }
         else {
             this.addNote(entityOrError);
@@ -1094,6 +1095,7 @@ export class ParameterDeclaration extends BasicCPPConstruct<TranslationUnitConte
 
         if (entityOrError instanceof LocalObjectEntity || entityOrError instanceof LocalReferenceEntity) {
             (<Mutable<ParameterDefinition>>this).declaredEntity = entityOrError;
+            context.blockLocals.registerLocalVariable(this.declaredEntity);
             context.functionLocals.registerLocalVariable(this.declaredEntity);
         }
         else {
@@ -1242,7 +1244,7 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
         let findName: DeclaratorASTNode | undefined = ast;
         while (findName) {
             if (findName.name) {
-                (<Mutable<this>>this).name = findName.name.identifier;
+                (<Mutable<this>>this).name = findName.name.identifier.replace(/<.*>/g, ""); // remove template parameters
                 checkIdentifier(this, findName.name.identifier, this.notes);
                 break;
             }
@@ -1550,7 +1552,7 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, Funct
         });
 
         let ctorInitializer: CtorInitializer | InvalidConstruct | undefined;
-        if (declaration.isConstructor && isMemberFunctionContext(bodyContext)) {
+        if (declaration.isConstructor && isMemberBlockContext(bodyContext)) {
             if (ast.ctor_initializer) {
                 ctorInitializer = CtorInitializer.createFromAST(ast.ctor_initializer, bodyContext);
             }
@@ -1590,34 +1592,6 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, Funct
         this.declaration.declaredEntity.setDefinition(this);
 
         this.context.translationUnit.program.registerFunctionDefinition(this.declaration.declaredEntity.qualifiedName, this);
-
-        // TODO CLASSES: Add destructors, but this should be moved to Block, not just FunctionDefinition
-        // this.autosToDestruct = this.bodyScope.automaticObjects.filter(function(obj){
-        //     return isA(obj.type, Types.Class);
-        // });
-
-        // this.bodyScope.automaticObjects.filter(function(obj){
-        //   return isA(obj.type, Types.Array) && isA(obj.type.elemType, Types.Class);
-        // }).map(function(arr){
-        //   for(var i = 0; i < arr.type.length; ++i){
-        //     self.autosToDestruct.push(ArraySubobjectEntity.instance(arr, i));
-        //   }
-        // });
-
-        // this.autosToDestruct = this.autosToDestruct.map(function(entityToDestruct){
-        //     var dest = entityToDestruct.type.destructor;
-        //     if (dest){
-        //         var call = FunctionCall.instance({args: []}, {parent: self, scope: self.bodyScope});
-        //         call.compile({
-        //             func: dest,
-        //             receiver: entityToDestruct});
-        //         return call;
-        //     }
-        //     else{
-        //         self.addNote(CPPError.declaration.dtor.no_destructor_auto(entityToDestruct.decl, entityToDestruct));
-        //     }
-
-        // });
     }
 
     public createRuntimeFunction<T extends FunctionType<CompleteReturnType>>(this: CompiledFunctionDefinition<T>, parent: RuntimeFunctionCall, receiver?: CPPObject<CompleteClassType>): RuntimeFunction<T> {
@@ -2217,6 +2191,7 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         // These need to happen after setting the definition on the entity above
         this.createImplicitlyDefinedDefaultConstructorIfAppropriate();
         this.createImplicitlyDefinedCopyConstructorIfAppropriate();
+        this.createImplicitlyDefinedDestructorIfAppropriate();
 
         this.context.program.registerClassDefinition(this.declaration.declaredEntity.qualifiedName, this);
     }
@@ -2245,8 +2220,8 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
             ? [this.baseClass, ...this.memberObjectEntities.map(e => e.type)]
             : this.memberObjectEntities.map(e => e.type);
 
-        // All subobjects (bases and members) must be default constructibe and destructible
-        if (subobjectTypes.some(t => !t.isDefaultConstructible() || !t.isDestructible())) {
+        // All subobjects (bases and members) must be default constructible and destructible
+        if (!subobjectTypes.every(t => t.isDefaultConstructible() && t.isDestructible())) {
             return;
         }
         
@@ -2268,7 +2243,7 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
             this.implicitPublicContext);
         this.attach(iddc);
         let declEntity = iddc.declaration.declaredEntity;
-        assert(declEntity.returnsVoid()); // check cast above with assertion
+        assert(declEntity.returnsVoid());
         (<Mutable<this>>this).defaultConstructor = declEntity;
         asMutable(this.constructors).push(declEntity);
     }
@@ -2307,7 +2282,8 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         // here may be parsed as a class name (because C++ parsing is dumb). Normally, the
         // class name would be recognized when the parser previously encounters the class head,
         // but that doesn't happen since this is an isolated call to the parser for just the
-        // implicitly defined copy ctor. 
+        // implicitly defined copy ctor. Specifically, this is necessary because the grammar
+        // is ambiguous for the parameter to the copy ctor (the actual "name" of the ctor would be ok)
         let src =`//@className=${this.name}\n${this.name}(${refParamCanBeConst ? "const " : ""}${this.name} &other)`;
         let memInits : string[] = this.memberVariableEntities.map(mem => `${mem.name}(other.${mem.name})`);
         if (this.baseClass) {
@@ -2333,40 +2309,37 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         asMutable(this.constructors).push(declEntity);
     }
 
-        //     createImplicitCopyConstructor : function(){
-    //         var self = this;
-    //         // If any subobjects are missing a copy constructor, do not create implicit copy ctor
-    //         if (!this.type.subobjectEntities.every(function(subObj){
-    //                 return !isA(subObj.type, Types.Class) ||
-    //                     subObj.type.getCopyConstructor(subObj.type.isConst);
-    //             })){
-    //             return;
-    //         }
 
-    //         // If any subobjects are missing a destructor, do not create implicit copy ctor
-    //         if (!this.type.subobjectEntities.every(function(subObj){
-    //                 return !isA(subObj.type, Types.Class) ||
-    //                     subObj.type.destructor;
-    //             })){
-    //             return;
-    //         }
 
-    //         var src = this.name + "(const " + this.name + " &other)";
+    private createImplicitlyDefinedDestructorIfAppropriate() {
 
-    //         if (this.type.subobjectEntities.length > 0){
-    //             src += "\n : ";
-    //         }
-    //         src += this.type.baseClassEntities.map(function(subObj){
-    //             return subObj.type.className + "(other)";
-    //         }).concat(this.type.memberEntities.map(function(subObj){
-    //             return subObj.name + "(other." + subObj.name + ")";
-    //         })).join(", ");
+        // If there is a user-provided dtor, do not create the implicitly-defined dtor
+        if (this.destructor) {
+            return;
+        }
 
-    //         src += " {}";
-    //         src = Lobster.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
+        let subobjectTypes = this.baseClass
+            ? [this.baseClass, ...this.memberObjectEntities.map(e => e.type)]
+            : this.memberObjectEntities.map(e => e.type);
 
-    //         return ConstructorDefinition.instance(src, {parent:this, scope: this.classScope, containingClass: this.type, access:"public", implicit:true});
-    //     },
+        // All subobjects (bases and members) must be destructible
+        if (!subobjectTypes.every(t => t.isDestructible())) {
+            return;
+        }
+
+        // The //@className=${this.name} is hack to let the parser know that the class name
+        // here may be parsed as a class name (because C++ parsing is dumb). Normally, the
+        // class name would be recognized when the parser previously encounters the class head,
+        // but that doesn't happen since this is an isolated call to the parser.
+        let src = `//@className=${this.name}\n~${this.name}() {}`;
+        let idd = <FunctionDefinition>FunctionDefinition.createFromAST(
+            parseFunctionDefinition(src),
+            this.implicitPublicContext);
+        this.attach(idd);
+        let declEntity = idd.declaration.declaredEntity;
+        assert(declEntity.returnsVoid());
+        (<Mutable<this>>this).destructor = declEntity;
+    }
 
     //     compileDeclaration : function(){
     //         var ast = this.ast;
@@ -2546,20 +2519,6 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
     //         return FunctionDefinition.instance(src, {parent:this, scope: this.classScope, containingClass: this.type, access:"public", implicit:true});
     //     },
 
-    //     createImplicitDestructor : function(){
-    //         var self = this;
-    //         // If any subobjects are missing a destructor, do not create implicit destructor
-    //         if (!this.type.subobjectEntities.every(function(subObj){
-    //                 return !isA(subObj.type, Types.Class) ||
-    //                     subObj.type.destructor;
-    //             })){
-    //             return;
-    //         }
-
-    //         var src = "~" + this.type.name + "(){}";
-    //         src = Lobster.cPlusPlusParser.parse(src, {startRule:"member_declaration"});
-    //         return DestructorDefinition.instance(src, {parent:this, scope: this.classScope, containingClass: this.type, access:"public", implicit:true});
-    //     },
 
     //     createInstance : function(sim: Simulation, rtConstruct: RuntimeConstruct){
     //         return RuntimeConstruct.instance(sim, this, {decl:0, step:"decl"}, "stmt", inst);

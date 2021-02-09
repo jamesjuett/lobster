@@ -81,7 +81,7 @@ export function createExpressionContextWithReceiverType(parentContext: Translati
 
 export interface FunctionContext extends TranslationUnitContext {
     readonly containingFunction: FunctionEntity;
-    readonly functionLocals: FunctionLocals;
+    readonly functionLocals: ContextualLocals;
     readonly contextualReceiverType?: CompleteClassType;
 }
 
@@ -90,7 +90,7 @@ export function createFunctionContext(parentContext: TranslationUnitContext, con
 export function createFunctionContext(parentContext: TranslationUnitContext, containingFunction: FunctionEntity, contextualReceiverType?: CompleteClassType): FunctionContext {
     return Object.assign({}, parentContext, {
         containingFunction: containingFunction,
-        functionLocals: new FunctionLocals(),
+        functionLocals: new ContextualLocals(),
         contextualReceiverType: contextualReceiverType
     });
 }
@@ -105,7 +105,19 @@ export interface MemberFunctionContext extends FunctionContext {
 
 export interface BlockContext extends FunctionContext {
     readonly contextualScope: BlockScope;
+    readonly blockLocals: ContextualLocals;
     readonly withinLoop?: true;
+}
+
+export function createBlockContext(parentContext: FunctionContext): BlockContext {
+    return Object.assign({}, parentContext, {
+        contextualScope: new BlockScope(parentContext.translationUnit, parentContext.contextualScope),
+        blockLocals: new ContextualLocals()
+    });
+}
+
+export function isMemberBlockContext(context: BlockContext) : context is MemberBlockContext {
+    return !!context.contextualReceiverType;
 }
 
 export interface MemberBlockContext extends BlockContext {
@@ -569,10 +581,12 @@ export class InvalidConstruct extends BasicCPPConstruct<TranslationUnitContext, 
 
 }
 
-export class FunctionLocals {
+export class ContextualLocals {
 
+    public readonly localVariables: readonly LocalVariableEntity[] = [];
     public readonly localObjects: readonly LocalObjectEntity[] = [];
     public readonly localReferences: readonly LocalReferenceEntity[] = [];
+    
     public readonly localVariablesByEntityId: {
         [index: number]: LocalVariableEntity
     } = {};
@@ -580,6 +594,7 @@ export class FunctionLocals {
     public registerLocalVariable(local: LocalVariableEntity) {
         assert(!this.localVariablesByEntityId[local.entityId]);
         this.localVariablesByEntityId[local.entityId] = local;
+        asMutable(this.localVariables).push(local);
         if (local.variableKind === "object") {
             asMutable(this.localObjects).push(local);
         }
@@ -618,7 +633,7 @@ export class FunctionLocals {
 
 
 export class TemporaryDeallocator extends BasicCPPConstruct<TranslationUnitContext, ASTNode> {
-    public readonly construct_type = "TemporaryDeallacator";
+    public readonly construct_type = "TemporaryDeallocator";
 
     public readonly parent?: PotentialFullExpression;
     public readonly temporaryObjects: TemporaryObjectEntity[];

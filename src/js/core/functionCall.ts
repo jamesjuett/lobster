@@ -150,7 +150,7 @@ export class FunctionCall extends PotentialFullExpression {
 
     public createRuntimeFunctionCall<T extends FunctionType<CompleteReturnType> = FunctionType<CompleteReturnType>>(
         this: CompiledFunctionCall<T>,
-        parent: RuntimePotentialFullExpression,
+        parent: RuntimeConstruct,
         receiver: CPPObject<CompleteClassType> | undefined): RuntimeFunctionCall<T> {
         return new RuntimeFunctionCall<T>(this, parent, receiver);
     }

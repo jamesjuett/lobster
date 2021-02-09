@@ -1045,7 +1045,7 @@ export class CtorInitializer extends BasicCPPConstruct<MemberBlockContext, CtorI
     public readonly memberInitializers: readonly (DefaultInitializer | DirectInitializer)[] = [];
     public readonly memberInitializersByName: { [index: string]: DirectInitializer | DefaultInitializer | undefined } = { };
 
-    public static createFromAST(ast: CtorInitializerASTNode, context: MemberFunctionContext) {
+    public static createFromAST(ast: CtorInitializerASTNode, context: MemberBlockContext) {
         return new CtorInitializer(context, ast, ast.initializers.map(memInitAST => {
             let receiverType = context.contextualReceiverType;
             let baseType = receiverType.classDefinition.baseClass;
