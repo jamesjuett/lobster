@@ -649,8 +649,13 @@ export class VoidType extends TypeBase {
  * Represents a type for an object that exists in memory and takes up some space.
  * Has a size property, but NOT necessarily a value. (e.g. an array).
  */
-export abstract class ObjectTypeBase extends TypeBase {
-    public abstract readonly size: number;
+export interface ObjectTypeInterface {
+    readonly size: number;
+
+    isDefaultConstructible(userDefinedOnly?: boolean): boolean;
+    isCopyConstructible(requireConstParam: boolean): boolean;
+    isCopyAssignable(requireConstParam: boolean): boolean;
+    isDestructible(): boolean;
     
     // public abstract isComplete(context?: TranslationUnitContext) : this is CompleteObjectType;
 }
@@ -664,7 +669,13 @@ export type Completed<T extends PotentiallyCompleteObjectType> =
 /**
  * Represents a type for an object that has a value.
  */
-abstract class ValueType extends ObjectTypeBase {
+abstract class ValueType extends TypeBase implements ObjectTypeInterface {
+
+    public abstract size: number;
+    public abstract isDefaultConstructible(userDefinedOnly?: boolean): boolean;
+    public abstract isCopyConstructible(requireConstParam: boolean): boolean;
+    public abstract isCopyAssignable(requireConstParam: boolean): boolean;
+    public abstract isDestructible(): boolean;
 
     /**
      * Converts a sequence of bytes (i.e. the C++ object representation) of a value of
@@ -735,6 +746,14 @@ export abstract class AtomicType extends ValueType {
 
     public isDefaultConstructible(userDefinedOnly = false) {
         return !userDefinedOnly;
+    }
+
+    public isCopyConstructible() {
+        return true;
+    }
+
+    public isCopyAssignable() {
+        return !this.isConst;
     }
 
     public isDestructible() {
@@ -1235,7 +1254,7 @@ export type ArrayElemType = AtomicType | CompleteClassType;
 // Represents the type of an array. This is not an ObjectType because an array does
 // not have a value that can be read/written. The Elem_type type parameter must be
 // an AtomicType or ClassType. (Note that this rules out arrays of arrays, which are currently not supported.)
-export class BoundedArrayType<Elem_type extends ArrayElemType = ArrayElemType> extends ObjectTypeBase {
+export class BoundedArrayType<Elem_type extends ArrayElemType = ArrayElemType> extends TypeBase implements ObjectTypeInterface {
 
     public readonly size: number;
 
@@ -1320,6 +1339,14 @@ export class BoundedArrayType<Elem_type extends ArrayElemType = ArrayElemType> e
         return this.elemType.isDefaultConstructible(userDefinedOnly);
     }
     
+    public isCopyConstructible(requireConstParam: boolean) {
+        return this.elemType.isCopyConstructible(requireConstParam);
+    }
+    
+    public isCopyAssignable(requireConstParam: boolean) {
+        return this.elemType.isCopyAssignable(requireConstParam);
+    }
+    
     public isDestructible() {
         return this.elemType.isDestructible();
     }
@@ -1394,7 +1421,7 @@ interface ClassShared {
 }
 
 
-class ClassTypeBase extends TypeBase {
+class ClassTypeBase extends TypeBase implements Omit<ObjectTypeInterface, "size"> {
 
     public readonly precedence: number = 0;
     public readonly className: string = "";
@@ -1502,6 +1529,15 @@ class ClassTypeBase extends TypeBase {
         return !!defaultCtor && (!userDefinedOnly || defaultCtor.isUserDefined);
     }
     
+    public isCopyConstructible(this: CompleteClassType, requireConstParam: boolean) {
+        return !!this.classDefinition.constCopyConstructor
+                || !requireConstParam && !!this.classDefinition.nonConstCopyConstructor;
+    }
+    
+    public isCopyAssignable(this: CompleteClassType, requireConstParam: boolean) {
+        return !!this.classDefinition.lookupAssignmentOperator(requireConstParam, this.isConst);
+    }
+    
     public isDestructible(this: CompleteClassType) {
         return !!this.classDefinition.destructor;
     }
@@ -1543,7 +1579,7 @@ export interface IncompleteClassType extends ClassTypeBase {
     readonly t_isComplete: false;
 }
 
-export interface CompleteClassType extends ClassTypeBase {
+export interface CompleteClassType extends ClassTypeBase, ObjectTypeInterface {
     
     /** DO NOT USE. Exists only to ensure CompleteClassType is not structurally assignable to CompleteClassType */
     readonly t_isComplete: true;
@@ -1553,6 +1589,8 @@ export interface CompleteClassType extends ClassTypeBase {
     readonly classScope: ClassScope;
 
     isDefaultConstructible(userDefinedOnly?: boolean): boolean;
+    isCopyConstructible(requireConstParam: boolean): boolean;
+    isCopyAssignable(requireConstParam: boolean): boolean;
     isDestructible(): boolean;
 }
 
