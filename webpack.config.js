@@ -17,7 +17,10 @@ module.exports = {
     library: 'Lobster',
     umdNamedDefine: true
   },
-  devtool: "inline-source-map",
+  optimization: {
+    minimize: false
+  },
+  devtool: "source-map",
   // optimization: {
   //   minimizer: [
   //     new TerserPlugin({

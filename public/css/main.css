@@ -337,6 +337,10 @@ div .tabPane {
 	width: 10px;
 }
 
+.CodeMirror-gutter.breakpoints{
+	width: 10px;
+}
+
 .gutterError{
 	background-color: rgb(166, 66, 65);
 	font-weight: bolder;

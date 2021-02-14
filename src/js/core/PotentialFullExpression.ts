@@ -1,8 +1,10 @@
 import { TemporaryObjectEntity } from "./entities";
 import { Mutable, assertFalse, assert } from "../util/util";
-import { CompleteObjectType } from "./types";
+import { CompleteClassType, CompleteObjectType, isCompleteClassType } from "./types";
 import { TemporaryObject } from "./objects";
-import { TranslationUnitContext, ASTNode, BasicCPPConstruct, TemporaryDeallocator, SuccessfullyCompiled, CompiledTemporaryDeallocator, RuntimeConstruct, RuntimeTemporaryDeallocator, StackType, CPPConstruct } from "./constructs";
+import { TranslationUnitContext, ASTNode, BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, StackType, CPPConstruct } from "./constructs";
+import { CPPError } from "./errors";
+import { FunctionCall, CompiledFunctionCall } from "./functionCall";
 
 export abstract class PotentialFullExpression<ContextType extends TranslationUnitContext = TranslationUnitContext, ASTType extends ASTNode = ASTNode> extends BasicCPPConstruct<ContextType, ASTType> {
     public readonly temporaryObjects: TemporaryObjectEntity[] = [];
@@ -90,5 +92,97 @@ export abstract class RuntimePotentialFullExpression<C extends CompiledPotential
         else {
             return assertFalse();
         }
+    }
+}
+
+
+export class TemporaryDeallocator extends BasicCPPConstruct<TranslationUnitContext, ASTNode> {
+    public readonly construct_type = "TemporaryDeallocator";
+
+    public readonly parent?: PotentialFullExpression;
+    public readonly temporaryObjects: TemporaryObjectEntity[];
+
+    public readonly dtors: (FunctionCall | undefined)[];
+
+    public constructor(context: TranslationUnitContext, temporaryObjects: TemporaryObjectEntity[]) {
+        super(context, undefined); // Has no AST
+        this.temporaryObjects = temporaryObjects;
+
+        this.dtors = temporaryObjects.map((temp) => {
+            if (temp.isTyped(isCompleteClassType)) {
+                let dtor = temp.type.classDefinition.destructor;
+                if (dtor) {
+                    // let dtorCall = new FunctionCall(context, dtor, [], temp.type);
+                    // this.attach(dtorCall);
+                    // return dtorCall;
+                }
+                else{
+                    this.addNote(CPPError.declaration.dtor.no_destructor_temporary(temp.owner, temp));
+                }
+            }
+            return undefined;
+        });
+    }
+
+    public createRuntimeConstruct(this: CompiledTemporaryDeallocator, parent: RuntimePotentialFullExpression) {
+        return new RuntimeTemporaryDeallocator(this, parent);
+    }
+
+}
+
+export interface CompiledTemporaryDeallocator extends TemporaryDeallocator, SuccessfullyCompiled {
+
+    readonly dtors: (CompiledFunctionCall | undefined)[];
+    
+}
+
+export class RuntimeTemporaryDeallocator extends RuntimeConstruct<CompiledTemporaryDeallocator> {
+
+    private index = 0;
+    private justDestructed: TemporaryObject<CompleteClassType> | undefined = undefined;
+    public readonly parent!: RuntimePotentialFullExpression; // narrows type from base class
+
+    public constructor(model: CompiledTemporaryDeallocator, parent: RuntimePotentialFullExpression) {
+        super(model, "expression", parent);
+    }
+
+    protected upNextImpl() {
+
+        let tempObjects = this.model.temporaryObjects;
+
+        if (this.justDestructed) {
+            this.sim.memory.killObject(this.justDestructed, this);
+            this.justDestructed = undefined;
+        }
+
+        while(this.index < tempObjects.length) {
+            // Destroy temp at given index
+            let temp = tempObjects[this.index];
+            let dtor = this.model.dtors[this.index];
+            ++this.index;
+
+            if (temp.isTyped(isCompleteClassType)) {
+                // a temp class-type object, so we call the dtor
+                assert(dtor);
+                let obj = temp.runtimeLookup(this.parent);
+                this.sim.push(dtor.createRuntimeFunctionCall(this, obj));
+
+                // need to destroy the object once dtor is done, so we keep track of it here
+                this.justDestructed = obj;
+
+                // return so that the dtor, which is now on top of the stack, can run instead
+                return;
+            }
+            else {
+                // a temp non-class-type object, no dtor needed.
+                this.sim.memory.killObject(temp.runtimeLookup(this.parent), this);
+            }
+        }
+
+        this.startCleanup();
+    }
+
+    public stepForwardImpl() {
+
     }
 }

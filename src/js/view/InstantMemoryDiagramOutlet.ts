@@ -63,9 +63,8 @@ export class InstantMemoryDiagramOutlet {
         this.memoryOutlet.setMemory(sim.memory);
         let simRunner = new AsynchronousSimulationRunner(sim);
 
-        while(sim.top()?.model !== program.mainFunction) {
-            await simRunner.stepForward();
-        }
+
+        await simRunner.stepToEndOfMain(0, 1000);
     }
 
     @messageResponse("compilationFinished")

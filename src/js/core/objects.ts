@@ -65,7 +65,7 @@ class ArrayObjectData<Elem_type extends ArrayElemType> extends ObjectData<Bounde
 
         let subAddr = this.address;
         this.elemObjects = [];
-        for (let i = 0; i < this.object.type.length; ++i) {
+        for (let i = 0; i < this.object.type.numElems; ++i) {
             this.elemObjects.push(new ArraySubobject(this.object, i, memory, subAddr));
             subAddr += this.object.type.elemType.size;
         }
@@ -365,7 +365,7 @@ export abstract class CPPObject<T extends CompleteObjectType = CompleteObjectTyp
         this.observable.send("deallocated");
     }
 
-    public getPointerTo(): Value<PointerType<T>> {
+    public getPointerTo(): Value<PointerType<T>> { // More general return type, is overridden by arrays differently
         return new Value(this.address, new ObjectPointerType(this));
     }
 
@@ -573,9 +573,7 @@ export abstract class CPPObject<T extends CompleteObjectType = CompleteObjectTyp
         this.observable.send("validitySet", valid);
     }
 
-    public isTyped<NarrowedT extends CompleteObjectType>(predicate: (t:CompleteObjectType) => t is NarrowedT) : this is CPPObject<NarrowedT> {
-        return predicate(this.type);
-    }
+    public abstract isTyped<NarrowedT extends CompleteObjectType>(predicate: (t:CompleteObjectType) => t is NarrowedT) : this is CPPObject<NarrowedT>;
 
     /**
      * Notify this object that a reference has been bound to it
@@ -667,6 +665,10 @@ export class AutoObject<T extends CompleteObjectType = CompleteObjectType> exten
     public describe(): ObjectDescription {
         return this.def.declaredEntity.describe();
     }
+    
+    public isTyped<NarrowedT extends CompleteObjectType>(predicate: (t:CompleteObjectType) => t is NarrowedT) : this is AutoObject<NarrowedT> {
+        return predicate(this.type);
+    }
 
 }
 
@@ -675,6 +677,12 @@ export class MainReturnObject extends CPPObject<Int> {
 
     public constructor(memory: Memory) {
         super(Int.INT, memory, 0); // HACK: put it at address 0. probably won't cause any issues since it's not allocated
+    }
+
+    public isTyped<NarrowedT extends Int>(predicate: (t:Int) => t is NarrowedT) : this is MainReturnObject;
+    public isTyped<NarrowedT extends CompleteObjectType>(predicate: (t:CompleteObjectType) => t is NarrowedT) : this is never;
+    public isTyped<NarrowedT extends Int>(predicate: (t:Int) => t is NarrowedT) : this is MainReturnObject {
+        return predicate(this.type);
     }
 
     public describe(): ObjectDescription {
@@ -692,6 +700,10 @@ export class StaticObject<T extends CompleteObjectType = CompleteObjectType> ext
         this.name = def.name;
     }
 
+    public isTyped<NarrowedT extends CompleteObjectType>(predicate: (t:CompleteObjectType) => t is NarrowedT) : this is StaticObject<NarrowedT> {
+        return predicate(this.type);
+    }
+
     public describe(): ObjectDescription {
         return this.def.declaredEntity.describe();
     }
@@ -699,6 +711,10 @@ export class StaticObject<T extends CompleteObjectType = CompleteObjectType> ext
 }
 
 export class DynamicObject<T extends CompleteObjectType = CompleteObjectType> extends CPPObject<T> {
+
+    public isTyped<NarrowedT extends CompleteObjectType>(predicate: (t:CompleteObjectType) => t is NarrowedT) : this is DynamicObject<NarrowedT> {
+        return predicate(this.type);
+    }
 
     public describe(): ObjectDescription {
         return { name: `[dynamic @${this.address}]`, message: `the heap object at ${toHexadecimalString(this.address)}` };
@@ -713,13 +729,23 @@ export class InvalidObject<T extends CompleteObjectType = CompleteObjectType> ex
         this.setValidity(false);
         this.kill();
     }
+    
+    public isTyped<NarrowedT extends CompleteObjectType>(predicate: (t:CompleteObjectType) => t is NarrowedT) : this is InvalidObject<NarrowedT> {
+        return predicate(this.type);
+    }
 
     public describe(): ObjectDescription {
         return { name: `[invalid @${this.address}]`, message: `an invalid object at ${toHexadecimalString(this.address)}` };
     }
 }
 
-export class ThisObject<T extends CompleteObjectType = CompleteObjectType> extends CPPObject<T> {
+export class ThisObject<T extends CompleteClassType = CompleteClassType> extends CPPObject<T> {
+
+    public isTyped<NarrowedT extends CompleteClassType>(predicate: (t:CompleteClassType) => t is NarrowedT) : this is ThisObject<NarrowedT>;
+    public isTyped<NarrowedT extends CompleteObjectType>(predicate: (t:CompleteObjectType) => t is NarrowedT) : this is never;
+    public isTyped<NarrowedT extends CompleteClassType>(predicate: (t:CompleteClassType) => t is NarrowedT) : this is ThisObject<NarrowedT> {
+        return predicate(this.type);
+    }
 
     public describe(): ObjectDescription {
         return { name: "this", message: "the this pointer" };
@@ -731,6 +757,12 @@ export class StringLiteralObject extends CPPObject<BoundedArrayType<Char>> {
 
     public constructor(type: BoundedArrayType<Char>, memory: Memory, address: number) {
         super(type, memory, address);
+    }
+
+    public isTyped<NarrowedT extends BoundedArrayType<Char>>(predicate: (t:BoundedArrayType<Char>) => t is NarrowedT) : this is StringLiteralObject;
+    public isTyped<NarrowedT extends CompleteObjectType>(predicate: (t:CompleteObjectType) => t is NarrowedT) : this is never;
+    public isTyped<NarrowedT extends BoundedArrayType<Char>>(predicate: (t:BoundedArrayType<Char>) => t is NarrowedT) : this is StringLiteralObject {
+        return predicate(this.type);
     }
 
     public describe(): ObjectDescription {
@@ -769,6 +801,12 @@ export class ArraySubobject<T extends ArrayElemType = ArrayElemType> extends Sub
         return new Value(this.address, new ArrayPointerType(this.containingObject));
     }
 
+    public isTyped<NarrowedT extends ArrayElemType>(predicate: (t:ArrayElemType) => t is NarrowedT) : this is ArraySubobject<NarrowedT>;
+    public isTyped<NarrowedT extends CompleteObjectType>(predicate: (t:CompleteObjectType) => t is NarrowedT) : this is never;
+    public isTyped<NarrowedT extends ArrayElemType>(predicate: (t:ArrayElemType) => t is NarrowedT) : this is ArraySubobject<NarrowedT> {
+        return predicate(this.type);
+    }
+
     describe() {
         var arrDesc = this.containingObject.describe();
         return {
@@ -787,6 +825,12 @@ export class BaseSubobject extends Subobject<CompleteClassType> {
         super(containingObject, type, memory, address);
     }
 
+    public isTyped<NarrowedT extends CompleteClassType>(predicate: (t:CompleteClassType) => t is NarrowedT) : this is BaseSubobject;
+    public isTyped<NarrowedT extends CompleteObjectType>(predicate: (t:CompleteObjectType) => t is NarrowedT) : this is never;
+    public isTyped<NarrowedT extends CompleteClassType>(predicate: (t:CompleteClassType) => t is NarrowedT) : this is BaseSubobject {
+        return predicate(this.type);
+    }
+
     public describe(): ObjectDescription {
         let contDesc = this.containingObject.describe();
         return { name: `[${this.type.className} base of ${contDesc.name}]`, message: "the " + this.type.className + " base of " + contDesc.message };
@@ -801,6 +845,10 @@ export class MemberSubobject<T extends CompleteObjectType = CompleteObjectType> 
     public constructor(containingObject: CPPObject<CompleteClassType>, type: T, name: string, memory: Memory, address: number) {
         super(containingObject, type, memory, address);
         this.name = name;
+    }
+
+    public isTyped<NarrowedT extends CompleteObjectType>(predicate: (t:CompleteObjectType) => t is NarrowedT) : this is MemberSubobject<NarrowedT> {
+        return predicate(this.type);
     }
 
     public describe() {
@@ -828,6 +876,10 @@ export class TemporaryObject<T extends CompleteObjectType = CompleteObjectType> 
         super(type, memory, address);
         this.description = description;
         // this.entityId = tempObjEntity.entityId;
+    }
+
+    public isTyped<NarrowedT extends CompleteObjectType>(predicate: (t:CompleteObjectType) => t is NarrowedT) : this is TemporaryObject<NarrowedT> {
+        return predicate(this.type);
     }
 
     public describe(): ObjectDescription {

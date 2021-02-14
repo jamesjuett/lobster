@@ -373,6 +373,10 @@ export class Simulation {
         }
     }
 
+    public atEndOfMain() {
+        return this.top()?.model === this.program.mainFunction;
+    }
+
     // stepOver: function(options){
     //     var target = this.peek(function(inst){
     //         return isA(inst.model, Initializer) || isA(inst.model, Expressions.FunctionCallExpression) || !isA(inst.model, Expressions.Expression);

@@ -61,8 +61,12 @@ export class ProjectEditor {
                 },
 
             },
-            gutters: ["CodeMirror-linenumbers", "errors"]
+            gutters: ["CodeMirror-linenumbers", "breakpoints", "errors"]
         });
+        this.codeMirror.on("gutterClick", (cm, n) => {
+            let info = cm.lineInfo(n);
+            cm.setGutterMarker(n, "breakpoints", info.gutterMarkers ? null : $(`<div style="color: #a33">●</div>`)[0]);
+        })
         // this.codeMirror.setSize(null, "auto");
 
         this.filesElem = element.find(".project-files");
