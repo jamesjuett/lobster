@@ -2191,6 +2191,7 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         // These need to happen after setting the definition on the entity above
         this.createImplicitlyDefinedDefaultConstructorIfAppropriate();
         this.createImplicitlyDefinedCopyConstructorIfAppropriate();
+        this.createImplicitlyDefinedCopyAssignmentOperatorIfAppropriate();
         this.createImplicitlyDefinedDestructorIfAppropriate();
 
         this.context.program.registerClassDefinition(this.declaration.declaredEntity.qualifiedName, this);
@@ -2268,10 +2269,10 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         // Can we create a copy ctor with a const &T param?
         // All subobjects (bases and members) must have a copy ctor with a similarly const param
         let refParamCanBeConst: boolean;
-        if (subobjectTypes.every(t => !t.isCompleteClassType() || t.classDefinition.constCopyConstructor)) {
+        if (subobjectTypes.every(t => t.isCopyConstructible(true))) {
             refParamCanBeConst = true;
         }
-        else if (subobjectTypes.every(t => !t.isCompleteClassType() || t.classDefinition.constCopyConstructor || t.classDefinition.nonConstCopyConstructor)){
+        else if (subobjectTypes.every(t => t.isCopyConstructible(false))) {
             refParamCanBeConst = false;
         }
         else {
@@ -2321,7 +2322,7 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
     private createImplicitlyDefinedCopyAssignmentOperatorIfAppropriate() {
 
         // If there are any user-provided assignment operators, do not create an implicit one
-        if (this.lookupAssignmentOperator(false)) {
+        if (this.lookupAssignmentOperator(false, false)) {
             return;
         }
 
@@ -2330,45 +2331,19 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
             return;
         }
 
-        // If any non-class member is const (or array thereof), we can't make implicit assignment operator
-        if (this.memberObjectEntities.some(
-            mem => !mem.isTyped(isCompleteClassType) && mem.type.isConst
-                    || mem.isTyped(isBoundedArrayType) && !mem.type.elemType.isCompleteClassType() && mem.type.elemType.isConst
-        )) {
-            return;
-        }
-
-        let refParamCanBeConst: boolean;
-        if (subobjectTypes.every(t => !t.isCompleteClassType() || t.classDefinition.constCopyConstructor)) {
-            refParamCanBeConst = true;
-        }
-        else if (subobjectTypes.every(t => !t.isCompleteClassType() || t.classDefinition.constCopyConstructor || t.classDefinition.nonConstCopyConstructor)){
-            refParamCanBeConst = false;
-        }
-        else {
-            return;
-        }
-
-
-
-
-
-        // If the base class has no destructor, don't create the implicit copy ctor
-        if (this.baseClass && !this.baseClass.isDestructible()) {
-            return;
-        }
-
         let subobjectTypes = this.baseClass
             ? [this.baseClass, ...this.memberObjectEntities.map(e => e.type)]
             : this.memberObjectEntities.map(e => e.type);
 
-        // Can we create a copy ctor with a const &T param?
-        // All subobjects (bases and members) must have a copy ctor with a similarly const param
+        // All member objects must be copy-assignable
+        // This cover the following language from the standard where we can't make a copy assignment operator:
+        //  - T has a non-static data member of non-class type (or array thereof) that is const
+        //  - T has a non-static data member or a direct or virtual base class that cannot be copy-assigned
         let refParamCanBeConst: boolean;
-        if (subobjectTypes.every(t => !t.isCompleteClassType() || t.classDefinition.constCopyConstructor)) {
+        if (subobjectTypes.every(t => t.isCopyAssignable(true))) {
             refParamCanBeConst = true;
         }
-        else if (subobjectTypes.every(t => !t.isCompleteClassType() || t.classDefinition.constCopyConstructor || t.classDefinition.nonConstCopyConstructor)){
+        else if (subobjectTypes.every(t => t.isCopyAssignable(false))) {
             refParamCanBeConst = false;
         }
         else {
@@ -2379,31 +2354,26 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         // here may be parsed as a class name (because C++ parsing is dumb). Normally, the
         // class name would be recognized when the parser previously encounters the class head,
         // but that doesn't happen since this is an isolated call to the parser for just the
-        // implicitly defined copy ctor. Specifically, this is necessary because the grammar
-        // is ambiguous for the parameter to the copy ctor (the actual "name" of the ctor would be ok)
-        let src =`//@className=${this.name}\n${this.name}(${refParamCanBeConst ? "const " : ""}${this.name} &other)`;
-        let memInits : string[] = this.memberVariableEntities.map(mem => `${mem.name}(other.${mem.name})`);
+        // implicitly defined assn op. Specifically, this is necessary because the grammar
+        // is ambiguous for the parameter to the assn op (the actual "name" of the ctor would be ok)
+        let src =`//@className=${this.name}\n${this.name} &operator=(${refParamCanBeConst ? "const " : ""}${this.name} &rhs) {\n`;
+        src += "  if (this == &rhs) { return *this; }\n";
         if (this.baseClass) {
-            memInits.unshift(this.baseClass.className + "()");
+            src += `  ${this.baseClass.className}::operator=(rhs);\n`
         }
-        if (memInits.length > 0) {
-            src += `\n : ${memInits.join(", ")}`;
-        }
-        src += " { }";
-
-        let idcc = <FunctionDefinition>FunctionDefinition.createFromAST(
+        src += this.memberObjectEntities.map(
+            mem => mem.isTyped(isBoundedArrayType)
+                ? `  for(int i = 0; i < ${mem.type.numElems}; ++i) {\n    ${mem.name}[i] = rhs.${mem.name}[i];\n  }\n`
+                : `  ${mem.name} = rhs.${mem.name};\n`
+        ).join("");
+        src += "  return *this;\n}";
+        
+        let idao = <FunctionDefinition>FunctionDefinition.createFromAST(
             parseFunctionDefinition(src),
             this.implicitPublicContext);
-        this.attach(idcc);
-        let declEntity = idcc.declaration.declaredEntity;
-        assert(declEntity.returnsVoid()); // check cast above with assertion
-        if (refParamCanBeConst) {
-            (<Mutable<this>>this).constCopyConstructor = declEntity;
-        }
-        else {
-            (<Mutable<this>>this).nonConstCopyConstructor = declEntity;
-        }
-        asMutable(this.constructors).push(declEntity);
+        this.attach(idao);
+        // Compiling the declaration already put the implicitly defined operator in
+        // the right scope, so nothing more we need to do here (unlike for ctors)
     }
 
 

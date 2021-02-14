@@ -1,11 +1,11 @@
 import { TranslationUnitConstruct, CPPConstruct } from "./constructs";
 import { SourceReference } from "./Program";
-import { ReferenceType, CompleteObjectType, Type, BoundedArrayType, ArrayOfUnknownBoundType, AtomicType, sameType, PotentialParameterType, CompleteClassType, PointerType, PotentiallyCompleteObjectType, IncompleteObjectType, PotentialReturnType, ExpressionType } from "./types";
+import { ReferenceType, CompleteObjectType, Type, BoundedArrayType, ArrayOfUnknownBoundType, AtomicType, sameType, PotentialParameterType, CompleteClassType, PointerType, PotentiallyCompleteObjectType, IncompleteObjectType, PotentialReturnType, ExpressionType, PotentiallyCompleteArrayType, FunctionType, VoidType, PotentiallyCompleteClassType } from "./types";
 import { CPPEntity, DeclaredEntity, ObjectEntity, LocalObjectEntity, TemporaryObjectEntity, FunctionEntity, GlobalObjectEntity, ClassEntity } from "./entities";
 import { VoidDeclaration, StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName, FunctionDeclaration, ClassDefinition, ClassDeclaration, StorageSpecifier, FunctionDefinition, VariableDefinition, ParameterDefinition, SimpleDeclaration, BaseSpecifier, IncompleteTypeVariableDefinition, IncompleteTypeMemberVariableDeclaration } from "./declarations";
 import { Expression, TypedExpression } from "./expressionBase";
 import { Mutable } from "../util/util";
-import { IdentifierExpression, PointerDifferenceExpression } from "./expressions";
+import { IdentifierExpression, PointerDifferenceExpression, t_OverloadableOperators } from "./expressions";
 
 export enum NoteKind {
     ERROR = "error",
@@ -433,7 +433,7 @@ export const CPPError = {
             scalar_args: function (construct: TranslationUnitConstruct, declType: AtomicType) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.scalar_args", "Invalid initialization of scalar type " + declType + " from multiple values.");
             },
-            array_string_literal: function (construct: TranslationUnitConstruct, targetType: BoundedArrayType | ArrayOfUnknownBoundType) {
+            array_string_literal: function (construct: TranslationUnitConstruct, targetType: PotentiallyCompleteArrayType) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.array_string_literal", "Cannot direct/copy initialize an array of type " + targetType + ". The only allowed direct/copy initialization of an array is to initialize an array of char from a string literal.");
             },
             convert: function (construct: TranslationUnitConstruct, initType: Type, declType: Type) {
@@ -472,7 +472,7 @@ export const CPPError = {
             },
             no_default_constructor: function (construct: TranslationUnitConstruct, entity: ObjectEntity<CompleteClassType>) {
                 var desc = entity.describe();
-                return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.no_default_constructor", "This calls for the default initialization of " + (desc.name || desc.message) + ", but I can't find a default constructor (i.e. taking no arguments) for the " + entity.type.className + " class. The compiler usually provides an implicit one for you, but not if you have declared other constructors (under the assumption you would want to use one of those).");
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.no_default_constructor", "This calls for the default initialization of " + (desc.name || desc.message) + ", but I can't find a default constructor (i.e. taking no arguments) for the " + entity.type.className + " class. The compiler usually provides an implicit one for you, but not if you have declared other constructors or if something about the structure of the class or its members prevents this.");
             },
             referencePrvalueConst: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.referencePrvalueConst", "You cannot bind a non-const reference to a prvalue (e.g. a temporary object).");
@@ -592,12 +592,19 @@ export const CPPError = {
         // overloadLookup : function(construct: TranslationUnitConstruct, op) {
         //     return new CompilerNote(construct, NoteKind.ERROR, "expr.overloadLookup", "Trying to find a function implementing an overloaded " + op + " operator...");
         // },
+
         assignment: {
             lhs_lvalue: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.lhs_lvalue", "Lvalue required as left operand of assignment.");
             },
-            lhs_not_assignable: function (construct: TranslationUnitConstruct, lhs: TypedExpression) {
-                return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.lhs_not_assignable", `The left hand side of this expression has type ${lhs.type}, which is not assignable.`);
+            arrays_not_assignable: function (construct: Expression, lhsType: PotentiallyCompleteArrayType) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.arrays_not_assignable", `The left hand side of this expression has type ${lhsType}. Array types are not assignable.`);
+            },
+            classes_not_assignable: function (construct: Expression, lhsType: PotentiallyCompleteClassType) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.arrays_not_assignable", `The left hand side of this expression has type ${lhsType}. Class types are not assignable using raw assignment (an overloaded = operator is needed instead).`);
+            },
+            type_not_assignable: function (construct: Expression, lhsType: FunctionType | VoidType) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.type_not_assignable", `The left hand side of this expression has type ${lhsType}, which is not assignable.`);
             },
             lhs_const: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.lhs_const", "Left hand side of assignment is not modifiable.");
@@ -852,21 +859,21 @@ export const CPPError = {
             //}
 
         },
-        thisExpr: {
-            memberFunc: function (construct: TranslationUnitConstruct) {
-                return new CompilerNote(construct, NoteKind.ERROR, "expr.thisExpr.memberFunc", "You may only use the </span class='code'>this</span> keyword in non-static member functions.");
+        thisExpression: {
+            nonStaticMemberFunc: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.thisExpression.memberFunc", "You may only use the this keyword in non-static member functions.");
             }
         },
-        binaryOperatorOverload: {
-            no_such_overload: function (construct: TranslationUnitConstruct, operator: string) {
+        operatorOverload: {
+            no_such_overload: function (construct: TranslationUnitConstruct, operator: t_OverloadableOperators) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.binaryOperatorOverload.no_such_overload", `The ${operator} operator cannot be used with these arguments (and a suitable operator overload function was not found for these types)`);
             },
-            ambiguous_overload: function (construct: TranslationUnitConstruct, operator: string) {
-                return new CompilerNote(construct, NoteKind.ERROR, "expr.binaryOperatorOverload.ambiguous_overload", `The operator ${operator} is ambiguous in this expression. (Several potential operator overloads were found, but there is not enough contextual type information to determine which overload to select.)`);
-            },
-            incomplete_return_type: function (construct: TranslationUnitConstruct, returnType: PotentialReturnType) {
-                return new CompilerNote(construct, NoteKind.ERROR, "expr.binaryOperatorOverload.incomplete_return_type", "Calling a function with an incomplete return type is not allowed. (The type " + returnType + " is incomplete.");
-            }
+            // ambiguous_overload: function (construct: TranslationUnitConstruct, operator: string) {
+            //     return new CompilerNote(construct, NoteKind.ERROR, "expr.binaryOperatorOverload.ambiguous_overload", `The operator ${operator} is ambiguous in this expression. (Several potential operator overloads were found, but there is not enough contextual type information to determine which overload to select.)`);
+            // },
+            // incomplete_return_type: function (construct: TranslationUnitConstruct, returnType: PotentialReturnType) {
+            //     return new CompilerNote(construct, NoteKind.ERROR, "expr.binaryOperatorOverload.incomplete_return_type", "Calling a function with an incomplete return type is not allowed. (The type " + returnType + " is incomplete.");
+            // }
         },
 
 

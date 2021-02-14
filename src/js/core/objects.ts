@@ -365,7 +365,7 @@ export abstract class CPPObject<T extends CompleteObjectType = CompleteObjectTyp
         this.observable.send("deallocated");
     }
 
-    public getPointerTo(): Value<PointerType<T>> {
+    public getPointerTo(): Value<PointerType<T>> { // More general return type, is overridden by arrays differently
         return new Value(this.address, new ObjectPointerType(this));
     }
 

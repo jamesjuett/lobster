@@ -241,7 +241,7 @@ abstract class TypeBase {
         return this instanceof ArrayOfUnknownBoundType;
     }
 
-    public isPotentiallyCompleteArrayType(): this is BoundedArrayType | ArrayOfUnknownBoundType {
+    public isPotentiallyCompleteArrayType(): this is PotentiallyCompleteArrayType {
         return this instanceof BoundedArrayType || this instanceof ArrayOfUnknownBoundType;
     }
 
@@ -394,7 +394,6 @@ abstract class TypeBase {
      */
     public abstract _cvQualifiedImpl(isConst: boolean, isVolatile: boolean): TypeBase;
 
-    public abstract areLValuesAssignable(): boolean;
 };
 
 
@@ -474,7 +473,7 @@ export function isArrayOfUnknownBoundType(type: Type): type is ArrayOfUnknownBou
     return type.isArrayOfUnknownBoundType();
 }
 
-export function isGenericArrayType(type: Type): type is BoundedArrayType | ArrayOfUnknownBoundType {
+export function isPotentiallyCompleteArrayType(type: Type): type is PotentiallyCompleteArrayType {
     return type.isPotentiallyCompleteArrayType();
 }
 
@@ -561,7 +560,7 @@ export type Type = VoidType | CompleteObjectType | IncompleteClassType | Functio
 
 export type ExpressionType = Exclude<Type, ReferenceType>;
 
-export type PotentiallyCompleteObjectType = AtomicType | BoundedArrayType | ArrayOfUnknownBoundType | PotentiallyCompleteClassType;
+export type PotentiallyCompleteObjectType = AtomicType | PotentiallyCompleteArrayType | PotentiallyCompleteClassType;
 export type IncompleteObjectType = ArrayOfUnknownBoundType | IncompleteClassType;
 export type CompleteObjectType = AtomicType | BoundedArrayType | CompleteClassType;
 
@@ -606,9 +605,6 @@ export class VoidType extends TypeBase {
         return new VoidType(isConst, isVolatile);
     }
 
-    public areLValuesAssignable() {
-        return false;
-    }
 }
 
 
@@ -640,9 +636,6 @@ export class VoidType extends TypeBase {
 //         return new VoidType(isConst, isVolatile);
 //     }
 
-//     public areLValuesAssignable() {
-//         return true;
-//     }
 // }
 
 /**
@@ -653,8 +646,8 @@ export interface ObjectTypeInterface {
     readonly size: number;
 
     isDefaultConstructible(userDefinedOnly?: boolean): boolean;
-    isCopyConstructible(requireConstParam: boolean): boolean;
-    isCopyAssignable(requireConstParam: boolean): boolean;
+    isCopyConstructible(requireConstSource: boolean): boolean;
+    isCopyAssignable(requireConstSource: boolean): boolean;
     isDestructible(): boolean;
     
     // public abstract isComplete(context?: TranslationUnitContext) : this is CompleteObjectType;
@@ -673,8 +666,8 @@ abstract class ValueType extends TypeBase implements ObjectTypeInterface {
 
     public abstract size: number;
     public abstract isDefaultConstructible(userDefinedOnly?: boolean): boolean;
-    public abstract isCopyConstructible(requireConstParam: boolean): boolean;
-    public abstract isCopyAssignable(requireConstParam: boolean): boolean;
+    public abstract isCopyConstructible(requireConstSource: boolean): boolean;
+    public abstract isCopyAssignable(requireConstSource: boolean): boolean;
     public abstract isDestructible(): boolean;
 
     /**
@@ -733,9 +726,6 @@ abstract class ValueType extends TypeBase implements ObjectTypeInterface {
         return this.valueToString(value);
     }
 
-    public areLValuesAssignable() {
-        return true;
-    }
 }
 
 
@@ -1222,9 +1212,6 @@ export class ReferenceType<RefTo extends PotentiallyCompleteObjectType = Potenti
         return new ReferenceType(this.refTo);
     }
 
-    public areLValuesAssignable() {
-        return false;
-    }
 }
 
 export type ReferenceToCompleteType = ReferenceType<CompleteObjectType>;
@@ -1330,21 +1317,17 @@ export class BoundedArrayType<Elem_type extends ArrayElemType = ArrayElemType> e
     //     //     (elem: RawValueType) => { return this.elemType.valueToBytes(elem); }
     //     // ));
     // }
-
-    public areLValuesAssignable() {
-        return false;
-    }
     
     public isDefaultConstructible(userDefinedOnly = false) {
         return this.elemType.isDefaultConstructible(userDefinedOnly);
     }
     
-    public isCopyConstructible(requireConstParam: boolean) {
-        return this.elemType.isCopyConstructible(requireConstParam);
+    public isCopyConstructible(requireConstSource: boolean) {
+        return this.elemType.isCopyConstructible(requireConstSource);
     }
     
-    public isCopyAssignable(requireConstParam: boolean) {
-        return this.elemType.isCopyAssignable(requireConstParam);
+    public isCopyAssignable(requireConstSource: boolean) {
+        return this.elemType.isCopyAssignable(requireConstSource);
     }
     
     public isDestructible() {
@@ -1398,11 +1381,10 @@ export class ArrayOfUnknownBoundType<Elem_type extends ArrayElemType = ArrayElem
     public adjustToPointerType() {
         return new PointerType(this.elemType, false, false);
     }
-
-    public areLValuesAssignable() {
-        return false;
-    }
+    
 }
+
+export type PotentiallyCompleteArrayType = BoundedArrayType | ArrayOfUnknownBoundType;
 
 // TODO: Add a type for an incomplete class
 
@@ -1519,23 +1501,19 @@ class ClassTypeBase extends TypeBase implements Omit<ObjectTypeInterface, "size"
     public _cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new ClassTypeBase(this.classId, this.className, this.shared, isConst, isVolatile);
     }
-
-    public areLValuesAssignable() {
-        return false;
-    }
     
     public isDefaultConstructible(this: CompleteClassType, userDefinedOnly = false) {
         let defaultCtor = this.classDefinition.defaultConstructor;
         return !!defaultCtor && (!userDefinedOnly || defaultCtor.isUserDefined);
     }
     
-    public isCopyConstructible(this: CompleteClassType, requireConstParam: boolean) {
+    public isCopyConstructible(this: CompleteClassType, requireConstSource: boolean) {
         return !!this.classDefinition.constCopyConstructor
-                || !requireConstParam && !!this.classDefinition.nonConstCopyConstructor;
+                || !requireConstSource && !!this.classDefinition.nonConstCopyConstructor;
     }
     
-    public isCopyAssignable(this: CompleteClassType, requireConstParam: boolean) {
-        return !!this.classDefinition.lookupAssignmentOperator(requireConstParam, this.isConst);
+    public isCopyAssignable(this: CompleteClassType, requireConstSource: boolean) {
+        return !!this.classDefinition.lookupAssignmentOperator(requireConstSource, this.isConst);
     }
     
     public isDestructible(this: CompleteClassType) {
@@ -1589,8 +1567,8 @@ export interface CompleteClassType extends ClassTypeBase, ObjectTypeInterface {
     readonly classScope: ClassScope;
 
     isDefaultConstructible(userDefinedOnly?: boolean): boolean;
-    isCopyConstructible(requireConstParam: boolean): boolean;
-    isCopyAssignable(requireConstParam: boolean): boolean;
+    isCopyConstructible(requireConstSource: boolean): boolean;
+    isCopyAssignable(requireConstSource: boolean): boolean;
     isDestructible(): boolean;
 }
 
@@ -1939,9 +1917,6 @@ export class FunctionType<ReturnType extends PotentialReturnType = PotentialRetu
             (plural ? "and return " : "and returns ") + this.returnType.englishString(false);
     }
 
-    public areLValuesAssignable() {
-        return false;
-    }
 }
 
 const builtInTypeNames = new Set(["char", "int", "size_t", "bool", "float", "double", "void"]);

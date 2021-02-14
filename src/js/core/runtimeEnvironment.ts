@@ -683,7 +683,7 @@ export class MemoryFrame {
     }
 
     public localReferenceLookup<T extends CompleteObjectType>(entity: LocalReferenceEntity<ReferenceType<T>>) {
-        return <CPPObject<T>>this.localReferencesByEntityId[entity.entityId] || assertFalse("Attempt to look up referred object before reference was bound.");
+        return <CPPObject<T> | undefined>this.localReferencesByEntityId[entity.entityId];
     }
 
     public bindLocalReference(entity: LocalReferenceEntity, obj: CPPObject) {
