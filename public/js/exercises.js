@@ -43128,10 +43128,12 @@ exports.findLoopControlVars = findLoopControlVars;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.RuntimePotentialFullExpression = exports.PotentialFullExpression = void 0;
+exports.RuntimeTemporaryDeallocator = exports.TemporaryDeallocator = exports.RuntimePotentialFullExpression = exports.PotentialFullExpression = void 0;
 const entities_1 = __webpack_require__(8397);
 const util_1 = __webpack_require__(6560);
+const types_1 = __webpack_require__(8716);
 const constructs_1 = __webpack_require__(4293);
+const errors_1 = __webpack_require__(5244);
 class PotentialFullExpression extends constructs_1.BasicCPPConstruct {
     constructor() {
         super(...arguments);
@@ -43153,7 +43155,7 @@ class PotentialFullExpression extends constructs_1.BasicCPPConstruct {
         // assert in addTemporaryObject() to prevent this.) That means it is now
         // safe to compile and add the temporary deallocator construct as a child.
         if (this.temporaryObjects.length > 0) {
-            this.temporaryDeallocator = new constructs_1.TemporaryDeallocator(this.context, this.temporaryObjects);
+            this.temporaryDeallocator = new TemporaryDeallocator(this.context, this.temporaryObjects);
             this.attach(this.temporaryDeallocator);
         }
     }
@@ -43211,6 +43213,69 @@ class RuntimePotentialFullExpression extends constructs_1.RuntimeConstruct {
     }
 }
 exports.RuntimePotentialFullExpression = RuntimePotentialFullExpression;
+class TemporaryDeallocator extends constructs_1.BasicCPPConstruct {
+    constructor(context, temporaryObjects) {
+        super(context, undefined); // Has no AST
+        this.construct_type = "TemporaryDeallocator";
+        this.temporaryObjects = temporaryObjects;
+        this.dtors = temporaryObjects.map((temp) => {
+            if (temp.isTyped(types_1.isCompleteClassType)) {
+                let dtor = temp.type.classDefinition.destructor;
+                if (dtor) {
+                    // let dtorCall = new FunctionCall(context, dtor, [], temp.type);
+                    // this.attach(dtorCall);
+                    // return dtorCall;
+                }
+                else {
+                    this.addNote(errors_1.CPPError.declaration.dtor.no_destructor_temporary(temp.owner, temp));
+                }
+            }
+            return undefined;
+        });
+    }
+    createRuntimeConstruct(parent) {
+        return new RuntimeTemporaryDeallocator(this, parent);
+    }
+}
+exports.TemporaryDeallocator = TemporaryDeallocator;
+class RuntimeTemporaryDeallocator extends constructs_1.RuntimeConstruct {
+    constructor(model, parent) {
+        super(model, "expression", parent);
+        this.index = 0;
+        this.justDestructed = undefined;
+    }
+    upNextImpl() {
+        let tempObjects = this.model.temporaryObjects;
+        if (this.justDestructed) {
+            this.sim.memory.killObject(this.justDestructed, this);
+            this.justDestructed = undefined;
+        }
+        while (this.index < tempObjects.length) {
+            // Destroy temp at given index
+            let temp = tempObjects[this.index];
+            let dtor = this.model.dtors[this.index];
+            ++this.index;
+            if (temp.isTyped(types_1.isCompleteClassType)) {
+                // a temp class-type object, so we call the dtor
+                util_1.assert(dtor);
+                let obj = temp.runtimeLookup(this.parent);
+                this.sim.push(dtor.createRuntimeFunctionCall(this, obj));
+                // need to destroy the object once dtor is done, so we keep track of it here
+                this.justDestructed = obj;
+                // return so that the dtor, which is now on top of the stack, can run instead
+                return;
+            }
+            else {
+                // a temp non-class-type object, no dtor needed.
+                this.sim.memory.killObject(temp.runtimeLookup(this.parent), this);
+            }
+        }
+        this.startCleanup();
+    }
+    stepForwardImpl() {
+    }
+}
+exports.RuntimeTemporaryDeallocator = RuntimeTemporaryDeallocator;
 
 
 /***/ }),
@@ -44500,7 +44565,7 @@ exports.SimulationInputStream = SimulationInputStream;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.RuntimeGlobalObjectAllocator = exports.GlobalObjectAllocator = exports.RuntimeTemporaryDeallocator = exports.TemporaryDeallocator = exports.ContextualLocals = exports.InvalidConstruct = exports.BasicCPPConstruct = exports.RuntimeConstruct = exports.CPPConstruct = exports.createMemberSpecificationContext = exports.isMemberSpecificationContext = exports.createClassContext = exports.isClassContext = exports.createLoopContext = exports.isBlockContext = exports.isMemberBlockContext = exports.createBlockContext = exports.isMemberFunctionContext = exports.createFunctionContext = exports.createExpressionContextWithReceiverType = exports.createExpressionContextWithParameterTypes = exports.createLibraryContext = exports.createTranslationUnitContext = exports.createImplicitContext = exports.EMPTY_SOURCE = void 0;
+exports.RuntimeGlobalObjectAllocator = exports.GlobalObjectAllocator = exports.ContextualLocals = exports.InvalidConstruct = exports.BasicCPPConstruct = exports.RuntimeConstruct = exports.CPPConstruct = exports.createMemberSpecificationContext = exports.isMemberSpecificationContext = exports.createClassContext = exports.isClassContext = exports.createLoopContext = exports.isBlockContext = exports.isMemberBlockContext = exports.createBlockContext = exports.isMemberFunctionContext = exports.createFunctionContext = exports.isFunctionContext = exports.createExpressionContextWithReceiverType = exports.createExpressionContextWithParameterTypes = exports.createLibraryContext = exports.createTranslationUnitContext = exports.createImplicitContext = exports.EMPTY_SOURCE = void 0;
 const entities_1 = __webpack_require__(8397);
 const errors_1 = __webpack_require__(5244);
 const util_1 = __webpack_require__(6560);
@@ -44527,6 +44592,10 @@ function createExpressionContextWithReceiverType(parentContext, contextualReceiv
     return Object.assign({}, parentContext, { contextualReceiverType: contextualReceiverType });
 }
 exports.createExpressionContextWithReceiverType = createExpressionContextWithReceiverType;
+function isFunctionContext(context) {
+    return !!(context.containingFunction);
+}
+exports.isFunctionContext = isFunctionContext;
 function createFunctionContext(parentContext, containingFunction, contextualReceiverType) {
     return Object.assign({}, parentContext, {
         containingFunction: containingFunction,
@@ -44536,7 +44605,7 @@ function createFunctionContext(parentContext, containingFunction, contextualRece
 }
 exports.createFunctionContext = createFunctionContext;
 function isMemberFunctionContext(context) {
-    return !!context.contextualReceiverType;
+    return isFunctionContext(context) && !!context.contextualReceiverType;
 }
 exports.isMemberFunctionContext = isMemberFunctionContext;
 function createBlockContext(parentContext) {
@@ -44878,74 +44947,6 @@ class ContextualLocals {
     }
 }
 exports.ContextualLocals = ContextualLocals;
-class TemporaryDeallocator extends BasicCPPConstruct {
-    // public readonly dtors: (MemberFunctionCall | null)[];
-    constructor(context, temporaryObjects) {
-        super(context, undefined); // Has no AST
-        this.construct_type = "TemporaryDeallocator";
-        this.temporaryObjects = temporaryObjects;
-        // TODO CLASSES: add back in destructor calls and dtors member function above
-        // this.dtors = temporaryObjects.map((tempEnt) => {
-        //     if (tempEnt.type instanceof ClassType) {
-        //         var dtor = tempEnt.type.cppClass.destructor;
-        //         if (dtor) {
-        //             //MemberFunctionCall args are: context, function to call, empty args, receiver
-        //             let dtorCall = new MemberFunctionCall(context, dtor, [], <TemporaryObjectEntity<ClassType>>tempEnt);
-        //             this.attach(dtorCall);
-        //             return dtorCall;
-        //         }
-        //         else{
-        //             this.addNote(CPPError.declaration.dtor.no_destructor_temporary(tempEnt.creator, tempEnt));
-        //             return null;
-        //         }
-        //     }
-        // });
-    }
-    createRuntimeConstruct(parent) {
-        return new RuntimeTemporaryDeallocator(this, parent);
-    }
-}
-exports.TemporaryDeallocator = TemporaryDeallocator;
-class RuntimeTemporaryDeallocator extends RuntimeConstruct {
-    constructor(model, parent) {
-        super(model, "expression", parent);
-        this.index = 0;
-        this.justDestructed = false;
-    }
-    upNextImpl() {
-        // for (var key in this.temporaries){
-        //     var tempObjInst = this.temporaries[key].runtimeLookup(sim, inst.parent);
-        //     if (tempObjInst) {
-        //         sim.memory.deallocateTemporaryObject(tempObjInst, inst);
-        //     }
-        // }
-        // this.done(sim, inst);
-        // return true;
-        // TEMPORARY CODE THAT JUST DESTROYS ALL TEMPORARY OBJECTS ASSUMING NO DTORS
-        this.model.temporaryObjects.forEach(tempObj => this.sim.memory.deallocateTemporaryObject(tempObj.runtimeLookup(this.parent)));
-        // let dtors = this.model.dtors;
-        // let dtors : readonly null[] = this.model.temporaryObjects.map(t => null); // TODO CLASSES: replace this hack with above
-        // if (this.index < dtors.length) {
-        //     // let dtor = dtors[this.index];
-        //     // if (!this.justDestructed && dtor) {
-        //     //     dtor.createRuntimeConstruct(this);
-        //     //     this.sim.push(dtor);
-        //     //     this.justDestructed = true;
-        //     // }
-        //     // else {
-        //         this.sim.memory.deallocateTemporaryObject(this.model.temporaryObjects[this.index].runtimeLookup(this.parent));
-        //         ++this.index;
-        //         // this.justDestructed = false;
-        //     // }
-        // }
-        // else{
-        this.startCleanup();
-        // }
-    }
-    stepForwardImpl() {
-    }
-}
-exports.RuntimeTemporaryDeallocator = RuntimeTemporaryDeallocator;
 // TODO: FakeConstruct and FakeDeclaration are never used
 // var FakeConstruct = Class.extend({
 //     _name : "FakeConstruct",
@@ -46131,6 +46132,7 @@ class ClassDefinition extends constructs_1.BasicCPPConstruct {
         // These need to happen after setting the definition on the entity above
         this.createImplicitlyDefinedDefaultConstructorIfAppropriate();
         this.createImplicitlyDefinedCopyConstructorIfAppropriate();
+        this.createImplicitlyDefinedCopyAssignmentOperatorIfAppropriate();
         this.createImplicitlyDefinedDestructorIfAppropriate();
         this.context.program.registerClassDefinition(this.declaration.declaredEntity.qualifiedName, this);
     }
@@ -46261,10 +46263,10 @@ class ClassDefinition extends constructs_1.BasicCPPConstruct {
         // Can we create a copy ctor with a const &T param?
         // All subobjects (bases and members) must have a copy ctor with a similarly const param
         let refParamCanBeConst;
-        if (subobjectTypes.every(t => !t.isCompleteClassType() || t.classDefinition.constCopyConstructor)) {
+        if (subobjectTypes.every(t => t.isCopyConstructible(true))) {
             refParamCanBeConst = true;
         }
-        else if (subobjectTypes.every(t => !t.isCompleteClassType() || t.classDefinition.constCopyConstructor || t.classDefinition.nonConstCopyConstructor)) {
+        else if (subobjectTypes.every(t => t.isCopyConstructible(false))) {
             refParamCanBeConst = false;
         }
         else {
@@ -46296,6 +46298,59 @@ class ClassDefinition extends constructs_1.BasicCPPConstruct {
             this.nonConstCopyConstructor = declEntity;
         }
         util_1.asMutable(this.constructors).push(declEntity);
+    }
+    lookupAssignmentOperator(requireConstParam, isReceiverConst) {
+        return this.context.contextualScope.lookup("operator=", {
+            kind: "exact", noParent: true, noBase: true,
+            paramTypes: [this.type.cvQualified(requireConstParam)],
+            receiverType: this.type.cvQualified(isReceiverConst)
+        });
+    }
+    createImplicitlyDefinedCopyAssignmentOperatorIfAppropriate() {
+        // If there are any user-provided assignment operators, do not create an implicit one
+        if (this.lookupAssignmentOperator(false, false)) {
+            return;
+        }
+        // If any data member is a reference, we can't make implicit copy assignment operator
+        if (this.memberReferenceEntities.length > 0) {
+            return;
+        }
+        let subobjectTypes = this.baseClass
+            ? [this.baseClass, ...this.memberObjectEntities.map(e => e.type)]
+            : this.memberObjectEntities.map(e => e.type);
+        // All member objects must be copy-assignable
+        // This cover the following language from the standard where we can't make a copy assignment operator:
+        //  - T has a non-static data member of non-class type (or array thereof) that is const
+        //  - T has a non-static data member or a direct or virtual base class that cannot be copy-assigned
+        let refParamCanBeConst;
+        if (subobjectTypes.every(t => t.isCopyAssignable(true))) {
+            refParamCanBeConst = true;
+        }
+        else if (subobjectTypes.every(t => t.isCopyAssignable(false))) {
+            refParamCanBeConst = false;
+        }
+        else {
+            return;
+        }
+        // The //@className=${this.name} is hack to let the parser know that the class name
+        // here may be parsed as a class name (because C++ parsing is dumb). Normally, the
+        // class name would be recognized when the parser previously encounters the class head,
+        // but that doesn't happen since this is an isolated call to the parser for just the
+        // implicitly defined assn op. Specifically, this is necessary because the grammar
+        // is ambiguous for the parameter to the assn op (the actual "name" of the ctor would be ok)
+        let src = `//@className=${this.name}\n${this.name} &operator=(${refParamCanBeConst ? "const " : ""}${this.name} &rhs) {\n`;
+        src += "  if (this == &rhs) { return *this; }\n";
+        if (this.baseClass) {
+            src += `  ${this.baseClass.className}::operator=(rhs);\n`;
+        }
+        src += this.memberObjectEntities.map(mem => mem.isTyped(types_1.isBoundedArrayType)
+            ? `  for(int i = 0; i < ${mem.type.numElems}; ++i) {\n    ${mem.name}[i] = rhs.${mem.name}[i];\n  }\n`
+            : `  ${mem.name} = rhs.${mem.name};\n`).join("");
+        src += "  return *this;\n}";
+        let idao = FunctionDefinition.createFromAST(cpp_parser_util_1.parseFunctionDefinition(src), this.implicitPublicContext);
+        this.attach(idao);
+        // Compiling the declaration already put the implicitly defined operator in
+        // the right scope, so nothing more we need to do here (unlike for ctors)
     }
     createImplicitlyDefinedDestructorIfAppropriate() {
         // If there is a user-provided dtor, do not create the implicitly-defined dtor
@@ -46415,21 +46470,6 @@ class ClassDefinition extends constructs_1.BasicCPPConstruct {
     //             return;
     //         }
     //         var constPart = canMakeConst ? "const " : "";
-    //         // If any data member is a reference, we can't make implicit assignment operator
-    //         if (!this.type.memberSubobjectEntities.every(function(subObj){
-    //                 return !isA(subObj.type, Types.Reference);
-    //             })){
-    //             return;
-    //         }
-    //         // If any non-class member is const (or array thereof), we can't make implicit assignment operator
-    //         if (!this.type.memberSubobjectEntities.every(function(subObj){
-    //                 //return (isA(subObj.type, Types.Class) || !subObj.type.isConst)
-    //                 //    && (!isA(subObj.type, Types.Array) || isA(subObj.type.elemType, Types.Class) || !subObj.type.elemType.isConst);
-    //                 return !subObj.type.isConst
-    //                     && (!isA(subObj.type, Types.Array) || !subObj.type.elemType.isConst);
-    //             })){
-    //             return;
-    //         }
     //         var src = this.name + " &operator=(" + constPart + this.name + " &rhs){";
     //         src += this.type.baseClassEntities.map(function(subObj){
     //             return subObj.type.className + "::operator=(rhs);";
@@ -47137,7 +47177,12 @@ class Scope {
                         }
                     return cand.type.sameParamTypes(paramTypes);
                 });
-                return new FunctionOverloadGroup(viable);
+                if (viable.length > 0) {
+                    return new FunctionOverloadGroup(viable);
+                }
+                else {
+                    return undefined;
+                }
             }
             // // If we're looking for something that could be called with given parameter types, including conversions
             // else if (options.paramTypes) {
@@ -47331,7 +47376,7 @@ function runtimeObjectLookup(entity, rtConstruct) {
         return entity.runtimeLookup(rtConstruct);
     }
     else if (entity.variableKind === "reference") {
-        return entity.runtimeLookup(rtConstruct);
+        return entity.runtimeLookup(rtConstruct) || util_1.assertFalse("Attempted to look up a reference before it was bound.");
     }
     else {
         util_1.assertNever(entity);
@@ -47802,7 +47847,7 @@ class MemberReferenceEntity extends MemberVariableEntityBase {
     }
     runtimeLookup(rtConstruct) {
         // Cast below should be <CPPObject<T>>, NOT MemberSubobject<T>.
-        // See return type and documentation for getMemberSubobject()
+        // See return type and documentation for getMemberObject()
         return rtConstruct.contextualReceiver.getMemberObject(this.name);
     }
     bindTo(rtConstruct, obj) {
@@ -48593,7 +48638,7 @@ exports.CPPError = {
             },
             no_default_constructor: function (construct, entity) {
                 var desc = entity.describe();
-                return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.no_default_constructor", "This calls for the default initialization of " + (desc.name || desc.message) + ", but I can't find a default constructor (i.e. taking no arguments) for the " + entity.type.className + " class. The compiler usually provides an implicit one for you, but not if you have declared other constructors (under the assumption you would want to use one of those).");
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.no_default_constructor", "This calls for the default initialization of " + (desc.name || desc.message) + ", but I can't find a default constructor (i.e. taking no arguments) for the " + entity.type.className + " class. The compiler usually provides an implicit one for you, but not if you have declared other constructors or if something about the structure of the class or its members prevents this.");
             },
             referencePrvalueConst: function (construct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.referencePrvalueConst", "You cannot bind a non-const reference to a prvalue (e.g. a temporary object).");
@@ -48712,8 +48757,14 @@ exports.CPPError = {
             lhs_lvalue: function (construct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.lhs_lvalue", "Lvalue required as left operand of assignment.");
             },
-            lhs_not_assignable: function (construct, lhs) {
-                return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.lhs_not_assignable", `The left hand side of this expression has type ${lhs.type}, which is not assignable.`);
+            arrays_not_assignable: function (construct, lhsType) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.arrays_not_assignable", `The left hand side of this expression has type ${lhsType}. Array types are not assignable.`);
+            },
+            classes_not_assignable: function (construct, lhsType) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.arrays_not_assignable", `The left hand side of this expression has type ${lhsType}. Class types are not assignable using raw assignment (an overloaded = operator is needed instead).`);
+            },
+            type_not_assignable: function (construct, lhsType) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.type_not_assignable", `The left hand side of this expression has type ${lhsType}, which is not assignable.`);
             },
             lhs_const: function (construct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.lhs_const", "Left hand side of assignment is not modifiable.");
@@ -48964,21 +49015,15 @@ exports.CPPError = {
             //    return WidgetAnnotation.instance(src, "recursive", "This function call is recursive, but NOT tail recursive!" + (reason ? " "+reason : ""));
             //}
         },
-        thisExpr: {
-            memberFunc: function (construct) {
-                return new CompilerNote(construct, NoteKind.ERROR, "expr.thisExpr.memberFunc", "You may only use the </span class='code'>this</span> keyword in non-static member functions.");
+        thisExpression: {
+            nonStaticMemberFunc: function (construct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.thisExpression.memberFunc", "You may only use the this keyword in non-static member functions.");
             }
         },
-        binaryOperatorOverload: {
+        operatorOverload: {
             no_such_overload: function (construct, operator) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.binaryOperatorOverload.no_such_overload", `The ${operator} operator cannot be used with these arguments (and a suitable operator overload function was not found for these types)`);
             },
-            ambiguous_overload: function (construct, operator) {
-                return new CompilerNote(construct, NoteKind.ERROR, "expr.binaryOperatorOverload.ambiguous_overload", `The operator ${operator} is ambiguous in this expression. (Several potential operator overloads were found, but there is not enough contextual type information to determine which overload to select.)`);
-            },
-            incomplete_return_type: function (construct, returnType) {
-                return new CompilerNote(construct, NoteKind.ERROR, "expr.binaryOperatorOverload.incomplete_return_type", "Calling a function with an incomplete return type is not allowed. (The type " + returnType + " is incomplete.");
-            }
         },
     },
     iden: {
@@ -49172,10 +49217,6 @@ class Expression extends PotentialFullExpression_1.PotentialFullExpression {
     isWellTyped() {
         return !!this.type && !!this.valueCategory;
     }
-    isTyped(type) {
-        var _a;
-        return !!((_a = this.type) === null || _a === void 0 ? void 0 : _a.sameType(type));
-    }
     isPrvalue() {
         return this.valueCategory === "prvalue";
     }
@@ -49226,8 +49267,9 @@ exports.RuntimeExpression = RuntimeExpression;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.PostfixIncrementExpression = exports.RuntimeFunctionArrowExpression = exports.RuntimeObjectArrowExpression = exports.ArrowExpression = exports.RuntimeFunctionDotExpression = exports.RuntimeObjectDotExpression = exports.DotExpression = exports.RuntimeSubscriptExpression = exports.SubscriptExpression = exports.RuntimeLogicalNotExpression = exports.LogicalNotExpression = exports.RuntimeUnaryMinusExpression = exports.UnaryMinusExpression = exports.RuntimeUnaryPlusExpression = exports.UnaryPlusExpression = exports.RuntimeAddressOfExpression = exports.AddressOfExpression = exports.RuntimeDereferenceExpression = exports.DereferenceExpression = exports.RuntimePrefixIncrementExpression = exports.PrefixIncrementExpression = exports.RuntimeLogicalBinaryOperatorExpression = exports.LogicalBinaryOperatorExpression = exports.RuntimePointerComparisonExpression = exports.PointerComparisonExpression = exports.RuntimeRelationalBinaryOperator = exports.RelationalBinaryOperatorExpression = exports.RuntimeInputOperatorExpression = exports.InputOperatorExpression = exports.RuntimeOutputOperatorExpression = exports.OutputOperatorExpression = exports.RuntimePointerOffset = exports.PointerOffsetExpression = exports.RuntimePointerDifference = exports.PointerDifferenceExpression = exports.RuntimeArithmeticBinaryOperator = exports.ArithmeticBinaryOperatorExpression = exports.RuntimeCompoundAssignment = exports.CompoundAssignmentExpression = exports.RuntimeAssignment = exports.AssignmentExpression = exports.RuntimeTernary = exports.TernaryExpression = exports.RuntimeComma = exports.CommaExpression = exports.SimpleRuntimeExpression = exports.UnsupportedExpression = exports.createRuntimeExpression = exports.createExpressionFromAST = exports.readValueWithAlert = void 0;
-exports.isOperatorOverloadExpression = exports.RuntimeMemberOperatorOverloadExpression = exports.MemberOperatorOverloadExpression = exports.RuntimeNonMemberOperatorOverloadExpression = exports.NonMemberOperatorOverloadExpression = exports.selectOperatorOverload = exports.usualArithmeticConversions = exports.isConvertible = exports.isConvertibleToPointer = exports.isIntegerLiteralZero = exports.integralPromotion = exports.standardConversion = exports.qualificationConversion = exports.typeConversion = exports.convertToPRValue = exports.QualificationConversion = exports.FloatingToIntegralConversion = exports.IntegralToFloatingConversion = exports.FloatingPointConversion = exports.FloatingPointPromotion = exports.IntegralConversion = exports.IntegralPromotion = exports.IntegralToBooleanConversion = exports.FloatingToBooleanConversion = exports.PointerToBooleanConversion = exports.PointerConversion = exports.NullPointerConversion = exports.StreamToBoolConversion = exports.ArrayToPointerConversion = exports.LValueToRValueConversion = exports.RuntimeImplicitConversion = exports.ImplicitConversion = exports.RuntimeMagicFunctionCallExpression = exports.MagicFunctionCallExpression = exports.overloadResolution = exports.AuxiliaryExpression = exports.RuntimeInitializerListExpression = exports.InitializerListExpression = exports.RuntimeParentheses = exports.ParenthesesExpression = exports.RuntimeStringLiteralExpression = exports.StringLiteralExpression = exports.RuntimeNumericLiteral = exports.NumericLiteralExpression = exports.parseNumericLiteralValueFromAST = exports.RuntimeFunctionIdentifierExpression = exports.RuntimeObjectIdentifierExpression = exports.entityLookup = exports.IdentifierExpression = exports.RuntimePostfixIncrementExpression = void 0;
+exports.RuntimeFunctionArrowExpression = exports.RuntimeObjectArrowExpression = exports.ArrowExpression = exports.RuntimeFunctionDotExpression = exports.RuntimeObjectDotExpression = exports.DotExpression = exports.RuntimeSubscriptExpression = exports.SubscriptExpression = exports.RuntimeLogicalNotExpression = exports.LogicalNotExpression = exports.RuntimeUnaryMinusExpression = exports.UnaryMinusExpression = exports.RuntimeUnaryPlusExpression = exports.UnaryPlusExpression = exports.RuntimeAddressOfExpression = exports.AddressOfExpression = exports.RuntimeDereferenceExpression = exports.DereferenceExpression = exports.RuntimePrefixIncrementExpression = exports.PrefixIncrementExpression = exports.RuntimeLogicalBinaryOperatorExpression = exports.LogicalBinaryOperatorExpression = exports.RuntimePointerComparisonExpression = exports.PointerComparisonExpression = exports.RuntimeRelationalBinaryOperator = exports.RelationalBinaryOperatorExpression = exports.RuntimeInputOperatorExpression = exports.InputOperatorExpression = exports.RuntimeOutputOperatorExpression = exports.OutputOperatorExpression = exports.RuntimePointerOffset = exports.PointerOffsetExpression = exports.RuntimePointerDifference = exports.PointerDifferenceExpression = exports.RuntimeArithmeticBinaryOperator = exports.ArithmeticBinaryOperatorExpression = exports.RuntimeCompoundAssignment = exports.CompoundAssignmentExpression = exports.RuntimeAssignment = exports.AssignmentExpression = exports.RuntimeTernary = exports.TernaryExpression = exports.RuntimeComma = exports.CommaExpression = exports.SimpleRuntimeExpression = exports.InvalidExpression = exports.UnsupportedExpression = exports.createRuntimeExpression = exports.createExpressionFromAST = exports.readValueWithAlert = void 0;
+exports.RuntimeNonMemberOperatorOverloadExpression = exports.NonMemberOperatorOverloadExpression = exports.selectOperatorOverload = exports.usualArithmeticConversions = exports.isConvertible = exports.isConvertibleToPointer = exports.isIntegerLiteralZero = exports.integralPromotion = exports.standardConversion = exports.qualificationConversion = exports.typeConversion = exports.convertToPRValue = exports.QualificationConversion = exports.FloatingToIntegralConversion = exports.IntegralToFloatingConversion = exports.FloatingPointConversion = exports.FloatingPointPromotion = exports.IntegralConversion = exports.IntegralPromotion = exports.IntegralToBooleanConversion = exports.FloatingToBooleanConversion = exports.PointerToBooleanConversion = exports.PointerConversion = exports.NullPointerConversion = exports.StreamToBoolConversion = exports.ArrayToPointerConversion = exports.LValueToRValueConversion = exports.RuntimeImplicitConversion = exports.ImplicitConversion = exports.RuntimeMagicFunctionCallExpression = exports.MagicFunctionCallExpression = exports.overloadResolution = exports.AuxiliaryExpression = exports.RuntimeInitializerListExpression = exports.InitializerListExpression = exports.RuntimeParentheses = exports.ParenthesesExpression = exports.RuntimeStringLiteralExpression = exports.StringLiteralExpression = exports.RuntimeNumericLiteral = exports.NumericLiteralExpression = exports.parseNumericLiteralValueFromAST = exports.RuntimeThisExpression = exports.ThisExpression = exports.RuntimeFunctionIdentifierExpression = exports.RuntimeObjectIdentifierExpression = exports.entityLookup = exports.IdentifierExpression = exports.RuntimePostfixIncrementExpression = exports.PostfixIncrementExpression = void 0;
+exports.InvalidOperatorOverloadExpression = exports.RuntimeMemberOperatorOverloadExpression = exports.MemberOperatorOverloadExpression = void 0;
 const objects_1 = __webpack_require__(697);
 const Simulation_1 = __webpack_require__(2295);
 const types_1 = __webpack_require__(8716);
@@ -49292,7 +49334,7 @@ const ExpressionConstructsMap = {
     "postfix_increment_expression": (ast, context) => PostfixIncrementExpression.createFromAST(ast, context),
     "construct_expression": (ast, context) => new UnsupportedExpression(context, ast, "construct expression"),
     "identifier_expression": (ast, context) => IdentifierExpression.createFromAST(ast, context),
-    "this_expression": (ast, context) => new UnsupportedExpression(context, ast, "this pointer"),
+    "this_expression": (ast, context) => ThisExpression.createFromAST(ast, context),
     "numeric_literal_expression": (ast, context) => NumericLiteralExpression.createFromAST(ast, context),
     "string_literal_expression": (ast, context) => StringLiteralExpression.createFromAST(ast, context),
     "parentheses_expression": (ast, context) => ParenthesesExpression.createFromAST(ast, context),
@@ -49315,6 +49357,7 @@ function createExpressionFromAST(ast, context) {
 exports.createExpressionFromAST = createExpressionFromAST;
 const ExpressionConstructsRuntimeMap = {
     "unsupported_expression": (construct, parent) => { throw new Error("Cannot create a runtime instance of an unsupported construct."); },
+    "invalid_operator_overload_expression": (construct, parent) => { throw new Error("Cannot create a runtime instance of an invalid operator overload expression."); },
     "comma_expression": (construct, parent) => new RuntimeComma(construct, parent),
     "ternary_expression": (construct, parent) => new RuntimeTernary(construct, parent),
     "assignment_expression": (construct, parent) => new RuntimeAssignment(construct, parent),
@@ -49332,6 +49375,7 @@ const ExpressionConstructsRuntimeMap = {
     "prefix_increment_expression": (construct, parent) => new RuntimePrefixIncrementExpression(construct, parent),
     "dereference_expression": (construct, parent) => new RuntimeDereferenceExpression(construct, parent),
     "address_of_expression": (construct, parent) => new RuntimeAddressOfExpression(construct, parent),
+    "this_expression": (construct, parent) => new RuntimeThisExpression(construct, parent),
     "unary_plus_expression": (construct, parent) => new RuntimeUnaryPlusExpression(construct, parent),
     "unary_minus_expression": (construct, parent) => new RuntimeUnaryMinusExpression(construct, parent),
     "logical_not_expression": (construct, parent) => new RuntimeLogicalNotExpression(construct, parent),
@@ -49396,6 +49440,23 @@ class UnsupportedExpression extends expressionBase_1.Expression {
     }
 }
 exports.UnsupportedExpression = UnsupportedExpression;
+/**
+ * A flawed expression
+ */
+class InvalidExpression extends expressionBase_1.Expression {
+    constructor(context, ast) {
+        super(context, ast);
+    }
+    createDefaultOutlet(element, parent) {
+        throw new Error("Cannot create an outlet for an invalid expression.");
+    }
+    describeEvalResult(depth) {
+        return {
+            message: "an unsupported expression"
+        };
+    }
+}
+exports.InvalidExpression = InvalidExpression;
 class SimpleRuntimeExpression extends expressionBase_1.RuntimeExpression {
     constructor(model, parent) {
         super(model, parent);
@@ -49558,7 +49619,7 @@ class AssignmentExpression extends expressionBase_1.Expression {
         super(context, ast);
         this.construct_type = "assignment_expression";
         this.valueCategory = "lvalue";
-        // If the lhs/rhs doesn't have a type or VC, the rest of the analysis doesn't make much sense.
+        // If the rhs doesn't have a type or VC, the rest of the analysis doesn't make much sense.
         if (!lhs.isWellTyped() || !rhs.isWellTyped()) {
             this.attach(this.lhs = lhs);
             this.attach(this.rhs = rhs);
@@ -49567,19 +49628,31 @@ class AssignmentExpression extends expressionBase_1.Expression {
         if (lhs.valueCategory != "lvalue") {
             this.addNote(errors_1.CPPError.expr.assignment.lhs_lvalue(this));
         }
-        else if (!lhs.type.areLValuesAssignable()) {
-            this.addNote(errors_1.CPPError.expr.assignment.lhs_not_assignable(this, lhs));
+        let lhsType = lhs.type;
+        if (types_1.isPotentiallyCompleteClassType(lhsType)) {
+            this.addNote(errors_1.CPPError.expr.assignment.classes_not_assignable(this, lhsType));
+        }
+        else if (types_1.isPotentiallyCompleteArrayType(lhsType)) {
+            this.addNote(errors_1.CPPError.expr.assignment.arrays_not_assignable(this, lhsType));
+        }
+        else if (types_1.isAtomicType(lhsType)) {
+            if (lhsType.isConst) {
+                this.addNote(errors_1.CPPError.expr.assignment.lhs_const(this));
+            }
+        }
+        else {
+            this.addNote(errors_1.CPPError.expr.assignment.type_not_assignable(this, lhsType));
         }
         rhs = standardConversion(rhs, lhs.type.cvUnqualified());
-        // TODO: add a check for a modifiable type (e.g. an array type is not modifiable)
-        if (lhs.type.isConst) {
-            this.addNote(errors_1.CPPError.expr.assignment.lhs_const(this));
-        }
         if (rhs.isWellTyped() && !types_1.sameType(rhs.type, lhs.type.cvUnqualified())) {
             this.addNote(errors_1.CPPError.expr.assignment.convert(this, lhs, rhs));
         }
-        // TODO: do we need to check that lhs is an AtomicType? or is that necessary given all the other checks?
-        this.type = lhs.type;
+        if (types_1.isAtomicType(lhsType)) {
+            // A proper assignment may only have atomic type. Anything else is either
+            // forbidden (e.g. array assignment) or would be handled by an operator
+            // overload instead (e.g. class assignment)
+            this.type = lhsType;
+        }
         this.attach(this.lhs = lhs);
         this.attach(this.rhs = rhs);
     }
@@ -49588,17 +49661,9 @@ class AssignmentExpression extends expressionBase_1.Expression {
         let rhs = createExpressionFromAST(ast.rhs, context);
         // Consider an assignment operator overload if the LHS is class type
         if (predicates_1.Predicates.isTypedExpression(lhs, types_1.isPotentiallyCompleteClassType)) {
-            let overload = selectOperatorOverload(context, ast, "=", [lhs, rhs]);
-            if (overload) {
-                return overload;
-            }
+            return selectOperatorOverload(context, ast, "=", [lhs, rhs]);
         }
-        if (predicates_1.Predicates.isTypedExpression(lhs, types_1.isAtomicType)) {
-            return new AssignmentExpression(context, ast, lhs, rhs);
-        }
-        else {
-            return new UnsupportedExpression(context, ast, "Non-atomic assignment");
-        }
+        return new AssignmentExpression(context, ast, lhs, rhs);
     }
     createDefaultOutlet(element, parent) {
         return new codeOutlets_1.AssignmentExpressionOutlet(element, this, parent);
@@ -49640,7 +49705,7 @@ class CompoundAssignmentExpression extends expressionBase_1.Expression {
         this.valueCategory = "lvalue";
         this.operator = ast.operator;
         this.equivalentBinaryOp = this.operator.slice(0, -1); // remove = which is last char of operator string
-        // If the lhs/rhs doesn't have a type or VC, the rest of the analysis doesn't make much sense.
+        // If the rhs doesn't have a type or VC, the rest of the analysis doesn't make much sense.
         if (!lhs.isWellTyped() || !rhs.isWellTyped()) {
             this.attach(this.lhs = lhs);
             this.attach(this.rhs = rhs);
@@ -49664,8 +49729,8 @@ class CompoundAssignmentExpression extends expressionBase_1.Expression {
         if (lhs.valueCategory != "lvalue") {
             this.addNote(errors_1.CPPError.expr.assignment.lhs_lvalue(this));
         }
-        else if (!lhs.type.areLValuesAssignable()) {
-            this.addNote(errors_1.CPPError.expr.assignment.lhs_not_assignable(this, lhs));
+        else if (lhs.type.isConst) {
+            this.addNote(errors_1.CPPError.expr.assignment.lhs_const(this));
         }
         rhs = standardConversion(rhs, lhs.type.cvUnqualified());
         // TODO: add a check for a modifiable type (e.g. an array type is not modifiable)
@@ -49685,17 +49750,9 @@ class CompoundAssignmentExpression extends expressionBase_1.Expression {
         let rhs = createExpressionFromAST(ast.rhs, context);
         // Consider a compound assignment operator overload if the LHS is class type
         if (predicates_1.Predicates.isTypedExpression(lhs, types_1.isPotentiallyCompleteClassType)) {
-            let overload = selectOperatorOverload(context, ast, ast.operator, [lhs, rhs]);
-            if (overload) {
-                return overload;
-            }
+            return selectOperatorOverload(context, ast, ast.operator, [lhs, rhs]);
         }
-        if (predicates_1.Predicates.isTypedExpression(lhs, types_1.isAtomicType)) {
-            return new CompoundAssignmentExpression(context, ast, lhs, rhs);
-        }
-        else {
-            return new UnsupportedExpression(context, ast, "Non-atomic compound assignment");
-        }
+        return new CompoundAssignmentExpression(context, ast, lhs, rhs);
     }
     createDefaultOutlet(element, parent) {
         return new codeOutlets_1.CompoundAssignmentExpressionOutlet(element, this, parent);
@@ -49831,10 +49888,12 @@ class ArithmeticBinaryOperatorExpression extends BinaryOperatorExpression {
         let left = createExpressionFromAST(ast.left, context);
         let right = createExpressionFromAST(ast.right, context);
         let op = ast.operator;
-        // If either one is a class type, we consider operator overloads
-        if (predicates_1.Predicates.isTypedExpression(left, types_1.isPotentiallyCompleteClassType) || predicates_1.Predicates.isTypedExpression(right, types_1.isPotentiallyCompleteClassType)) {
+        // HACK: only consider operator overloads if both are class type.
+        // TODO: eventually, all input/output expressions should probably
+        // be implemented as overloaded operators. 
+        if (predicates_1.Predicates.isTypedExpression(left, types_1.isPotentiallyCompleteClassType) && predicates_1.Predicates.isTypedExpression(right, types_1.isPotentiallyCompleteClassType)) {
             let overload = selectOperatorOverload(context, ast, op, [left, right]);
-            if (overload) {
+            if (overload.construct_type !== "invalid_operator_overload_expression") {
                 return overload;
             }
         }
@@ -50214,10 +50273,7 @@ class RelationalBinaryOperatorExpression extends BinaryOperatorExpression {
         let op = ast.operator;
         // If either one is a class type, we consider operator overloads
         if (predicates_1.Predicates.isTypedExpression(left, types_1.isPotentiallyCompleteClassType) || predicates_1.Predicates.isTypedExpression(right, types_1.isPotentiallyCompleteClassType)) {
-            let overload = selectOperatorOverload(context, ast, op, [left, right]);
-            if (overload) {
-                return overload;
-            }
+            return selectOperatorOverload(context, ast, op, [left, right]);
         }
         if (predicates_1.Predicates.isTypedExpression(left, types_1.isPointerType) || predicates_1.Predicates.isTypedExpression(left, types_1.isBoundedArrayType, "lvalue")) {
             if (predicates_1.Predicates.isTypedExpression(right, types_1.isPointerType) || predicates_1.Predicates.isTypedExpression(right, types_1.isBoundedArrayType, "lvalue")) {
@@ -51459,25 +51515,38 @@ class RuntimeFunctionIdentifierExpression extends expressionBase_1.RuntimeExpres
     }
 }
 exports.RuntimeFunctionIdentifierExpression = RuntimeFunctionIdentifierExpression;
-// export var ThisExpression  = Expression.extend({
-//     _name: "ThisExpression",
-//     valueCategory: "prvalue",
-//     compile : function(){
-//         var func = this.containingFunction();
-//         if (func.isMemberFunction){
-//             this.type = Types.Pointer.instance(func.receiverType);
-//         }
-//         else{
-//             this.addNote(CPPError.expr.thisExpr.memberFunc(this));
-//         }
-//     },
-//     stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-//         // Set this pointer with RTTI to point to receiver
-//         let receiver = inst.containingRuntimeFunction.receiver;
-//         inst.setEvalResult(Value.instance(receiver.address, Types.ObjectPointer.instance(receiver)));
-//         this.done(sim, inst);
-//     }
-// });
+class ThisExpression extends expressionBase_1.Expression {
+    constructor(context, ast) {
+        super(context, ast);
+        this.construct_type = "this_expression";
+        this.valueCategory = "prvalue";
+        if (constructs_1.isMemberFunctionContext(context)) {
+            this.type = new types_1.PointerType(context.contextualReceiverType, true);
+        }
+        else {
+            this.addNote(errors_1.CPPError.expr.thisExpression.nonStaticMemberFunc(this));
+        }
+    }
+    static createFromAST(ast, context) {
+        return new ThisExpression(context, ast);
+    }
+    createDefaultOutlet(element, parent) {
+        return new codeOutlets_1.ThisExpressionOutlet(element, this, parent);
+    }
+    describeEvalResult(depth) {
+        throw new Error("Method not implemented.");
+    }
+}
+exports.ThisExpression = ThisExpression;
+class RuntimeThisExpression extends SimpleRuntimeExpression {
+    constructor(model, parent) {
+        super(model, parent);
+    }
+    operate() {
+        this.setEvalResult(this.contextualReceiver.getPointerTo());
+    }
+}
+exports.RuntimeThisExpression = RuntimeThisExpression;
 // export var EntityExpression  = Expression.extend({
 //     _name: "EntityExpression",
 //     valueCategory: "lvalue",
@@ -52215,7 +52284,7 @@ function standardConversion(from, toType, options = {}) {
         return from;
     }
     if (!toType.isAtomicType()) {
-        return from;
+        return options.suppressLTR ? from : convertToPRValue(from);
     }
     if (!options.suppressLTR) {
         let fromPrvalue = convertToPRValue(from);
@@ -52296,7 +52365,7 @@ function usualArithmeticConversions(leftOrig, rightOrig) {
 exports.usualArithmeticConversions = usualArithmeticConversions;
 function selectOperatorOverload(context, ast, operator, originalArgs) {
     if (!expressionBase_1.allWellTyped(originalArgs)) {
-        return;
+        return new InvalidOperatorOverloadExpression(context, ast, operator, originalArgs);
     }
     let leftmost = originalArgs[0];
     let operatorFunctionName = "operator" + operator;
@@ -52317,7 +52386,7 @@ function selectOperatorOverload(context, ast, operator, originalArgs) {
     }
     // If we still don't have anything
     if (!lookupResult || !adjustedArgs) {
-        return;
+        return new InvalidOperatorOverloadExpression(context, ast, operator, originalArgs);
     }
     // These are not possible since you can't have a variable or
     // class with a name of e.g. "operator+"
@@ -52333,7 +52402,7 @@ function selectOperatorOverload(context, ast, operator, originalArgs) {
         }
     }
     else {
-        return undefined;
+        return new InvalidOperatorOverloadExpression(context, ast, operator, originalArgs);
     }
 }
 exports.selectOperatorOverload = selectOperatorOverload;
@@ -52351,7 +52420,7 @@ class NonMemberOperatorOverloadExpression extends expressionBase_1.Expression {
         }
         if (!selectedFunctionEntity) {
             // type, valueCategory, and call remain undefined
-            this.addNote(errors_1.CPPError.expr.binaryOperatorOverload.no_such_overload(this, this.operator));
+            this.addNote(errors_1.CPPError.expr.operatorOverload.no_such_overload(this, this.operator));
             this.attachAll(args);
             return;
         }
@@ -52434,7 +52503,7 @@ class MemberOperatorOverloadExpression extends expressionBase_1.Expression {
         }
         if (!selectedFunctionEntity) {
             // type, valueCategory, and call remain undefined
-            this.addNote(errors_1.CPPError.expr.binaryOperatorOverload.no_such_overload(this, this.operator));
+            this.addNote(errors_1.CPPError.expr.operatorOverload.no_such_overload(this, this.operator));
             this.attachAll(args);
             return;
         }
@@ -52507,10 +52576,26 @@ class RuntimeMemberOperatorOverloadExpression extends expressionBase_1.RuntimeEx
     }
 }
 exports.RuntimeMemberOperatorOverloadExpression = RuntimeMemberOperatorOverloadExpression;
-function isOperatorOverloadExpression(construct) {
-    return construct instanceof NonMemberOperatorOverloadExpression || construct instanceof MemberOperatorOverloadExpression;
+class InvalidOperatorOverloadExpression extends InvalidExpression {
+    constructor(context, ast, op, originalArgs) {
+        super(context, ast);
+        this.construct_type = "invalid_operator_overload_expression";
+        this.operator = op;
+        if (expressionBase_1.allWellTyped(originalArgs)) {
+            this.addNote(errors_1.CPPError.expr.operatorOverload.no_such_overload(this, op));
+        }
+        this.attachAll(this.originalArgs = originalArgs);
+    }
+    createDefaultOutlet(element, parent) {
+        throw new Error("Cannot create an outlet for an invalid expression.");
+    }
+    describeEvalResult(depth) {
+        return {
+            message: "an unsupported expression"
+        };
+    }
 }
-exports.isOperatorOverloadExpression = isOperatorOverloadExpression;
+exports.InvalidOperatorOverloadExpression = InvalidOperatorOverloadExpression;
 
 
 /***/ }),
@@ -52557,7 +52642,11 @@ class FunctionCall extends PotentialFullExpression_1.PotentialFullExpression {
             this.attachAll(this.args = args);
             return;
         }
-        if (this.func.isMemberFunction() && (receiverType === null || receiverType === void 0 ? void 0 : receiverType.isConst) && !((_a = this.func.type.receiverType) === null || _a === void 0 ? void 0 : _a.isConst)) {
+        // Note - destructors are allowed to ignore const semantics.
+        // That is, even though a destructor is a non-const member function,
+        // it is allowed to be called on const objects and suspends their constness
+        if (this.func.isMemberFunction() && !this.func.firstDeclaration.isDestructor
+            && (receiverType === null || receiverType === void 0 ? void 0 : receiverType.isConst) && !((_a = this.func.type.receiverType) === null || _a === void 0 ? void 0 : _a.isConst)) {
             this.addNote(errors_1.CPPError.param.thisConst(this, receiverType));
         }
         // Create initializers for each argument/parameter pair
@@ -54793,7 +54882,7 @@ var Predicates;
     }
     Predicates.byFunctionCallName = byFunctionCallName;
     function byOperatorOverloadCall(operator) {
-        return ((construct) => expressions_1.isOperatorOverloadExpression(construct) && construct.operator === operator);
+        return ((construct) => Predicates.isOperatorOverload(construct) && construct.operator === operator);
     }
     Predicates.byOperatorOverloadCall = byOperatorOverloadCall;
     function byIdentifierName(name) {
@@ -54822,6 +54911,7 @@ var Predicates;
     //     return construct.isSuccessfullyCompiled();
     // }
     Predicates.isLoop = Predicates.byKinds(["while_statement", "for_statement"]);
+    Predicates.isOperatorOverload = Predicates.byKinds(["non_member_operator_overload_expression", "member_operator_overload_expression", "invalid_operator_overload_expression"]);
     function isIndexingOperation(construct) {
         return Predicates.byKind("subscript_expression")(construct) || Predicates.byOperatorOverloadCall("[]")(construct);
     }
@@ -55314,7 +55404,7 @@ class MemoryFrame {
         this.localObjectLookup(entity).writeValue(newValue);
     }
     localReferenceLookup(entity) {
-        return this.localReferencesByEntityId[entity.entityId] || util_1.assertFalse("Attempt to look up referred object before reference was bound.");
+        return this.localReferencesByEntityId[entity.entityId];
     }
     bindLocalReference(entity, obj) {
         this.localReferencesByEntityId[entity.entityId] = obj;
@@ -56071,7 +56161,7 @@ class LocalDeallocator extends constructs_1.BasicCPPConstruct {
         super(context, undefined); // Has no AST
         this.construct_type = "LocalDeallocator";
         let localVariables = context.blockLocals.localVariables;
-        this.localDtors = localVariables.map((local) => {
+        this.dtors = localVariables.map((local) => {
             if (local.variableKind === "object" && local.isTyped(types_1.isCompleteClassType)) {
                 let dtor = local.type.classDefinition.destructor;
                 if (dtor) {
@@ -56098,17 +56188,7 @@ class RuntimeLocalDeallocator extends constructs_1.RuntimeConstruct {
         this.justDestructed = undefined;
     }
     upNextImpl() {
-        // TEMPORARY CODE THAT JUST DESTROYS ALL TEMPORARY OBJECTS ASSUMING NO DTORS
-        let blockLocals = this.model.context.blockLocals;
-        blockLocals.localObjects.forEach(local => {
-            let localObj = local.runtimeLookup(this);
-        });
-        blockLocals.localReferences.forEach(refEntity => {
-            if (refEntity.isTyped(types_1.isReferenceToCompleteType)) {
-                let referredObj = refEntity.runtimeLookup(this);
-                referredObj === null || referredObj === void 0 ? void 0 : referredObj.onReferenceUnbound(refEntity);
-            }
-        });
+        var _a;
         let locals = this.model.context.blockLocals.localVariables;
         if (this.justDestructed) {
             this.sim.memory.killObject(this.justDestructed, this);
@@ -56117,12 +56197,16 @@ class RuntimeLocalDeallocator extends constructs_1.RuntimeConstruct {
         while (this.index < locals.length) {
             // Destroy local at given index
             let local = locals[this.index];
-            let dtor = this.model.localDtors[this.index];
+            let dtor = this.model.dtors[this.index];
             ++this.index;
             if (local.variableKind === "reference") {
+                // If the program is running, and this reference was bound
+                // to some object, the referred type should have
+                // been completed.
+                util_1.assert(local.isTyped(types_1.isReferenceToCompleteType));
                 // destroying a reference doesn't really require doing anything,
                 // but we notify the referred object this reference has been removed
-                local.isTyped(types_1.isReferenceToCompleteType) && local.runtimeLookup(this).onReferenceUnbound(local);
+                (_a = local.runtimeLookup(this)) === null || _a === void 0 ? void 0 : _a.onReferenceUnbound(local);
             }
             else if (local.isTyped(types_1.isCompleteClassType)) {
                 // a local class-type object, so we call the dtor
@@ -56456,8 +56540,8 @@ RuntimeForStatement.upNextFns = [
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.PointerType = exports.toHexadecimalString = exports.Double = exports.Float = exports.FloatingPointType = exports.Bool = exports.Size_t = exports.Int = exports.Char = exports.IntegralType = exports.ArithmeticType = exports.SimpleType = exports.AtomicType = exports.ObjectTypeBase = exports.VoidType = exports.isCompleteParameterType = exports.isPotentialParameterType = exports.isCompleteReturnType = exports.isPotentialReturnType = exports.isCompleteObjectType = exports.isIncompleteObjectType = exports.isPotentiallyCompleteObjectType = exports.isVoidType = exports.isFunctionType = exports.isArrayElemType = exports.isGenericArrayType = exports.isArrayOfUnknownBoundType = exports.isBoundedArrayOfType = exports.isBoundedArrayType = exports.isCompleteClassType = exports.isPotentiallyCompleteClassType = exports.isReferenceToCompleteType = exports.isReferenceType = exports.isObjectPointerType = exports.isArrayPointerToType = exports.isArrayPointerType = exports.isPointerToCompleteType = exports.isPointerToType = exports.isPointerType = exports.isFloatingPointType = exports.isIntegralType = exports.isArithmeticType = exports.isAtomicType = exports.isCvConvertible = exports.referenceCompatible = exports.covariantType = exports.subType = exports.similarType = exports.sameType = exports.isType = void 0;
-exports.builtInTypes = exports.isBuiltInTypeName = exports.FunctionType = exports.createClassType = exports.ArrayOfUnknownBoundType = exports.BoundedArrayType = exports.peelReference = exports.ReferenceType = exports.ObjectPointerType = exports.ArrayPointerType = void 0;
+exports.ArrayPointerType = exports.PointerType = exports.toHexadecimalString = exports.Double = exports.Float = exports.FloatingPointType = exports.Bool = exports.Size_t = exports.Int = exports.Char = exports.IntegralType = exports.ArithmeticType = exports.SimpleType = exports.AtomicType = exports.VoidType = exports.isCompleteParameterType = exports.isPotentialParameterType = exports.isCompleteReturnType = exports.isPotentialReturnType = exports.isCompleteObjectType = exports.isIncompleteObjectType = exports.isPotentiallyCompleteObjectType = exports.isVoidType = exports.isFunctionType = exports.isArrayElemType = exports.isPotentiallyCompleteArrayType = exports.isArrayOfUnknownBoundType = exports.isBoundedArrayOfType = exports.isBoundedArrayType = exports.isCompleteClassType = exports.isPotentiallyCompleteClassType = exports.isReferenceToCompleteType = exports.isReferenceType = exports.isObjectPointerType = exports.isArrayPointerToType = exports.isArrayPointerType = exports.isPointerToCompleteType = exports.isPointerToType = exports.isPointerType = exports.isFloatingPointType = exports.isIntegralType = exports.isArithmeticType = exports.isAtomicType = exports.isCvConvertible = exports.referenceCompatible = exports.covariantType = exports.subType = exports.similarType = exports.sameType = exports.isType = void 0;
+exports.builtInTypes = exports.isBuiltInTypeName = exports.FunctionType = exports.createClassType = exports.ArrayOfUnknownBoundType = exports.BoundedArrayType = exports.peelReference = exports.ReferenceType = exports.ObjectPointerType = void 0;
 const util_1 = __webpack_require__(6560);
 const runtimeEnvironment_1 = __webpack_require__(5320);
 var vowels = ["a", "e", "i", "o", "u"];
@@ -56805,10 +56889,10 @@ function isArrayOfUnknownBoundType(type) {
     return type.isArrayOfUnknownBoundType();
 }
 exports.isArrayOfUnknownBoundType = isArrayOfUnknownBoundType;
-function isGenericArrayType(type) {
+function isPotentiallyCompleteArrayType(type) {
     return type.isPotentiallyCompleteArrayType();
 }
-exports.isGenericArrayType = isGenericArrayType;
+exports.isPotentiallyCompleteArrayType = isPotentiallyCompleteArrayType;
 function isArrayElemType(type) {
     return type.isArrayElemType();
 }
@@ -56873,46 +56957,13 @@ class VoidType extends TypeBase {
     _cvQualifiedImpl(isConst, isVolatile) {
         return new VoidType(isConst, isVolatile);
     }
-    areLValuesAssignable() {
-        return false;
-    }
 }
 exports.VoidType = VoidType;
 VoidType.VOID = new VoidType();
-// export class MissingType extends TypeBase {
-//     public static readonly MISSING = new MissingType();
-//     public readonly precedence = 0;
-//     public isComplete() { return true; }
-//     public sameType(other: Type) : boolean {
-//         return true;
-//     }
-//     public similarType(other: Type) : boolean {
-//         return true;
-//     }
-//     public typeString(excludeBase: boolean, varname: string, decorated: boolean) {
-//         return "<missing>";
-//     }
-//     public englishString(plural: boolean) {
-//         return "<missing>";
-//     }
-//     public cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
-//         return new VoidType(isConst, isVolatile);
-//     }
-//     public areLValuesAssignable() {
-//         return true;
-//     }
-// }
-/**
- * Represents a type for an object that exists in memory and takes up some space.
- * Has a size property, but NOT necessarily a value. (e.g. an array).
- */
-class ObjectTypeBase extends TypeBase {
-}
-exports.ObjectTypeBase = ObjectTypeBase;
 /**
  * Represents a type for an object that has a value.
  */
-class ValueType extends ObjectTypeBase {
+class ValueType extends TypeBase {
     /**
      * Converts a sequence of bytes (i.e. the C++ object representation) of a value of
      * this type into the raw value used to represent it internally in Lobster (i.e. a javascript value).
@@ -56948,9 +56999,6 @@ class ValueType extends ObjectTypeBase {
     valueToOstreamString(value) {
         return this.valueToString(value);
     }
-    areLValuesAssignable() {
-        return true;
-    }
 }
 class AtomicType extends ValueType {
     constructor() {
@@ -56960,6 +57008,12 @@ class AtomicType extends ValueType {
     }
     isDefaultConstructible(userDefinedOnly = false) {
         return !userDefinedOnly;
+    }
+    isCopyConstructible() {
+        return true;
+    }
+    isCopyAssignable() {
+        return !this.isConst;
     }
     isDestructible() {
         return true;
@@ -57329,9 +57383,6 @@ class ReferenceType extends TypeBase {
     _cvQualifiedImpl(isConst, isVolatile) {
         return new ReferenceType(this.refTo);
     }
-    areLValuesAssignable() {
-        return false;
-    }
 }
 exports.ReferenceType = ReferenceType;
 function peelReference(type) {
@@ -57350,7 +57401,7 @@ exports.peelReference = peelReference;
 // Represents the type of an array. This is not an ObjectType because an array does
 // not have a value that can be read/written. The Elem_type type parameter must be
 // an AtomicType or ClassType. (Note that this rules out arrays of arrays, which are currently not supported.)
-class BoundedArrayType extends ObjectTypeBase {
+class BoundedArrayType extends TypeBase {
     constructor(elemType, length) {
         // TODO: sanity check the semantics here, but I don't think it makes sense for an array itself to be volatile
         super(false, false);
@@ -57404,11 +57455,14 @@ class BoundedArrayType extends ObjectTypeBase {
     //     //     (elem: RawValueType) => { return this.elemType.valueToBytes(elem); }
     //     // ));
     // }
-    areLValuesAssignable() {
-        return false;
-    }
     isDefaultConstructible(userDefinedOnly = false) {
         return this.elemType.isDefaultConstructible(userDefinedOnly);
+    }
+    isCopyConstructible(requireConstSource) {
+        return this.elemType.isCopyConstructible(requireConstSource);
+    }
+    isCopyAssignable(requireConstSource) {
+        return this.elemType.isCopyAssignable(requireConstSource);
     }
     isDestructible() {
         return this.elemType.isDestructible();
@@ -57445,9 +57499,6 @@ class ArrayOfUnknownBoundType extends TypeBase {
     }
     adjustToPointerType() {
         return new PointerType(this.elemType, false, false);
-    }
-    areLValuesAssignable() {
-        return false;
     }
 }
 exports.ArrayOfUnknownBoundType = ArrayOfUnknownBoundType;
@@ -57529,12 +57580,16 @@ class ClassTypeBase extends TypeBase {
     _cvQualifiedImpl(isConst, isVolatile) {
         return new ClassTypeBase(this.classId, this.className, this.shared, isConst, isVolatile);
     }
-    areLValuesAssignable() {
-        return false;
-    }
     isDefaultConstructible(userDefinedOnly = false) {
         let defaultCtor = this.classDefinition.defaultConstructor;
         return !!defaultCtor && (!userDefinedOnly || defaultCtor.isUserDefined);
+    }
+    isCopyConstructible(requireConstSource) {
+        return !!this.classDefinition.constCopyConstructor
+            || !requireConstSource && !!this.classDefinition.nonConstCopyConstructor;
+    }
+    isCopyAssignable(requireConstSource) {
+        return !!this.classDefinition.lookupAssignmentOperator(requireConstSource, this.isConst);
     }
     isDestructible() {
         return !!this.classDefinition.destructor;
@@ -57841,9 +57896,6 @@ class FunctionType extends TypeBase {
     englishString(plural) {
         return (plural ? "functions that take " : "a function that takes ") + this.paramStrEnglish + " " +
             (plural ? "and return " : "and returns ") + this.returnType.englishString(false);
-    }
-    areLValuesAssignable() {
-        return false;
     }
 }
 exports.FunctionType = FunctionType;
@@ -58490,7 +58542,7 @@ function createSimpleExerciseOutlet(id) {
         </ul>
 
         <div class="tab-content" style="height: calc(100vh - 250px); overflow: hidden;">
-            <div id="lobster-ex-${id}-compilation-pane" class="lobster-compilation-pane tab-pane fade">
+            <div id="lobster-ex-${id}-compilation-pane" class="lobster-compilation-pane tab-pane fade" style="height: 100%; overflow-y: scroll;">
                 
             </div>
 
@@ -75458,7 +75510,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.DotExpressionOutlet = exports.SubscriptExpressionOutlet = exports.PostfixIncrementExpressionOutlet = exports.UnaryOperatorExpressionOutlet = exports.InputOperatorExpressionOutlet = exports.OutputOperatorExpressionOutlet = exports.BinaryOperatorExpressionOutlet = exports.MemberOperatorOverloadExpressionOutlet = exports.NonMemberOperatorOverloadExpressionOutlet = exports.MagicFunctionCallExpressionOutlet = exports.ArgumentInitializerOutlet = exports.FunctionCallOutlet = exports.FunctionCallExpressionOutlet = exports.CommaExpressionOutlet = exports.TernaryExpressionOutlet = exports.CompoundAssignmentExpressionOutlet = exports.AssignmentExpressionOutlet = exports.ExpressionOutlet = exports.ArrayAggregateInitializerOutlet = exports.ClassCopyInitializerOutlet = exports.ReferenceCopyInitializerOutlet = exports.AtomicCopyInitializerOutlet = exports.CopyInitializerOutlet = exports.ClassDirectInitializerOutlet = exports.ArrayDirectInitializerOutlet = exports.ReferenceDirectInitializerOutlet = exports.AtomicDirectInitializerOutlet = exports.ClassDefaultInitializerOutlet = exports.ArrayDefaultInitializerOutlet = exports.AtomicDefaultInitializerOutlet = exports.InitializerOutlet = exports.ReturnInitializerOutlet = exports.ReturnStatementOutlet = exports.BreakStatementOutlet = exports.ForStatementOutlet = exports.WhileStatementOutlet = exports.IfStatementOutlet = exports.NullStatementOutlet = exports.ExpressionStatementOutlet = exports.DeclarationStatementOutlet = exports.StatementOutlet = exports.BlockOutlet = exports.CtorInitializerOutlet = exports.ParameterOutlet = exports.FunctionOutlet = exports.PotentialFullExpressionOutlet = exports.ConstructOutlet = exports.cstringToString = exports.getValueString = exports.CODE_ANIMATIONS = void 0;
-exports.addChildStatementOutlet = exports.addChildInitializerOutlet = exports.addChildExpressionOutlet = exports.createStatementOutlet = exports.createInitializerOutlet = exports.createExpressionOutlet = exports.QualificationConversionOutlet = exports.StreamToBoolOutlet = exports.ArrayToPointerOutlet = exports.LValueToRValueOutlet = exports.TypeConversionOutlet = exports.OpaqueExpressionOutlet = exports.StringLiteralExpressionOutlet = exports.NumericLiteralOutlet = exports.IdentifierOutlet = exports.InitializerListOutlet = exports.ParenthesesOutlet = exports.ArrowExpressionOutlet = void 0;
+exports.addChildStatementOutlet = exports.addChildInitializerOutlet = exports.addChildExpressionOutlet = exports.createStatementOutlet = exports.createInitializerOutlet = exports.createExpressionOutlet = exports.QualificationConversionOutlet = exports.StreamToBoolOutlet = exports.ArrayToPointerOutlet = exports.LValueToRValueOutlet = exports.TypeConversionOutlet = exports.ThisExpressionOutlet = exports.OpaqueExpressionOutlet = exports.StringLiteralExpressionOutlet = exports.NumericLiteralOutlet = exports.IdentifierOutlet = exports.InitializerListOutlet = exports.ParenthesesOutlet = exports.ArrowExpressionOutlet = void 0;
 const util_1 = __webpack_require__(6560);
 const observe_1 = __webpack_require__(5114);
 const declarations_1 = __webpack_require__(8963);
@@ -76908,14 +76960,13 @@ class OpaqueExpressionOutlet extends ExpressionOutlet {
     }
 }
 exports.OpaqueExpressionOutlet = OpaqueExpressionOutlet;
-// Lobster.Outlets.CPP.ThisExpression = Outlets.CPP.Expression.extend({
-//     _name: "Outlets.CPP.ThisExpression",
-//     init: function(element, code, simOutlet){
-//         this.initParent(element, code, simOutlet);
-//         this.exprElem.addClass("code-this");
-//         this.exprElem.append("this");
-//     }
-// });
+class ThisExpressionOutlet extends ExpressionOutlet {
+    constructor(element, construct, parent) {
+        super(element, construct, parent);
+        this.exprElem.append(util_1.htmlDecoratedKeyword("this"));
+    }
+}
+exports.ThisExpressionOutlet = ThisExpressionOutlet;
 class TypeConversionOutlet extends ExpressionOutlet {
     constructor(element, construct, parent) {
         super(element, construct, parent);

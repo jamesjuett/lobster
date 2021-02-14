@@ -336,7 +336,12 @@ export class Scope {
                     return cand.type.sameParamTypes(paramTypes);
                 });
 
-                return new FunctionOverloadGroup(viable);
+                if (viable.length > 0) {
+                    return new FunctionOverloadGroup(viable);
+                }
+                else {
+                    return undefined;
+                }
             }
 
             // // If we're looking for something that could be called with given parameter types, including conversions
@@ -728,7 +733,7 @@ export interface ObjectEntity<T extends CompleteObjectType = CompleteObjectType>
 
 export interface BoundReferenceEntity<T extends ReferenceType = ReferenceType> extends CPPEntity<T> {
     name?: string;
-    runtimeLookup<X extends CompleteObjectType>(this: BoundReferenceEntity<ReferenceType<X>>, rtConstrcut: RuntimeConstruct): CPPObject<X>;
+    runtimeLookup<X extends CompleteObjectType>(this: BoundReferenceEntity<ReferenceType<X>>, rtConstrcut: RuntimeConstruct): CPPObject<X> | undefined;
     readonly variableKind: "reference";
 }
 
@@ -742,7 +747,7 @@ export function runtimeObjectLookup<T extends CompleteObjectType>(entity: Object
         return entity.runtimeLookup(rtConstruct);
     }
     else if (entity.variableKind === "reference") {
-        return entity.runtimeLookup(rtConstruct);
+        return entity.runtimeLookup(rtConstruct) || assertFalse("Attempted to look up a reference before it was bound.");
     }
     else {
         assertNever(entity);
@@ -827,7 +832,7 @@ export class LocalReferenceEntity<T extends ReferenceType = ReferenceType> exten
         rtConstruct.containingRuntimeFunction.stackFrame!.bindLocalReference(this, obj);
     }
 
-    public runtimeLookup<X extends CompleteObjectType>(this: LocalReferenceEntity<ReferenceType<X>>, rtConstruct: RuntimeConstruct): CPPObject<X> {
+    public runtimeLookup<X extends CompleteObjectType>(this: LocalReferenceEntity<ReferenceType<X>>, rtConstruct: RuntimeConstruct): CPPObject<X> | undefined {
         // TODO: revisit the non-null assertions below
         return rtConstruct.containingRuntimeFunction.stackFrame!.localReferenceLookup<X>(this);
     }
@@ -1366,7 +1371,7 @@ export class MemberReferenceEntity<T extends ReferenceType = ReferenceType> exte
 
     public runtimeLookup<X extends CompleteObjectType>(this: MemberReferenceEntity<ReferenceType<X>>, rtConstruct: RuntimeConstruct) {
         // Cast below should be <CPPObject<T>>, NOT MemberSubobject<T>.
-        // See return type and documentation for getMemberSubobject()
+        // See return type and documentation for getMemberObject()
         return <CPPObject<X>>rtConstruct.contextualReceiver.getMemberObject(this.name);
     }
 

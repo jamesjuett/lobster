@@ -1,7 +1,7 @@
 import { ExpressionASTNode, StringLiteralExpression, AnalyticExpression, CompiledExpressionKinds, AnalyticTypedExpression } from "./expressions";
 
-import { ExpressionContext, RuntimeConstruct, CPPConstruct, ConstructDescription, SuccessfullyCompiled, CompiledTemporaryDeallocator } from "./constructs";
-import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
+import { ExpressionContext, RuntimeConstruct, CPPConstruct, ConstructDescription, SuccessfullyCompiled } from "./constructs";
+import { CompiledTemporaryDeallocator, PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 
 import { Type, CompleteObjectType, AtomicType, ArithmeticType, IntegralType, FloatingPointType, PointerType, ReferenceType, BoundedArrayType, ArrayOfUnknownBoundType, FunctionType, PotentiallyCompleteClassType, CompleteClassType, isAtomicType, isCompleteObjectType, ExpressionType } from "./types";
 
@@ -36,10 +36,6 @@ export abstract class Expression<ASTType extends ExpressionASTNode = ExpressionA
 
     public isWellTyped(): this is TypedExpression {
         return !!this.type && !!this.valueCategory;
-    }
-
-    public isTyped<T extends ExpressionType>(type: T) : this is TypedExpression<T> {
-        return !!this.type?.sameType(type);
     }
 
     public isPrvalue<T extends ExpressionType, V extends ValueCategory>(this: TypedExpression<T, V>): this is TypedExpression<T, "prvalue"> {

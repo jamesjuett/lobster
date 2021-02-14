@@ -944,10 +944,10 @@ int main() {
 
 
 
-// Basic Compound Assignment---------------------
+// Basic Array Aggregate Initialization---------------------
 
 new SingleTranslationUnitTest(
-  "Basic Compound Assignment Test",
+  "Basic Array Aggregate Initialization Test",
   `using namespace std;
 
 int func(int x) {

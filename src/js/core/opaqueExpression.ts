@@ -1,10 +1,11 @@
-import {ASTNode, ExpressionContext, CPPConstruct, SuccessfullyCompiled, ConstructDescription, CompiledTemporaryDeallocator, RuntimeConstruct } from "./constructs"
+import {ASTNode, ExpressionContext, CPPConstruct, SuccessfullyCompiled, ConstructDescription, RuntimeConstruct } from "./constructs"
 import { Value } from "./runtimeEnvironment";
 import { Int, ExpressionType, VoidType, CompleteObjectType, ReferenceType } from "./types";
 import { assert } from "../util/util";
 import { Expression, ValueCategory, VCResultTypes, RuntimeExpression, t_TypedExpression } from "./expressionBase";
 import { ConstructOutlet, OpaqueExpressionOutlet } from "../view/codeOutlets";
 import { LocalObjectEntity, LocalReferenceEntity } from "./entities";
+import { CompiledTemporaryDeallocator } from "./PotentialFullExpression";
 
 
 export type OpaqueExpressionImpl<T extends ExpressionType = ExpressionType, VC extends ValueCategory = ValueCategory> = {
@@ -116,6 +117,6 @@ export function getLocal<T extends CompleteObjectType>(rt: RuntimeExpression, na
         return local.runtimeLookup(rt);
     }
     else {
-        return local.runtimeLookup(rt);
+        return local.runtimeLookup(rt)!;
     }
 }

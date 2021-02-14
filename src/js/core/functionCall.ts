@@ -1,5 +1,5 @@
-import { TranslationUnitContext, SuccessfullyCompiled, CompiledTemporaryDeallocator, RuntimeConstruct, ASTNode, ExpressionContext, createExpressionContextWithParameterTypes, ConstructDescription } from "./constructs";
-import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
+import { TranslationUnitContext, SuccessfullyCompiled, RuntimeConstruct, ASTNode, ExpressionContext, createExpressionContextWithParameterTypes, ConstructDescription } from "./constructs";
+import { CompiledTemporaryDeallocator, PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { FunctionEntity, ObjectEntity, TemporaryObjectEntity, PassByReferenceParameterEntity, PassByValueParameterEntity } from "./entities";
 import { ExpressionASTNode, IdentifierExpression, createExpressionFromAST, CompiledFunctionIdentifierExpression, RuntimeFunctionIdentifierExpression, SimpleRuntimeExpression, MagicFunctionCallExpression, createRuntimeExpression, DotExpression, CompiledFunctionDotExpression, RuntimeFunctionDotExpression, ArrowExpression, CompiledFunctionArrowExpression, RuntimeFunctionArrowExpression } from "./expressions";
 import { VoidType, ReferenceType, PotentialReturnType, CompleteObjectType, PeelReference, peelReference, AtomicType, PotentialParameterType, Bool, sameType, FunctionType, Type, CompleteClassType, isFunctionType, PotentiallyCompleteObjectType, CompleteReturnType, PotentiallyCompleteClassType } from "./types";
@@ -51,7 +51,11 @@ export class FunctionCall extends PotentialFullExpression {
             return;
         }
 
-        if (this.func.isMemberFunction() && receiverType?.isConst && !this.func.type.receiverType?.isConst) {
+        // Note - destructors are allowed to ignore const semantics.
+        // That is, even though a destructor is a non-const member function,
+        // it is allowed to be called on const objects and suspends their constness
+        if (this.func.isMemberFunction() && !this.func.firstDeclaration.isDestructor
+            && receiverType?.isConst && !this.func.type.receiverType?.isConst) {
             this.addNote(CPPError.param.thisConst(this, receiverType));
         }
 

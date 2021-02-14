@@ -620,14 +620,14 @@ export class RuntimeBlock extends RuntimeStatement<CompiledBlock> {
 export class LocalDeallocator extends BasicCPPConstruct<BlockContext, ASTNode> {
     public readonly construct_type = "LocalDeallocator";
 
-    public readonly localDtors: (FunctionCall | undefined)[];
+    public readonly dtors: (FunctionCall | undefined)[];
 
     public constructor(context: BlockContext) {
         super(context, undefined); // Has no AST
         
         let localVariables = context.blockLocals.localVariables;
 
-        this.localDtors = localVariables.map((local) => {
+        this.dtors = localVariables.map((local) => {
             if (local.variableKind === "object" && local.isTyped(isCompleteClassType)) {
                 let dtor = local.type.classDefinition.destructor;
                 if (dtor) {
@@ -654,7 +654,7 @@ export class LocalDeallocator extends BasicCPPConstruct<BlockContext, ASTNode> {
 
 export interface CompiledLocalDeallocator extends LocalDeallocator, SuccessfullyCompiled {
 
-    readonly localDtors: (CompiledFunctionCall | undefined)[];
+    readonly dtors: (CompiledFunctionCall | undefined)[];
 
 }
 
@@ -670,19 +670,6 @@ export class RuntimeLocalDeallocator extends RuntimeConstruct<CompiledLocalDeall
 
     protected upNextImpl() {
 
-        // TEMPORARY CODE THAT JUST DESTROYS ALL TEMPORARY OBJECTS ASSUMING NO DTORS
-        let blockLocals = this.model.context.blockLocals;
-        blockLocals.localObjects.forEach(local => {
-            let localObj = local.runtimeLookup(this);
-            
-        });
-        blockLocals.localReferences.forEach(refEntity => {
-            if (refEntity.isTyped(isReferenceToCompleteType)) {
-                let referredObj = refEntity.runtimeLookup(this);
-                referredObj?.onReferenceUnbound(refEntity);
-            }
-        });
-
         let locals = this.model.context.blockLocals.localVariables;
 
         if (this.justDestructed) {
@@ -693,13 +680,19 @@ export class RuntimeLocalDeallocator extends RuntimeConstruct<CompiledLocalDeall
         while(this.index < locals.length) {
             // Destroy local at given index
             let local = locals[this.index];
-            let dtor = this.model.localDtors[this.index];
+            let dtor = this.model.dtors[this.index];
             ++this.index;
 
             if (local.variableKind === "reference") {
+
+                // If the program is running, and this reference was bound
+                // to some object, the referred type should have
+                // been completed.
+                assert(local.isTyped(isReferenceToCompleteType));
+
                 // destroying a reference doesn't really require doing anything,
                 // but we notify the referred object this reference has been removed
-                local.isTyped(isReferenceToCompleteType) && local.runtimeLookup(this).onReferenceUnbound(local);
+                local.runtimeLookup(this)?.onReferenceUnbound(local);
             }
             else if (local.isTyped(isCompleteClassType)) {
                 // a local class-type object, so we call the dtor
