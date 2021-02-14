@@ -1,5 +1,5 @@
-import { TranslationUnitContext, SuccessfullyCompiled, CompiledTemporaryDeallocator, RuntimeConstruct, ASTNode, ExpressionContext, createExpressionContextWithParameterTypes, ConstructDescription } from "./constructs";
-import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
+import { TranslationUnitContext, SuccessfullyCompiled, RuntimeConstruct, ASTNode, ExpressionContext, createExpressionContextWithParameterTypes, ConstructDescription } from "./constructs";
+import { CompiledTemporaryDeallocator, PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { FunctionEntity, ObjectEntity, TemporaryObjectEntity, PassByReferenceParameterEntity, PassByValueParameterEntity } from "./entities";
 import { ExpressionASTNode, IdentifierExpression, createExpressionFromAST, CompiledFunctionIdentifierExpression, RuntimeFunctionIdentifierExpression, SimpleRuntimeExpression, MagicFunctionCallExpression, createRuntimeExpression, DotExpression, CompiledFunctionDotExpression, RuntimeFunctionDotExpression, ArrowExpression, CompiledFunctionArrowExpression, RuntimeFunctionArrowExpression } from "./expressions";
 import { VoidType, ReferenceType, PotentialReturnType, CompleteObjectType, PeelReference, peelReference, AtomicType, PotentialParameterType, Bool, sameType, FunctionType, Type, CompleteClassType, isFunctionType, PotentiallyCompleteObjectType, CompleteReturnType, PotentiallyCompleteClassType } from "./types";
@@ -44,19 +44,23 @@ export class FunctionCall extends PotentialFullExpression {
         this.func = func;
         this.receiverType = receiverType;
 
-        // Note that the args are NOT attached as children here. Instead, they are attached to the initializers.
         let paramTypes = this.func.type.paramTypes;
         if (args.length !== paramTypes.length) {
             this.addNote(CPPError.param.numParams(this));
             this.attachAll(this.args = args);
             return;
         }
-       
-        if (this.func.isMemberFunction() && receiverType?.isConst && !this.func.type.receiverType?.isConst) {
+
+        // Note - destructors are allowed to ignore const semantics.
+        // That is, even though a destructor is a non-const member function,
+        // it is allowed to be called on const objects and suspends their constness
+        if (this.func.isMemberFunction() && !this.func.firstDeclaration.isDestructor
+            && receiverType?.isConst && !this.func.type.receiverType?.isConst) {
             this.addNote(CPPError.param.thisConst(this, receiverType));
         }
 
         // Create initializers for each argument/parameter pair
+        // Note that the args are NOT attached as children to the function call. Instead, they are attached to the initializers.
         this.argInitializers = args.map((arg, i) => {
             let paramType = paramTypes[i];
             if (paramType.isReferenceType()) {
@@ -150,7 +154,7 @@ export class FunctionCall extends PotentialFullExpression {
 
     public createRuntimeFunctionCall<T extends FunctionType<CompleteReturnType> = FunctionType<CompleteReturnType>>(
         this: CompiledFunctionCall<T>,
-        parent: RuntimePotentialFullExpression,
+        parent: RuntimeConstruct,
         receiver: CPPObject<CompleteClassType> | undefined): RuntimeFunctionCall<T> {
         return new RuntimeFunctionCall<T>(this, parent, receiver);
     }

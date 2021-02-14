@@ -271,6 +271,20 @@ export class AsynchronousSimulationRunner {
     }
 
     /**
+     * Repeatedly steps forward until just before main will exit
+     */
+    public async stepToEndOfMain(delay: number = this.delay, stepLimit?: number, stopOnCinBlock: boolean = false) {
+        let stepsTaken = 0;
+        while (this.simulation.top()?.model !== this.simulation.program.mainFunction
+            && (!stopOnCinBlock || !this.simulation.isBlockingUntilCin)
+            && (stepLimit === undefined || stepsTaken < stepLimit)) {
+
+            await this.takeOneAction(STEP_FORWARD_ACTION, delay);
+            ++stepsTaken;
+        }
+    }
+    
+    /**
      * If a function call is up next, repeatedly steps forward until the function call
      * has completely finished executing. Otherwise, equivalent to a stepForward(1).
      * Note that this does not skip over the evaluation of arguments for a function call,

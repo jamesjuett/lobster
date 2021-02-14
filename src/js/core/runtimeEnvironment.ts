@@ -408,13 +408,12 @@ export class Memory {
     }
 
     /**
-     * Ends the lifetime of an object at the given address. Its data actually remains in memory, but is marked as dead and invalid.
-     * If no object exists at the given address, does nothing. If the object is already dead, does nothing.
+     * Ends the lifetime of an object. Its data actually remains in memory, but is marked as dead and invalid.
+     * If the object is already dead, does nothing.
      * @param addr 
      * @param killer The runtime construct that killed the object
      */
-    public killObject(addr: number, killer?: RuntimeConstruct) {
-        let obj = this.objects[addr];
+    public killObject(obj: CPPObject, killer?: RuntimeConstruct) {
         if (obj && obj.isAlive) {
             obj.kill(killer);
             this.observable.send("objectKilled", obj);
@@ -478,7 +477,7 @@ export class Memory {
 
     // TODO: think of some way to prevent accidentally calling the other deallocate directly with a temporary obj
     public deallocateTemporaryObject(obj: TemporaryObject, killer?: RuntimeConstruct) {
-        this.killObject(obj.address, killer);
+        this.killObject(obj, killer);
         //this.temporaryBottom += obj.type.size;
         delete this.temporaryObjects[obj.address];
         this.observable.send("temporaryObjectDeallocated", obj);
@@ -541,7 +540,6 @@ class MemoryStack {
         if (!frame) {
             return assertFalse();
         }
-        frame.pop(rtConstruct);
         this.top -= frame.size;
         this.memory.observable.send("framePopped", frame);
     }
@@ -592,7 +590,7 @@ class MemoryHeap {
         var obj = this.objectMap[addr];
         if (obj) {
             delete this.objectMap[addr];
-            this.memory.killObject(addr, killer);
+            this.memory.killObject(obj, killer);
             this.memory.observable.send("heapObjectDeleted", obj);
             // Note: responsibility for running destructor lies elsewhere
         }
@@ -685,7 +683,7 @@ export class MemoryFrame {
     }
 
     public localReferenceLookup<T extends CompleteObjectType>(entity: LocalReferenceEntity<ReferenceType<T>>) {
-        return <CPPObject<T>>this.localReferencesByEntityId[entity.entityId] || assertFalse("Attempt to look up referred object before reference was bound.");
+        return <CPPObject<T> | undefined>this.localReferencesByEntityId[entity.entityId];
     }
 
     public bindLocalReference(entity: LocalReferenceEntity, obj: CPPObject) {
@@ -701,19 +699,5 @@ export class MemoryFrame {
     //         //addr += ref.type.size;
     //     });
     // }
-
-    public pop(rtConstruct: RuntimeConstruct) {
-        for (let key in this.localObjectsByEntityId) {
-            let obj = this.localObjectsByEntityId[key];
-
-            // Note this does nothing if the object was already deallocated (e.g. going out of scope of a nested block, destructor was called)
-            this.memory.killObject(obj.address, rtConstruct);
-        }
-
-        this.localReferenceEntities.forEach(refEntity => {
-            let referredObj = this.localReferencesByEntityId[refEntity.entityId];
-            referredObj?.onReferenceUnbound(refEntity);
-        });
-    }
 
 };

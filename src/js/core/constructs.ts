@@ -1,15 +1,16 @@
 import { Program, TranslationUnit, SourceReference } from "./Program";
-import { Scope, TemporaryObjectEntity, FunctionEntity, LocalObjectEntity, LocalVariableEntity, LocalReferenceEntity, BlockScope, ClassEntity, MemberVariableEntity, ClassScope, CompleteClassEntity } from "./entities";
+import { Scope, FunctionEntity, LocalObjectEntity, LocalVariableEntity, LocalReferenceEntity, BlockScope, ClassEntity, MemberVariableEntity, ClassScope, CompleteClassEntity, TemporaryObjectEntity } from "./entities";
 import { Note, NoteKind, CPPError, NoteRecorder } from "./errors";
 import { asMutable, Mutable, assertFalse, assert } from "../util/util";
 import { Simulation } from "./Simulation";
 import { Observable } from "../util/observe";
-import { CompleteObjectType, ReferenceType, PeelReference, VoidType, PotentialReturnType, Type, AtomicType, FunctionType, CompleteClassType, ExpressionType } from "./types";
+import { CompleteObjectType, ReferenceType, PeelReference, VoidType, PotentialReturnType, Type, AtomicType, FunctionType, CompleteClassType, ExpressionType, isCompleteClassType } from "./types";
 import { GlobalVariableDefinition, CompiledGlobalVariableDefinition, CompiledFunctionDefinition, ClassDefinition, Declarator, FunctionDefinition, ClassDeclaration, AccessSpecifier } from "./declarations";
-import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { RuntimeFunction } from "./functions";
-import { CPPObject } from "./objects";
+import { CPPObject, TemporaryObject } from "./objects";
 import { ForStatement, WhileStatement } from "./statements";
+import { FunctionCall, CompiledFunctionCall } from "./functionCall";
+import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 
 
 
@@ -23,6 +24,7 @@ export interface Explanation {
     message: string;
 }
 
+export const EMPTY_SOURCE = { line: 0, column: 0, start: 0, end: 0, text: ""};
 
 export interface ASTNode {
     // readonly construct_type: string;
@@ -80,8 +82,12 @@ export function createExpressionContextWithReceiverType(parentContext: Translati
 
 export interface FunctionContext extends TranslationUnitContext {
     readonly containingFunction: FunctionEntity;
-    readonly functionLocals: FunctionLocals;
+    readonly functionLocals: ContextualLocals;
     readonly contextualReceiverType?: CompleteClassType;
+}
+
+export function isFunctionContext(context: TranslationUnitContext) : context is FunctionContext {
+    return !!((context as FunctionContext).containingFunction);
 }
 
 export function createFunctionContext(parentContext: TranslationUnitContext, containingFunction: FunctionEntity, contextualReceiverType: CompleteClassType): MemberFunctionContext;
@@ -89,13 +95,13 @@ export function createFunctionContext(parentContext: TranslationUnitContext, con
 export function createFunctionContext(parentContext: TranslationUnitContext, containingFunction: FunctionEntity, contextualReceiverType?: CompleteClassType): FunctionContext {
     return Object.assign({}, parentContext, {
         containingFunction: containingFunction,
-        functionLocals: new FunctionLocals(),
+        functionLocals: new ContextualLocals(),
         contextualReceiverType: contextualReceiverType
     });
 }
 
-export function isMemberFunctionContext(context: FunctionContext) : context is MemberFunctionContext {
-    return !!context.contextualReceiverType;
+export function isMemberFunctionContext(context: TranslationUnitContext) : context is MemberFunctionContext {
+    return isFunctionContext(context) && !!context.contextualReceiverType;
 }
 
 export interface MemberFunctionContext extends FunctionContext {
@@ -104,7 +110,19 @@ export interface MemberFunctionContext extends FunctionContext {
 
 export interface BlockContext extends FunctionContext {
     readonly contextualScope: BlockScope;
+    readonly blockLocals: ContextualLocals;
     readonly withinLoop?: true;
+}
+
+export function createBlockContext(parentContext: FunctionContext): BlockContext {
+    return Object.assign({}, parentContext, {
+        contextualScope: new BlockScope(parentContext.translationUnit, parentContext.contextualScope),
+        blockLocals: new ContextualLocals()
+    });
+}
+
+export function isMemberBlockContext(context: BlockContext) : context is MemberBlockContext {
+    return !!context.contextualReceiverType;
 }
 
 export interface MemberBlockContext extends BlockContext {
@@ -568,10 +586,12 @@ export class InvalidConstruct extends BasicCPPConstruct<TranslationUnitContext, 
 
 }
 
-export class FunctionLocals {
+export class ContextualLocals {
 
+    public readonly localVariables: readonly LocalVariableEntity[] = [];
     public readonly localObjects: readonly LocalObjectEntity[] = [];
     public readonly localReferences: readonly LocalReferenceEntity[] = [];
+    
     public readonly localVariablesByEntityId: {
         [index: number]: LocalVariableEntity
     } = {};
@@ -579,6 +599,7 @@ export class FunctionLocals {
     public registerLocalVariable(local: LocalVariableEntity) {
         assert(!this.localVariablesByEntityId[local.entityId]);
         this.localVariablesByEntityId[local.entityId] = local;
+        asMutable(this.localVariables).push(local);
         if (local.variableKind === "object") {
             asMutable(this.localObjects).push(local);
         }
@@ -615,101 +636,6 @@ export class FunctionLocals {
 
 
 
-
-export class TemporaryDeallocator extends BasicCPPConstruct<TranslationUnitContext, ASTNode> {
-    public readonly construct_type = "TemporaryDeallacator";
-
-    public readonly parent?: PotentialFullExpression;
-    public readonly temporaryObjects: TemporaryObjectEntity[];
-
-    // public readonly dtors: (MemberFunctionCall | null)[];
-
-    public constructor(context: TranslationUnitContext, temporaryObjects: TemporaryObjectEntity[]) {
-        super(context, undefined); // Has no AST
-        this.temporaryObjects = temporaryObjects;
-
-        // TODO CLASSES: add back in destructor calls and dtors member function above
-        // this.dtors = temporaryObjects.map((tempEnt) => {
-        //     if (tempEnt.type instanceof ClassType) {
-        //         var dtor = tempEnt.type.cppClass.destructor;
-        //         if (dtor) {
-        //             //MemberFunctionCall args are: context, function to call, empty args, receiver
-        //             let dtorCall = new MemberFunctionCall(context, dtor, [], <TemporaryObjectEntity<ClassType>>tempEnt);
-        //             this.attach(dtorCall);
-        //             return dtorCall;
-        //         }
-        //         else{
-        //             this.addNote(CPPError.declaration.dtor.no_destructor_temporary(tempEnt.creator, tempEnt));
-        //             return null;
-        //         }
-        //     }
-        // });
-    }
-
-    public createRuntimeConstruct(this: CompiledTemporaryDeallocator, parent: RuntimePotentialFullExpression) {
-        return new RuntimeTemporaryDeallocator(this, parent);
-    }
-
-    // public isTailChild(child: ExecutableConstruct) {
-    //     return {isTail: true};
-    // }
-}
-
-export interface CompiledTemporaryDeallocator extends TemporaryDeallocator, SuccessfullyCompiled {
-
-    // readonly dtors: (CompiledMemberFunctionCall | null)[];
-
-}
-
-export class RuntimeTemporaryDeallocator extends RuntimeConstruct<CompiledTemporaryDeallocator> {
-
-    private index = 0;
-    private justDestructed: boolean = false;
-    public readonly parent!: RuntimePotentialFullExpression; // narrows type from base class
-
-    public constructor(model: CompiledTemporaryDeallocator, parent: RuntimePotentialFullExpression) {
-        super(model, "expression", parent);
-    }
-
-    protected upNextImpl() {
-
-        // for (var key in this.temporaries){
-        //     var tempObjInst = this.temporaries[key].runtimeLookup(sim, inst.parent);
-        //     if (tempObjInst) {
-        //         sim.memory.deallocateTemporaryObject(tempObjInst, inst);
-        //     }
-        // }
-        // this.done(sim, inst);
-        // return true;
-
-        // TEMPORARY CODE THAT JUST DESTROYS ALL TEMPORARY OBJECTS ASSUMING NO DTORS
-        this.model.temporaryObjects.forEach(tempObj => this.sim.memory.deallocateTemporaryObject(tempObj.runtimeLookup(this.parent)));
-
-
-        // let dtors = this.model.dtors;
-        // let dtors : readonly null[] = this.model.temporaryObjects.map(t => null); // TODO CLASSES: replace this hack with above
-        // if (this.index < dtors.length) {
-        //     // let dtor = dtors[this.index];
-        //     // if (!this.justDestructed && dtor) {
-        //     //     dtor.createRuntimeConstruct(this);
-        //     //     this.sim.push(dtor);
-        //     //     this.justDestructed = true;
-        //     // }
-        //     // else {
-        //         this.sim.memory.deallocateTemporaryObject(this.model.temporaryObjects[this.index].runtimeLookup(this.parent));
-        //         ++this.index;
-        //         // this.justDestructed = false;
-        //     // }
-        // }
-        // else{
-        this.startCleanup();
-        // }
-    }
-
-    public stepForwardImpl() {
-
-    }
-}
 
 // TODO: FakeConstruct and FakeDeclaration are never used
 // var FakeConstruct = Class.extend({
@@ -865,3 +791,5 @@ export class RuntimeGlobalObjectAllocator extends RuntimeConstruct<CompiledGloba
         return false;
     }
 }
+
+

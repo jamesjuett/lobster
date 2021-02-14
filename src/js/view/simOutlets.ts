@@ -2,14 +2,14 @@ import { Memory, MemoryFrame } from "../core/runtimeEnvironment";
 import { addListener, listenTo, MessageResponses, messageResponse, stopListeningTo, Message } from "../util/observe";
 import * as SVG from "@svgdotjs/svg.js";
 import { CPPObject, ArraySubobject, BaseSubobject, DynamicObject } from "../core/objects";
-import { AtomicType, CompleteObjectType, Char, PointerType, BoundedArrayType, ArrayElemType, Int, CompleteClassType, isCompleteClassType, isPointerType, isBoundedArrayType, ArrayPointerType, ArithmeticType, toHexadecimalString, PointerToCompleteType } from "../core/types";
+import { AtomicType, CompleteObjectType, Char, PointerType, BoundedArrayType, ArrayElemType, Int, CompleteClassType, isCompleteClassType, isPointerType, isBoundedArrayType, ArrayPointerType, ArithmeticType, toHexadecimalString, PointerToCompleteType, isArrayPointerType, isArrayPointerToType } from "../core/types";
 import { Mutable, assert, isInstance, asMutable } from "../util/util";
 import { Simulation, SimulationInputStream, SimulationOutputKind, SimulationEvent } from "../core/Simulation";
 import { RuntimeConstruct } from "../core/constructs";
 import { ProjectEditor, CompilationOutlet, CompilationStatusOutlet } from "./editors";
 import { AsynchronousSimulationRunner, SynchronousSimulationRunner, asyncCloneSimulation, synchronousCloneSimulation } from "../core/simulationRunners";
 import { BoundReferenceEntity, UnboundReferenceEntity, NamedEntity, PassByReferenceParameterEntity, PassByValueParameterEntity, MemberReferenceEntity } from "../core/entities";
-import { FunctionOutlet, ConstructOutlet, FunctionCallOutlet, getValueString } from "./codeOutlets";
+import { FunctionOutlet, ConstructOutlet, FunctionCallOutlet, getValueString, cstringToString } from "./codeOutlets";
 import { RuntimeFunctionIdentifierExpression } from "../core/expressions";
 import { RuntimeDirectInitializer } from "../core/initializers";
 import { RuntimeExpression } from "../core/expressionBase";
@@ -518,7 +518,8 @@ export class SimulationOutlet {
         this.leaveBreadcrumb();
         
         // this.sim.speed = 1;
-        await this.simRunner!.stepToEnd();
+        await this.simRunner!.stepToEndOfMain();
+        this.pause();
 
 
         //RuntimeConstruct.prototype.silent = false;
@@ -1042,28 +1043,34 @@ class SVGPointerArrowMemoryOverlay extends SVGMemoryOverlay {
             return false;
         }
 
-        let targetObject: CPPObject | undefined;
+        let pointerElem = this.memoryOutlet.getObjectOutletById(this.object.objectId)?.objElem;
+
+        let targetElem: JQuery | undefined
         if (this.object.type.isArrayPointerType()) {
-            targetObject = this.object.type.arrayObject;
+            let targetIndex = this.object.type.toIndex(this.object.rawValue());
+            let arr = this.object.type.arrayObject;
+            let numElems = arr.type.numElems;
+            let arrOutlet = <ArrayMemoryObjectOutlet | undefined>this.memoryOutlet.getObjectOutletById(arr.objectId);
+            if (0 <= targetIndex && targetIndex < numElems) {
+                targetElem = arrOutlet?.elemOutlets[targetIndex].objElem;
+            }
+            else if (targetIndex === numElems) {
+                targetElem = arrOutlet?.onePast;
+            }
         }
         else if (this.object.type.isObjectPointerType()) {
-            targetObject = this.object.type.getPointedObject();
+            let targetObject = this.object.type.getPointedObject();
+            if (targetObject && targetObject.isAlive) {
+                targetElem = this.memoryOutlet.getObjectOutletById(targetObject.objectId)?.objElem;
+            }
         }
 
-        if (!targetObject || !targetObject.isAlive) {
+        if (!pointerElem || !targetElem) {
             this.line.hide();
             return true;
         }
 
-        let pointerOutlet = this.memoryOutlet.getObjectOutletById(this.object.objectId);
-        let targetOutlet = this.memoryOutlet.getObjectOutletById(targetObject.objectId);
-
-        if (!pointerOutlet || !targetOutlet) {
-            this.line.hide();
-            return true;
-        }
-
-        let {startOffset, endOffset} = this.getPointerArrowOffsets(pointerOutlet, targetOutlet);
+        let {startOffset, endOffset} = this.getPointerArrowOffsets(pointerElem, targetElem);
 
         this.line.plot(startOffset.left, startOffset.top, endOffset.left, endOffset.top);
         // this.line.marker("start", this.memoryOutlet.SVG_DEFS.arrowStart);
@@ -1073,21 +1080,21 @@ class SVGPointerArrowMemoryOverlay extends SVGMemoryOverlay {
         return true;
     }
 
-    private getPointerArrowOffsets(pointerOutlet: MemoryObjectOutlet, targetOutlet: MemoryObjectOutlet) {
+    private getPointerArrowOffsets(pointerElem: JQuery, targetElem: JQuery) {
         
-        let endOffset = targetOutlet.objElem.offset()!;
-        endOffset.left += targetOutlet.objElem.outerWidth()!/2;
-        //endOffset.top += targetOutlet.objElem.outerHeight();
+        let endOffset = targetElem.offset()!;
+        endOffset.left += targetElem.outerWidth()!/2;
+        //endOffset.top += targetElem.outerHeight();
 
-        let startOffset = pointerOutlet.objElem.offset()!;
-        startOffset.left += pointerOutlet.objElem.outerWidth()!/2;
+        let startOffset = pointerElem.offset()!;
+        startOffset.left += pointerElem.outerWidth()!/2;
 
         // If start is below end (greater offset), we move top of end to bottom.
-        if (startOffset.top > endOffset.top && targetOutlet) {
-            endOffset.top += targetOutlet.objElem.outerHeight()!;
+        if (startOffset.top > endOffset.top) {
+            endOffset.top += targetElem.outerHeight()!;
         }
         else{
-            startOffset.top += pointerOutlet.objElem.outerHeight()!;
+            startOffset.top += pointerElem.outerHeight()!;
         }
 
         let svgElemOffset = this.memoryOutlet.svgElem.offset()!;
@@ -1512,7 +1519,8 @@ export class ArrayMemoryObjectOutlet<T extends ArrayElemType = ArrayElemType> ex
 
     public readonly objElem : JQuery;
 
-    private readonly elemOutlets: MemoryObjectOutlet[];
+    public readonly elemOutlets: MemoryObjectOutlet[];
+    public readonly onePast: JQuery;
 
     public constructor(element: JQuery, object: CPPObject<BoundedArrayType<T>>, memoryOutlet: MemoryOutlet) {
         super(element, object, memoryOutlet);
@@ -1533,19 +1541,14 @@ export class ArrayMemoryObjectOutlet<T extends ArrayElemType = ArrayElemType> ex
             else{
                 return new ArrayElemMemoryObjectOutlet(elemElem, <ArraySubobject<AtomicType>>elemSubobject, this.memoryOutlet);
             }
-
-            // 2D array
-            // if (isA(this.object.type.elemType, Types.Array)) {
-            //     this.objElem.append("<br />");
-            // }
-            //else{
-            //    this.objElem.append("<br />");
-            //}
-//            if (i % 10 == 9) {
-//                this.objElem.append("<br />");
-            // }
         });
-
+        
+        this.onePast = $(`
+        <div style="display: inline-block; margin-bottom: 5px; text-align: center" class="arrayElem">
+            <div class="code-memoryObject array"><span class="code-memoryObject-object" style="border-style: dashed;border-color: #7c3a3a;">&nbsp;</span></div>
+            <div style="line-height: 1ch;font-size: 6pt;color: #c50000;">${this.object.type.numElems}</div>
+        </div>`).appendTo(this.objElem);
+ 
         this.updateObject();
         this.element.append(this.objElem);
     }
@@ -1723,7 +1726,8 @@ export class StringMemoryObject<T extends CompleteClassType> extends MemoryObjec
 
     protected updateObject() {
         var elem = this.objElem;
-        var str = getValueString((<CPPObject<PointerType<Char>>>this.object.getMemberObject("data_ptr")).getValue());
+        let dataPtrVal = (<CPPObject<PointerType<Char>>>this.object.getMemberObject("data_ptr")).getValue();
+        var str = dataPtrVal.isTyped(isArrayPointerToType(Char)) ? cstringToString(dataPtrVal) : getValueString(dataPtrVal);
         if (this.object.type.isType(Char)) {
             str = str.substr(1,str.length-2);
         }

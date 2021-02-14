@@ -217,6 +217,10 @@ abstract class TypeBase {
         return this instanceof ReferenceType;
     }
 
+    public isReferenceToCompleteType(): this is ReferenceToCompleteType {
+        return this.isReferenceType() && this.refTo.isCompleteObjectType();
+    }
+
     public isPotentiallyCompleteClassType(): this is PotentiallyCompleteClassType {
         return this instanceof ClassTypeBase;
     }
@@ -237,7 +241,7 @@ abstract class TypeBase {
         return this instanceof ArrayOfUnknownBoundType;
     }
 
-    public isPotentiallyCompleteArrayType(): this is BoundedArrayType | ArrayOfUnknownBoundType {
+    public isPotentiallyCompleteArrayType(): this is PotentiallyCompleteArrayType {
         return this instanceof BoundedArrayType || this instanceof ArrayOfUnknownBoundType;
     }
 
@@ -390,7 +394,6 @@ abstract class TypeBase {
      */
     public abstract _cvQualifiedImpl(isConst: boolean, isVolatile: boolean): TypeBase;
 
-    public abstract areLValuesAssignable(): boolean;
 };
 
 
@@ -445,6 +448,10 @@ export function isReferenceType(type: Type): type is ReferenceType {
     return type.isReferenceType();
 }
 
+export function isReferenceToCompleteType(type: Type): type is ReferenceToCompleteType {
+    return type.isReferenceToCompleteType();
+}
+
 export function isPotentiallyCompleteClassType(type: Type): type is PotentiallyCompleteClassType {
     return type.isPotentiallyCompleteClassType();
 }
@@ -457,11 +464,16 @@ export function isBoundedArrayType(type: Type): type is BoundedArrayType {
     return type.isBoundedArrayType();
 }
 
+export function isBoundedArrayOfType<T extends ArrayElemType>(typePredicate: (type: Type)=> type is T): (type: Type) => type is BoundedArrayType<T> {
+    return <(type: Type) => type is BoundedArrayType<T>>
+            ((type:Type) => !!(type.isBoundedArrayType() && typePredicate(type.elemType)));
+}
+
 export function isArrayOfUnknownBoundType(type: Type): type is ArrayOfUnknownBoundType {
     return type.isArrayOfUnknownBoundType();
 }
 
-export function isGenericArrayType(type: Type): type is BoundedArrayType | ArrayOfUnknownBoundType {
+export function isPotentiallyCompleteArrayType(type: Type): type is PotentiallyCompleteArrayType {
     return type.isPotentiallyCompleteArrayType();
 }
 
@@ -548,7 +560,7 @@ export type Type = VoidType | CompleteObjectType | IncompleteClassType | Functio
 
 export type ExpressionType = Exclude<Type, ReferenceType>;
 
-export type PotentiallyCompleteObjectType = AtomicType | BoundedArrayType | ArrayOfUnknownBoundType | PotentiallyCompleteClassType;
+export type PotentiallyCompleteObjectType = AtomicType | PotentiallyCompleteArrayType | PotentiallyCompleteClassType;
 export type IncompleteObjectType = ArrayOfUnknownBoundType | IncompleteClassType;
 export type CompleteObjectType = AtomicType | BoundedArrayType | CompleteClassType;
 
@@ -593,9 +605,6 @@ export class VoidType extends TypeBase {
         return new VoidType(isConst, isVolatile);
     }
 
-    public areLValuesAssignable() {
-        return false;
-    }
 }
 
 
@@ -627,17 +636,19 @@ export class VoidType extends TypeBase {
 //         return new VoidType(isConst, isVolatile);
 //     }
 
-//     public areLValuesAssignable() {
-//         return true;
-//     }
 // }
 
 /**
  * Represents a type for an object that exists in memory and takes up some space.
  * Has a size property, but NOT necessarily a value. (e.g. an array).
  */
-export abstract class ObjectTypeBase extends TypeBase {
-    public abstract readonly size: number;
+export interface ObjectTypeInterface {
+    readonly size: number;
+
+    isDefaultConstructible(userDefinedOnly?: boolean): boolean;
+    isCopyConstructible(requireConstSource: boolean): boolean;
+    isCopyAssignable(requireConstSource: boolean): boolean;
+    isDestructible(): boolean;
     
     // public abstract isComplete(context?: TranslationUnitContext) : this is CompleteObjectType;
 }
@@ -651,7 +662,13 @@ export type Completed<T extends PotentiallyCompleteObjectType> =
 /**
  * Represents a type for an object that has a value.
  */
-abstract class ValueType extends ObjectTypeBase {
+abstract class ValueType extends TypeBase implements ObjectTypeInterface {
+
+    public abstract size: number;
+    public abstract isDefaultConstructible(userDefinedOnly?: boolean): boolean;
+    public abstract isCopyConstructible(requireConstSource: boolean): boolean;
+    public abstract isCopyAssignable(requireConstSource: boolean): boolean;
+    public abstract isDestructible(): boolean;
 
     /**
      * Converts a sequence of bytes (i.e. the C++ object representation) of a value of
@@ -672,7 +689,7 @@ abstract class ValueType extends ObjectTypeBase {
         var bytes = [];
         // HACK: store the whole value in the first byte and zero out the rest. thanks javascript :)
         bytes[0] = value;
-        for (var i = 1; i < this.size - 1; ++i) {
+        for (var i = 1; i < this.size; ++i) {
             bytes.push(0);
         }
         return <byte[]>bytes;
@@ -709,9 +726,6 @@ abstract class ValueType extends ObjectTypeBase {
         return this.valueToString(value);
     }
 
-    public areLValuesAssignable() {
-        return true;
-    }
 }
 
 
@@ -722,6 +736,14 @@ export abstract class AtomicType extends ValueType {
 
     public isDefaultConstructible(userDefinedOnly = false) {
         return !userDefinedOnly;
+    }
+
+    public isCopyConstructible() {
+        return true;
+    }
+
+    public isCopyAssignable() {
+        return !this.isConst;
     }
 
     public isDestructible() {
@@ -1190,10 +1212,9 @@ export class ReferenceType<RefTo extends PotentiallyCompleteObjectType = Potenti
         return new ReferenceType(this.refTo);
     }
 
-    public areLValuesAssignable() {
-        return false;
-    }
 }
+
+export type ReferenceToCompleteType = ReferenceType<CompleteObjectType>;
 
 export type ReferredType<T extends ReferenceType> = T["refTo"];
 
@@ -1220,14 +1241,14 @@ export type ArrayElemType = AtomicType | CompleteClassType;
 // Represents the type of an array. This is not an ObjectType because an array does
 // not have a value that can be read/written. The Elem_type type parameter must be
 // an AtomicType or ClassType. (Note that this rules out arrays of arrays, which are currently not supported.)
-export class BoundedArrayType<Elem_type extends ArrayElemType = ArrayElemType> extends ObjectTypeBase {
+export class BoundedArrayType<Elem_type extends ArrayElemType = ArrayElemType> extends TypeBase implements ObjectTypeInterface {
 
     public readonly size: number;
 
     public readonly precedence = 2;
 
     public readonly elemType: Elem_type;
-    public readonly length: number;
+    public readonly numElems: number;
 
     public constructor(elemType: Elem_type, length: number) {
 
@@ -1235,7 +1256,7 @@ export class BoundedArrayType<Elem_type extends ArrayElemType = ArrayElemType> e
         super(false, false);
 
         this.elemType = elemType;
-        this.length = length;
+        this.numElems = length;
         this.size = elemType.size * length;
     }
 
@@ -1254,23 +1275,23 @@ export class BoundedArrayType<Elem_type extends ArrayElemType = ArrayElemType> e
     }
 
     public sameType(other: Type): boolean {
-        return other instanceof BoundedArrayType && this.elemType.sameType(other.elemType) && this.length === other.length;
+        return other instanceof BoundedArrayType && this.elemType.sameType(other.elemType) && this.numElems === other.numElems;
     }
 
     public similarType(other: Type): boolean {
-        return other instanceof BoundedArrayType && this.elemType.similarType(other.elemType) && this.length === other.length;
+        return other instanceof BoundedArrayType && this.elemType.similarType(other.elemType) && this.numElems === other.numElems;
     }
 
     public typeString(excludeBase: boolean, varname: string, decorated: boolean) {
-        return this.elemType.typeString(excludeBase, varname + "[" + this.length + "]", decorated);
+        return this.elemType.typeString(excludeBase, varname + "[" + this.numElems + "]", decorated);
     }
 
     public englishString(plural: boolean) {
-        return (plural ? "arrays of " : "an array of ") + this.length + " " + this.elemType.englishString(this.length > 1);
+        return (plural ? "arrays of " : "an array of ") + this.numElems + " " + this.elemType.englishString(this.numElems > 1);
     }
 
     public _cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
-        return new BoundedArrayType(this.elemType, this.length); // Note arrays don't have cv qualifications so they are ignored here
+        return new BoundedArrayType(this.elemType, this.numElems); // Note arrays don't have cv qualifications so they are ignored here
     }
 
     public adjustToPointerType() {
@@ -1296,13 +1317,17 @@ export class BoundedArrayType<Elem_type extends ArrayElemType = ArrayElemType> e
     //     //     (elem: RawValueType) => { return this.elemType.valueToBytes(elem); }
     //     // ));
     // }
-
-    public areLValuesAssignable() {
-        return false;
-    }
     
     public isDefaultConstructible(userDefinedOnly = false) {
         return this.elemType.isDefaultConstructible(userDefinedOnly);
+    }
+    
+    public isCopyConstructible(requireConstSource: boolean) {
+        return this.elemType.isCopyConstructible(requireConstSource);
+    }
+    
+    public isCopyAssignable(requireConstSource: boolean) {
+        return this.elemType.isCopyAssignable(requireConstSource);
     }
     
     public isDestructible() {
@@ -1356,11 +1381,10 @@ export class ArrayOfUnknownBoundType<Elem_type extends ArrayElemType = ArrayElem
     public adjustToPointerType() {
         return new PointerType(this.elemType, false, false);
     }
-
-    public areLValuesAssignable() {
-        return false;
-    }
+    
 }
+
+export type PotentiallyCompleteArrayType = BoundedArrayType | ArrayOfUnknownBoundType;
 
 // TODO: Add a type for an incomplete class
 
@@ -1379,7 +1403,7 @@ interface ClassShared {
 }
 
 
-class ClassTypeBase extends TypeBase {
+class ClassTypeBase extends TypeBase implements Omit<ObjectTypeInterface, "size"> {
 
     public readonly precedence: number = 0;
     public readonly className: string = "";
@@ -1477,14 +1501,19 @@ class ClassTypeBase extends TypeBase {
     public _cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new ClassTypeBase(this.classId, this.className, this.shared, isConst, isVolatile);
     }
-
-    public areLValuesAssignable() {
-        return false;
-    }
     
     public isDefaultConstructible(this: CompleteClassType, userDefinedOnly = false) {
         let defaultCtor = this.classDefinition.defaultConstructor;
         return !!defaultCtor && (!userDefinedOnly || defaultCtor.isUserDefined);
+    }
+    
+    public isCopyConstructible(this: CompleteClassType, requireConstSource: boolean) {
+        return !!this.classDefinition.constCopyConstructor
+                || !requireConstSource && !!this.classDefinition.nonConstCopyConstructor;
+    }
+    
+    public isCopyAssignable(this: CompleteClassType, requireConstSource: boolean) {
+        return !!this.classDefinition.lookupAssignmentOperator(requireConstSource, this.isConst);
     }
     
     public isDestructible(this: CompleteClassType) {
@@ -1528,7 +1557,7 @@ export interface IncompleteClassType extends ClassTypeBase {
     readonly t_isComplete: false;
 }
 
-export interface CompleteClassType extends ClassTypeBase {
+export interface CompleteClassType extends ClassTypeBase, ObjectTypeInterface {
     
     /** DO NOT USE. Exists only to ensure CompleteClassType is not structurally assignable to CompleteClassType */
     readonly t_isComplete: true;
@@ -1538,6 +1567,8 @@ export interface CompleteClassType extends ClassTypeBase {
     readonly classScope: ClassScope;
 
     isDefaultConstructible(userDefinedOnly?: boolean): boolean;
+    isCopyConstructible(requireConstSource: boolean): boolean;
+    isCopyAssignable(requireConstSource: boolean): boolean;
     isDestructible(): boolean;
 }
 
@@ -1886,9 +1917,6 @@ export class FunctionType<ReturnType extends PotentialReturnType = PotentialRetu
             (plural ? "and return " : "and returns ") + this.returnType.englishString(false);
     }
 
-    public areLValuesAssignable() {
-        return false;
-    }
 }
 
 const builtInTypeNames = new Set(["char", "int", "size_t", "bool", "float", "double", "void"]);
