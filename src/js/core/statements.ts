@@ -504,7 +504,7 @@ export class RuntimeReturnStatement extends RuntimeStatement<CompiledReturnState
         if (this.index === RuntimeReturnStatementIndices.RETURN) {
             let func = this.containingRuntimeFunction;
             this.observable.send("returned", { call: func.caller })
-            this.sim.popUntil(func);
+            this.sim.startCleanupUntil(func);
         }
     }
 }
@@ -530,7 +530,7 @@ export class Block extends Statement<BlockASTNode> {
         super(context, ast);
         this.attachAll(this.statements = statements);
 
-        this.attach(this.localDeallocator = new LocalDeallocator(context)); 
+        this.attach(this.localDeallocator = new LocalDeallocator(context));
     }
 
     public isBlock(): this is Block {
@@ -588,15 +588,13 @@ export class RuntimeBlock extends RuntimeStatement<CompiledBlock> {
         super(model, parent);
         this.statements = model.statements.map((stmt) => createRuntimeStatement(stmt, this));
         this.localDeallocator = model.localDeallocator.createRuntimeConstruct(this);
+        this.setCleanupConstruct(this.localDeallocator);
     }
 
     protected upNextImpl() {
         if (this.index < this.statements.length) {
             this.observable.send("index", this.index);
             this.sim.push(this.statements[this.index++]);
-        }
-        else if (!this.localDeallocator.isDone) {
-            this.sim.push(this.localDeallocator);
         }
         else {
             this.startCleanup();

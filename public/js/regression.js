@@ -43798,6 +43798,10 @@ class Simulation {
             this.pop();
         }
     }
+    startCleanupUntil(rt) {
+        let toCleanUp = this._execStack.slice(this._execStack.indexOf(rt) + 1);
+        toCleanUp.forEach(rt => rt.startCleanup());
+    }
     topFunction() {
         for (let i = this.execStack.length - 1; i >= 0; --i) {
             let runtimeConstruct = this.execStack[i];
@@ -55431,7 +55435,7 @@ class RuntimeReturnStatement extends RuntimeStatement {
         if (this.index === RuntimeReturnStatementIndices.RETURN) {
             let func = this.containingRuntimeFunction;
             this.observable.send("returned", { call: func.caller });
-            this.sim.popUntil(func);
+            this.sim.startCleanupUntil(func);
         }
     }
 }
@@ -55462,14 +55466,12 @@ class RuntimeBlock extends RuntimeStatement {
         this.index = 0;
         this.statements = model.statements.map((stmt) => createRuntimeStatement(stmt, this));
         this.localDeallocator = model.localDeallocator.createRuntimeConstruct(this);
+        this.setCleanupConstruct(this.localDeallocator);
     }
     upNextImpl() {
         if (this.index < this.statements.length) {
             this.observable.send("index", this.index);
             this.sim.push(this.statements[this.index++]);
-        }
-        else if (!this.localDeallocator.isDone) {
-            this.sim.push(this.localDeallocator);
         }
         else {
             this.startCleanup();
