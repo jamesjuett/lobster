@@ -27,6 +27,7 @@ export class FunctionCall extends PotentialFullExpression {
     public readonly argInitializers?: readonly DirectInitializer[];
 
     public readonly returnByValueTarget?: TemporaryObjectEntity;
+    
     /**
      * A FunctionEntity must be provided to specify which function is being called. The
      * return type of that function must be complete (if it's not, such a function call

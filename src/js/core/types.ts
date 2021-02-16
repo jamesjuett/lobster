@@ -104,6 +104,10 @@ export function referenceCompatible(from: ExpressionType, to: ReferenceType) {
     return from && to && from.isReferenceCompatible(to);
 };
 
+export function referenceRelated(from: ExpressionType, to: ReferenceType) {
+    return from && to && from.isReferenceRelated(to);
+};
+
 export function isCvConvertible(fromType: Type | null, toType: Type | null) {
 
     if (fromType === null || toType === null) { return false; }

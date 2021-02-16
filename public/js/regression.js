@@ -47918,6 +47918,9 @@ exports.CPPError = {
             referenceType: function (construct, from, to) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.referenceType", "A reference (of type " + to + ") cannot be bound to an object of a different type (" + from + ").");
             },
+            referenceConstness: function (construct, from, to) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.referenceConstness", "A reference (of type " + to + ") cannot be bound to an object of type (" + from + "), since the reference would not preserve the original const protections.");
+            },
             referenceBind: function (construct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.referenceBind", "References must be bound to something when they are declared.");
             },
@@ -48039,7 +48042,7 @@ exports.CPPError = {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.type_not_assignable", `The left hand side of this expression has type ${lhsType}, which is not assignable.`);
             },
             lhs_const: function (construct) {
-                return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.lhs_const", "Left hand side of assignment is not modifiable.");
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.lhs_const", "Left hand side of assignment is const and cannot be assigned to.");
             },
             convert: function (construct, lhs, rhs) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.convert", "Cannot convert " + rhs.type + " to " + lhs.type + " in assignment.");
@@ -52665,7 +52668,15 @@ class ReferenceDirectInitializer extends DirectInitializer {
         }
         let targetType = target.type;
         if (!types_1.referenceCompatible(this.arg.type, targetType)) {
-            this.addNote(errors_1.CPPError.declaration.init.referenceType(this, this.arg.type, targetType));
+            if (types_1.referenceRelated(this.arg.type, targetType)) {
+                // If they are reference-related, the only thing preventing binding this
+                // reference was a matter of constness
+                this.addNote(errors_1.CPPError.declaration.init.referenceConstness(this, this.arg.type, targetType));
+            }
+            else {
+                // Generic error for non-reference-compatible type
+                this.addNote(errors_1.CPPError.declaration.init.referenceType(this, this.arg.type, targetType));
+            }
         }
         else if (this.arg.valueCategory === "prvalue" && !targetType.refTo.isConst) {
             this.addNote(errors_1.CPPError.declaration.init.referencePrvalueConst(this));
@@ -55812,8 +55823,8 @@ RuntimeForStatement.upNextFns = [
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.ArrayPointerType = exports.PointerType = exports.toHexadecimalString = exports.Double = exports.Float = exports.FloatingPointType = exports.Bool = exports.Size_t = exports.Int = exports.Char = exports.IntegralType = exports.ArithmeticType = exports.SimpleType = exports.AtomicType = exports.VoidType = exports.isCompleteParameterType = exports.isPotentialParameterType = exports.isCompleteReturnType = exports.isPotentialReturnType = exports.isCompleteObjectType = exports.isIncompleteObjectType = exports.isPotentiallyCompleteObjectType = exports.isVoidType = exports.isFunctionType = exports.isArrayElemType = exports.isPotentiallyCompleteArrayType = exports.isArrayOfUnknownBoundType = exports.isBoundedArrayOfType = exports.isBoundedArrayType = exports.isCompleteClassType = exports.isPotentiallyCompleteClassType = exports.isReferenceToCompleteType = exports.isReferenceType = exports.isObjectPointerType = exports.isArrayPointerToType = exports.isArrayPointerType = exports.isPointerToCompleteType = exports.isPointerToType = exports.isPointerType = exports.isFloatingPointType = exports.isIntegralType = exports.isArithmeticType = exports.isAtomicType = exports.isCvConvertible = exports.referenceCompatible = exports.covariantType = exports.subType = exports.similarType = exports.sameType = exports.isType = void 0;
-exports.builtInTypes = exports.isBuiltInTypeName = exports.FunctionType = exports.createClassType = exports.ArrayOfUnknownBoundType = exports.BoundedArrayType = exports.peelReference = exports.ReferenceType = exports.ObjectPointerType = void 0;
+exports.PointerType = exports.toHexadecimalString = exports.Double = exports.Float = exports.FloatingPointType = exports.Bool = exports.Size_t = exports.Int = exports.Char = exports.IntegralType = exports.ArithmeticType = exports.SimpleType = exports.AtomicType = exports.VoidType = exports.isCompleteParameterType = exports.isPotentialParameterType = exports.isCompleteReturnType = exports.isPotentialReturnType = exports.isCompleteObjectType = exports.isIncompleteObjectType = exports.isPotentiallyCompleteObjectType = exports.isVoidType = exports.isFunctionType = exports.isArrayElemType = exports.isPotentiallyCompleteArrayType = exports.isArrayOfUnknownBoundType = exports.isBoundedArrayOfType = exports.isBoundedArrayType = exports.isCompleteClassType = exports.isPotentiallyCompleteClassType = exports.isReferenceToCompleteType = exports.isReferenceType = exports.isObjectPointerType = exports.isArrayPointerToType = exports.isArrayPointerType = exports.isPointerToCompleteType = exports.isPointerToType = exports.isPointerType = exports.isFloatingPointType = exports.isIntegralType = exports.isArithmeticType = exports.isAtomicType = exports.isCvConvertible = exports.referenceRelated = exports.referenceCompatible = exports.covariantType = exports.subType = exports.similarType = exports.sameType = exports.isType = void 0;
+exports.builtInTypes = exports.isBuiltInTypeName = exports.FunctionType = exports.createClassType = exports.ArrayOfUnknownBoundType = exports.BoundedArrayType = exports.peelReference = exports.ReferenceType = exports.ObjectPointerType = exports.ArrayPointerType = void 0;
 const util_1 = __webpack_require__(6560);
 const runtimeEnvironment_1 = __webpack_require__(5320);
 var vowels = ["a", "e", "i", "o", "u"];
@@ -55887,6 +55898,11 @@ function referenceCompatible(from, to) {
     return from && to && from.isReferenceCompatible(to);
 }
 exports.referenceCompatible = referenceCompatible;
+;
+function referenceRelated(from, to) {
+    return from && to && from.isReferenceRelated(to);
+}
+exports.referenceRelated = referenceRelated;
 ;
 function isCvConvertible(fromType, toType) {
     if (fromType === null || toType === null) {
@@ -73546,8 +73562,9 @@ $(() => {
             filesElem.toggle();
         });
         programElem.append(showFilesButton);
-        for (var name in test.program.sourceFiles) {
-            var sourceFile = test.program.sourceFiles[name];
+        for (let tuName in test.program.translationUnits) {
+            var sourceFile = test.program.sourceFiles[tuName];
+            test.program.translationUnits;
             filesElem.append(sourceFile.name + "\n" + sourceFile.text);
         }
         programElem.append(filesElem);
@@ -73715,6 +73732,73 @@ int main() {
   strcpy(big, "hey");
   
   assert(strs_equal(big, "hey"));
+}`, [
+        new verifiers_1.NoErrorsNoWarningsVerifier(),
+        new verifiers_1.NoBadRuntimeEventsVerifier(true)
+    ]);
+    // ---------- Basic Reference Test ----------
+    new verifiers_1.SingleTranslationUnitTest("Basic Reference Test", `int main() {
+  int x = 3;
+  int &y = x;
+  assert(y == 3);
+  x = 10;
+  assert(y == 10);
+  y = 5;
+  assert(x == 5); 
+}`, [
+        new verifiers_1.NoErrorsNoWarningsVerifier(),
+        new verifiers_1.NoBadRuntimeEventsVerifier(true)
+    ]);
+    // ---------- Const Reference Test ----------
+    new verifiers_1.SingleTranslationUnitTest("Const Reference Test", `int main() {
+  int x;
+  int &rx = x;
+  const int &crx = x;
+  rx = 10;
+  crx = 10;
+  rx = crx;
+  crx = rx;
+  
+  const int y;
+  int &ry = y;
+  const int &cry = y;
+  ry = 10;
+  cry = 10;
+  ry = cry;
+  cry = ry;
+  
+  rx = ry;
+  rx = cry;
+  crx = ry;
+  crx = cry;
+  
+  ry = rx;
+  ry = crx;
+  cry = rx;
+  cry = crx;
+}
+`, [
+        new verifiers_1.NoteVerifier([
+            { line: 6, id: "expr.assignment.lhs_const" },
+            { line: 8, id: "expr.assignment.lhs_const" },
+            { line: 11, id: "declaration.init.referenceConstness" },
+            { line: 14, id: "expr.assignment.lhs_const" },
+            { line: 16, id: "expr.assignment.lhs_const" },
+            { line: 20, id: "expr.assignment.lhs_const" },
+            { line: 21, id: "expr.assignment.lhs_const" },
+            { line: 25, id: "expr.assignment.lhs_const" },
+            { line: 26, id: "expr.assignment.lhs_const" },
+        ])
+    ]);
+    // ---------- Basic Reference Test ----------
+    new verifiers_1.SingleTranslationUnitTest("Basic Reference Test", `int main() {
+  int x = 3;
+  int &y = x;
+  assert(y == 3);
+  x = 10;
+  assert(y == 10);
+  y = 5;
+  assert(x == 5); 
 }`, [
         new verifiers_1.NoErrorsNoWarningsVerifier(),
         new verifiers_1.NoBadRuntimeEventsVerifier(true)
@@ -73921,23 +74005,23 @@ int main() {
     assert(i3_ptr == &i3);
   
     // Function call with function pointer
-    int (*func_ptr)(int, int&, int*) = func;
-    int (*func_ptr2)(int, int&, int*) = &func;
-    int (*func_ptr3)(int, int&, int*) = *func;
-    i1 = i2 = i3 = 5;
-    func_ptr(i1, i2, i3_ptr);
-    assert(i1 == 5);
-    assert(i2 == 2);
-    assert(i3 == 2);
-    assert(i4 == 2);
-    assert(i3_ptr == &i3);
-    i1 = i2 = i3 = 5;
-    (*func_ptr)(i1, i2, i3_ptr);
-    assert(i1 == 5);
-    assert(i2 == 2);
-    assert(i3 == 2);
-    assert(i4 == 2);
-    assert(i3_ptr == &i3);
+    // int (*func_ptr)(int, int&, int*) = func;
+    // int (*func_ptr2)(int, int&, int*) = &func;
+    // int (*func_ptr3)(int, int&, int*) = *func;
+    // i1 = i2 = i3 = 5;
+    // func_ptr(i1, i2, i3_ptr);
+    // assert(i1 == 5);
+    // assert(i2 == 2);
+    // assert(i3 == 2);
+    // assert(i4 == 2);
+    // assert(i3_ptr == &i3);
+    // i1 = i2 = i3 = 5;
+    // (*func_ptr)(i1, i2, i3_ptr);
+    // assert(i1 == 5);
+    // assert(i2 == 2);
+    // assert(i3 == 2);
+    // assert(i4 == 2);
+    // assert(i3_ptr == &i3);
   
     // Member access with . and ->
     TestClass j;
@@ -73996,13 +74080,13 @@ int main() {
     assert(p == 10);
   
     // new/delete/delete[]
-    int *q1 = new int(3);
-    double *q2 = new double(4.5);
-    double **q3 = new (double*)(q2);
+    // int *q1 = new int(3);
+    // double *q2 = new double(4.5);
+    // double **q3 = new (double*)(q2);
   
-    delete q1;
-    delete *q3;
-    delete q3;
+    // delete q1;
+    // delete *q3;
+    // delete q3;
   }`, [
         new verifiers_1.NoErrorsNoWarningsVerifier(),
         new verifiers_1.NoBadRuntimeEventsVerifier(true)

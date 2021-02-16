@@ -112,9 +112,9 @@ export class TemporaryDeallocator extends BasicCPPConstruct<TranslationUnitConte
             if (temp.isTyped(isCompleteClassType)) {
                 let dtor = temp.type.classDefinition.destructor;
                 if (dtor) {
-                    // let dtorCall = new FunctionCall(context, dtor, [], temp.type);
-                    // this.attach(dtorCall);
-                    // return dtorCall;
+                    let dtorCall = new FunctionCall(context, dtor, [], temp.type);
+                    this.attach(dtorCall);
+                    return dtorCall;
                 }
                 else{
                     this.addNote(CPPError.declaration.dtor.no_destructor_temporary(temp.owner, temp));
