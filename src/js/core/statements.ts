@@ -11,8 +11,7 @@ import { StatementOutlet, ConstructOutlet, ExpressionStatementOutlet, NullStatem
 import { RuntimeFunction } from "./functions";
 import { Predicates } from "./predicates";
 import { Value } from "./runtimeEnvironment";
-import { RuntimePotentialFullExpression } from "./PotentialFullExpression";
-import { CompiledFunctionCall, FunctionCall } from "./functionCall";
+import { CompiledFunctionCall, FunctionCall, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { AutoObject } from "./objects";
 
 export type StatementASTNode =

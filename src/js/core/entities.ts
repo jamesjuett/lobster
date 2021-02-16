@@ -2,7 +2,7 @@ import { PotentialParameterType, Type, CompleteObjectType, sameType, ReferenceTy
 import { assert, Mutable, unescapeString, assertFalse, asMutable, assertNever } from "../util/util";
 import { Observable } from "../util/observe";
 import { RuntimeConstruct, isClassContext } from "./constructs";
-import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
+import { FunctionCall, PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { LocalVariableDefinition, ParameterDefinition, GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, ParameterDeclaration, FunctionDeclaration, ClassDefinition, FunctionDefinitionGroup, ClassDeclaration, MemberVariableDeclaration, SimpleDeclaration, CompiledClassDefinition } from "./declarations";
 import { CPPObject, AutoObject, StaticObject, StringLiteralObject, TemporaryObject, ObjectDescription, MemberSubobject, ArraySubobject, BaseSubobject } from "./objects";
 import { CPPError, CompilerNote } from "./errors";
@@ -10,7 +10,6 @@ import { Memory } from "./runtimeEnvironment";
 import { Expression } from "./expressionBase";
 import { TranslationUnit } from "./Program";
 import { RuntimeFunction } from "./functions";
-import { FunctionCall } from "./functionCall";
 
 
 

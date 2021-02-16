@@ -480,6 +480,9 @@ export const CPPError = {
             referenceType: function (construct: TranslationUnitConstruct, from: Type, to: ReferenceType) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.referenceType", "A reference (of type " + to + ") cannot be bound to an object of a different type (" + from + ").");
             },
+            referenceConstness: function (construct: TranslationUnitConstruct, from: Type, to: ReferenceType) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.referenceConstness", "A reference (of type " + to + ") cannot be bound to an object of type (" + from + "), since the reference would not preserve the original const protections.");
+            },
             referenceBind: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.referenceBind", "References must be bound to something when they are declared.");
             },
@@ -607,7 +610,7 @@ export const CPPError = {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.type_not_assignable", `The left hand side of this expression has type ${lhsType}, which is not assignable.`);
             },
             lhs_const: function (construct: TranslationUnitConstruct) {
-                return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.lhs_const", "Left hand side of assignment is not modifiable.");
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.lhs_const", "Left hand side of assignment is const and cannot be assigned to.");
             },
             convert: function (construct: TranslationUnitConstruct, lhs: TypedExpression, rhs: TypedExpression) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.convert", "Cannot convert " + rhs.type + " to " + lhs.type + " in assignment.");

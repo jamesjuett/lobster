@@ -14,7 +14,6 @@ import { RuntimeFunctionIdentifierExpression } from "../core/expressions";
 import { RuntimeDirectInitializer } from "../core/initializers";
 import { RuntimeExpression } from "../core/expressionBase";
 import { RuntimeFunction } from "../core/functions";
-import { RuntimeFunctionCall, INDEX_FUNCTION_CALL_CALL } from "../core/functionCall";
 import { Exercise, Project } from "../core/Project";
 
 const FADE_DURATION = 300;
