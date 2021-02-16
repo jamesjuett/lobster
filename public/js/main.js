@@ -50707,6 +50707,9 @@ exports.CPPError = {
             referenceType: function (construct, from, to) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.referenceType", "A reference (of type " + to + ") cannot be bound to an object of a different type (" + from + ").");
             },
+            referenceConstness: function (construct, from, to) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.referenceConstness", "A reference (of type " + to + ") cannot be bound to an object of type (" + from + "), since the reference would not preserve the original const protections.");
+            },
             referenceBind: function (construct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.referenceBind", "References must be bound to something when they are declared.");
             },
@@ -50828,7 +50831,7 @@ exports.CPPError = {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.type_not_assignable", `The left hand side of this expression has type ${lhsType}, which is not assignable.`);
             },
             lhs_const: function (construct) {
-                return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.lhs_const", "Left hand side of assignment is not modifiable.");
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.lhs_const", "Left hand side of assignment is const and cannot be assigned to.");
             },
             convert: function (construct, lhs, rhs) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.convert", "Cannot convert " + rhs.type + " to " + lhs.type + " in assignment.");
@@ -55454,7 +55457,15 @@ class ReferenceDirectInitializer extends DirectInitializer {
         }
         let targetType = target.type;
         if (!types_1.referenceCompatible(this.arg.type, targetType)) {
-            this.addNote(errors_1.CPPError.declaration.init.referenceType(this, this.arg.type, targetType));
+            if (types_1.referenceRelated(this.arg.type, targetType)) {
+                // If they are reference-related, the only thing preventing binding this
+                // reference was a matter of constness
+                this.addNote(errors_1.CPPError.declaration.init.referenceConstness(this, this.arg.type, targetType));
+            }
+            else {
+                // Generic error for non-reference-compatible type
+                this.addNote(errors_1.CPPError.declaration.init.referenceType(this, this.arg.type, targetType));
+            }
         }
         else if (this.arg.valueCategory === "prvalue" && !targetType.refTo.isConst) {
             this.addNote(errors_1.CPPError.declaration.init.referencePrvalueConst(this));
@@ -58601,8 +58612,8 @@ RuntimeForStatement.upNextFns = [
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.ArrayPointerType = exports.PointerType = exports.toHexadecimalString = exports.Double = exports.Float = exports.FloatingPointType = exports.Bool = exports.Size_t = exports.Int = exports.Char = exports.IntegralType = exports.ArithmeticType = exports.SimpleType = exports.AtomicType = exports.VoidType = exports.isCompleteParameterType = exports.isPotentialParameterType = exports.isCompleteReturnType = exports.isPotentialReturnType = exports.isCompleteObjectType = exports.isIncompleteObjectType = exports.isPotentiallyCompleteObjectType = exports.isVoidType = exports.isFunctionType = exports.isArrayElemType = exports.isPotentiallyCompleteArrayType = exports.isArrayOfUnknownBoundType = exports.isBoundedArrayOfType = exports.isBoundedArrayType = exports.isCompleteClassType = exports.isPotentiallyCompleteClassType = exports.isReferenceToCompleteType = exports.isReferenceType = exports.isObjectPointerType = exports.isArrayPointerToType = exports.isArrayPointerType = exports.isPointerToCompleteType = exports.isPointerToType = exports.isPointerType = exports.isFloatingPointType = exports.isIntegralType = exports.isArithmeticType = exports.isAtomicType = exports.isCvConvertible = exports.referenceCompatible = exports.covariantType = exports.subType = exports.similarType = exports.sameType = exports.isType = void 0;
-exports.builtInTypes = exports.isBuiltInTypeName = exports.FunctionType = exports.createClassType = exports.ArrayOfUnknownBoundType = exports.BoundedArrayType = exports.peelReference = exports.ReferenceType = exports.ObjectPointerType = void 0;
+exports.PointerType = exports.toHexadecimalString = exports.Double = exports.Float = exports.FloatingPointType = exports.Bool = exports.Size_t = exports.Int = exports.Char = exports.IntegralType = exports.ArithmeticType = exports.SimpleType = exports.AtomicType = exports.VoidType = exports.isCompleteParameterType = exports.isPotentialParameterType = exports.isCompleteReturnType = exports.isPotentialReturnType = exports.isCompleteObjectType = exports.isIncompleteObjectType = exports.isPotentiallyCompleteObjectType = exports.isVoidType = exports.isFunctionType = exports.isArrayElemType = exports.isPotentiallyCompleteArrayType = exports.isArrayOfUnknownBoundType = exports.isBoundedArrayOfType = exports.isBoundedArrayType = exports.isCompleteClassType = exports.isPotentiallyCompleteClassType = exports.isReferenceToCompleteType = exports.isReferenceType = exports.isObjectPointerType = exports.isArrayPointerToType = exports.isArrayPointerType = exports.isPointerToCompleteType = exports.isPointerToType = exports.isPointerType = exports.isFloatingPointType = exports.isIntegralType = exports.isArithmeticType = exports.isAtomicType = exports.isCvConvertible = exports.referenceRelated = exports.referenceCompatible = exports.covariantType = exports.subType = exports.similarType = exports.sameType = exports.isType = void 0;
+exports.builtInTypes = exports.isBuiltInTypeName = exports.FunctionType = exports.createClassType = exports.ArrayOfUnknownBoundType = exports.BoundedArrayType = exports.peelReference = exports.ReferenceType = exports.ObjectPointerType = exports.ArrayPointerType = void 0;
 const util_1 = __webpack_require__(6560);
 const runtimeEnvironment_1 = __webpack_require__(5320);
 var vowels = ["a", "e", "i", "o", "u"];
@@ -58676,6 +58687,11 @@ function referenceCompatible(from, to) {
     return from && to && from.isReferenceCompatible(to);
 }
 exports.referenceCompatible = referenceCompatible;
+;
+function referenceRelated(from, to) {
+    return from && to && from.isReferenceRelated(to);
+}
+exports.referenceRelated = referenceRelated;
 ;
 function isCvConvertible(fromType, toType) {
     if (fromType === null || toType === null) {

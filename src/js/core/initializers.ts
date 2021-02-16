@@ -2,7 +2,7 @@ import { ASTNode, SuccessfullyCompiled, TranslationUnitContext, RuntimeConstruct
 import { CompiledTemporaryDeallocator, PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { ExpressionASTNode, StringLiteralExpression, CompiledStringLiteralExpression, RuntimeStringLiteralExpression, createRuntimeExpression, standardConversion, overloadResolution, createExpressionFromAST, InitializerListExpressionASTNode, InitializerListExpression } from "./expressions";
 import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity, FunctionEntity, ReceiverEntity, BaseSubobjectEntity, MemberObjectEntity, ObjectEntityType, TemporaryObjectEntity } from "./entities";
-import { CompleteObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType, Char, FunctionType, VoidType, CompleteClassType, PotentiallyCompleteObjectType, ReferenceType, ReferredType } from "./types";
+import { CompleteObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType, Char, FunctionType, VoidType, CompleteClassType, PotentiallyCompleteObjectType, ReferenceType, ReferredType, isCvConvertible, referenceRelated } from "./types";
 import { assertFalse, assert, asMutable, assertNever, Mutable } from "../util/util";
 import { CPPError } from "./errors";
 import { Simulation } from "./Simulation";
@@ -435,34 +435,75 @@ export class ReferenceDirectInitializer extends DirectInitializer {
         this.target = target;
 
         assert(args.length > 0, "Direct initialization must have at least one argument. (Otherwise it should be a default initialization.)");
-        this.args = args;
-
-        // Note: It is ONLY ok to attach them all right away because no conversions are
-        // layered over the expressions for a reference initialization
-        args.forEach((a) => { this.attach(a); });
-
-        if (this.args.length > 1) {
+        
+        if (args.length > 1) {
             this.addNote(CPPError.declaration.init.referenceBindMultiple(this));
+            this.attachAll(this.args = args);
             return;
         }
-        // this.returnByValueTarget = this.createTemporaryObject(returnType, `[${this.func.name}() return]`);
-        this.arg = this.args[0];
-        if (!this.arg.isWellTyped()) {
+
+        // Below this line, we can assume only one arg
+       
+        let arg = args[0];
+        if (!arg.isWellTyped()) {
+            this.attach(this.arg = arg);
+            this.args = [arg];
             return;
         }
 
         let targetType = target.type;
-        if (!referenceCompatible(this.arg.type, targetType)) {
-            this.addNote(CPPError.declaration.init.referenceType(this, this.arg.type, targetType));
+        let isReferenceCompatible = referenceCompatible(arg.type, targetType);
+        let isReferenceRelated = referenceRelated(arg.type, targetType);
+
+        if (arg.valueCategory === "lvalue") {
+            
+            if (isReferenceCompatible) {
+                // no further checking needed
+            }
+            else {
+                if (isReferenceRelated) {
+                    // If they are reference-related, the only thing preventing binding this
+                    // reference was a matter of constness
+                    this.addNote(CPPError.declaration.init.referenceConstness(this, arg.type, targetType));
+                }
+                else {
+                    // They are not reference-related, but a conversion and temporary might allow the
+                    // binding if and only if the reference is const-qualified.
+                    // For example (consts below are all necessary):
+                    // int i = 2;
+                    // const double &dr = i; // convert to int, apply temporary materialization
+                    // const string &str = "hi"; // convert to string using ctor, apply temporary materialization
+                    if (!targetType.refTo.isConst) {
+                        // can't make non-const reference to a prvalue
+                        this.addNote(CPPError.declaration.init.referencePrvalueConst(this));
+                    }
+                    // Generic error for non-reference-compatible type
+                    // Note that user-defined conversion functions might come into play here
+                    this.addNote(CPPError.declaration.init.referenceType(this, arg.type, targetType));
+                }
+            }
         }
-        else if (this.arg.valueCategory === "prvalue" && !targetType.refTo.isConst) {
-            this.addNote(CPPError.declaration.init.referencePrvalueConst(this));
+
+        else if (arg.valueCategory === "prvalue") {
+            if (!targetType.refTo.isConst) {
+                // can't make non-const reference to a prvalue
+                this.addNote(CPPError.declaration.init.referencePrvalueConst(this));
+            }
+            else {
+                // this.returnByValueTarget = this.createTemporaryObject(returnType, `[${this.func.name}() return]`);
+
+            }
         }
-        // can't bind to a prvalue. exception is that prvalues with class type must really be temporary objects
-        // we'll allow this for now. note that the lifetimes don't get extended, which is still TODO
-        else if (this.arg.valueCategory === "prvalue" && !this.arg.type.isCompleteClassType()) {
-            this.addNote(CPPError.lobster.referencePrvalue(this));
-        }
+
+        // TODO: can't remember why this was ever here :(
+        // // can't bind to a prvalue. exception is that prvalues with class type must really be temporary objects
+        // // we'll allow this for now. note that the lifetimes don't get extended, which is still TODO
+        // else if (arg.valueCategory === "prvalue" && !arg.type.isCompleteClassType()) {
+        //     this.addNote(CPPError.lobster.referencePrvalue(this));
+        // }
+
+        this.attach(this.arg = arg);
+        this.args = [arg];
     }
 
     public createRuntimeInitializer<T extends ReferenceType<CompleteObjectType>>(this: CompiledReferenceDirectInitializer<T>, parent: RuntimeConstruct): RuntimeReferenceDirectInitializer<T>;
