@@ -6,10 +6,11 @@ import { Type, VoidType, ArrayOfUnknownBoundType, Bool, AtomicType, Int, isAtomi
 import { DiscriminateUnion } from "../util/util";
 import { AnalyticStatement } from "./statements";
 import { CPPConstruct } from "./constructs";
-import { FunctionCallExpression, FunctionCall } from "./functionCall";
+import { FunctionCallExpression } from "./FunctionCallExpression";
 import { DirectInitializer, AtomicDirectInitializer } from "./initializers";
 import { containsConstruct, findFirstConstruct } from "../analysis/analysis";
 import { VariableEntity } from "./entities";
+import { FunctionCall } from "./PotentialFullExpression";
 
 
 

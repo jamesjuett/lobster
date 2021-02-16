@@ -1,5 +1,5 @@
 import { ASTNode, SuccessfullyCompiled, TranslationUnitContext, RuntimeConstruct, CPPConstruct, ExpressionContext, BlockContext, ClassContext, MemberFunctionContext, MemberBlockContext, BasicCPPConstruct, createImplicitContext, InvalidConstruct } from "./constructs";
-import { CompiledTemporaryDeallocator, PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
+import { CompiledFunctionCall, CompiledTemporaryDeallocator, FunctionCall, PotentialFullExpression, RuntimeFunctionCall, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { ExpressionASTNode, StringLiteralExpression, CompiledStringLiteralExpression, RuntimeStringLiteralExpression, createRuntimeExpression, standardConversion, overloadResolution, createExpressionFromAST, InitializerListExpressionASTNode, InitializerListExpression } from "./expressions";
 import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity, FunctionEntity, ReceiverEntity, BaseSubobjectEntity, MemberObjectEntity, ObjectEntityType, TemporaryObjectEntity } from "./entities";
 import { CompleteObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType, Char, FunctionType, VoidType, CompleteClassType, PotentiallyCompleteObjectType, ReferenceType, ReferredType, isCvConvertible, referenceRelated } from "./types";
@@ -10,7 +10,6 @@ import { CPPObject, TemporaryObject } from "./objects";
 import { Expression, CompiledExpression, RuntimeExpression, allWellTyped } from "./expressionBase";
 import { InitializerOutlet, ConstructOutlet, AtomicDefaultInitializerOutlet, ArrayDefaultInitializerOutlet, ReferenceDirectInitializerOutlet, AtomicDirectInitializerOutlet, ReferenceCopyInitializerOutlet, AtomicCopyInitializerOutlet, ClassDefaultInitializerOutlet, ClassDirectInitializerOutlet, ClassCopyInitializerOutlet, CtorInitializerOutlet, ArrayAggregateInitializerOutlet } from "../view/codeOutlets";
 import { Value } from "./runtimeEnvironment";
-import { FunctionCall, CompiledFunctionCall, RuntimeFunctionCall } from "./functionCall";
 import { Statement, UnsupportedStatement } from "./statements";
 import { CtorInitializerASTNode } from "./declarations";
 import { lookupTypeInContext, OpaqueExpression } from "./opaqueExpression";
@@ -484,23 +483,17 @@ export class ReferenceDirectInitializer extends DirectInitializer {
             }
         }
 
-        else if (arg.valueCategory === "prvalue") {
+        else { //arg.valueCategory === "prvalue"
             if (!targetType.refTo.isConst) {
                 // can't make non-const reference to a prvalue
                 this.addNote(CPPError.declaration.init.referencePrvalueConst(this));
             }
-            else {
-                // this.returnByValueTarget = this.createTemporaryObject(returnType, `[${this.func.name}() return]`);
-
+            // can't bind to a prvalue. exception is that prvalues with class type must really be temporary objects
+            // we'll allow this for now. note that the lifetimes don't get extended, which is still TODO
+            else if (!arg.type.isCompleteClassType()) {
+                this.addNote(CPPError.lobster.referencePrvalue(this));
             }
         }
-
-        // TODO: can't remember why this was ever here :(
-        // // can't bind to a prvalue. exception is that prvalues with class type must really be temporary objects
-        // // we'll allow this for now. note that the lifetimes don't get extended, which is still TODO
-        // else if (arg.valueCategory === "prvalue" && !arg.type.isCompleteClassType()) {
-        //     this.addNote(CPPError.lobster.referencePrvalue(this));
-        // }
 
         this.attach(this.arg = arg);
         this.args = [arg];

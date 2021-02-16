@@ -1,7 +1,6 @@
 import { FunctionType, VoidType, PeelReference, CompleteObjectType, ReferenceType, AtomicType, CompleteClassType, CompleteReturnType, PotentiallyCompleteObjectType, ReferredType } from "./types";
 import { RuntimeConstruct } from "./constructs";
 import { CompiledFunctionDefinition } from "./declarations";
-import { RuntimeFunctionCall } from "./functionCall";
 import { MemoryFrame, Value } from "./runtimeEnvironment";
 import { CPPObject } from "./objects";
 import { RuntimeBlock, createRuntimeStatement } from "./statements";
@@ -9,6 +8,7 @@ import { Simulation } from "./Simulation";
 import { Mutable, assert } from "../util/util";
 import { LocalObjectEntity, LocalReferenceEntity } from "./entities";
 import { RuntimeCtorInitializer } from "./initializers";
+import { RuntimeFunctionCall } from "./PotentialFullExpression";
 
 enum RuntimeFunctionIndices {
 
