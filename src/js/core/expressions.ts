@@ -7,12 +7,12 @@ import { FunctionEntity, ObjectEntity, Scope, VariableEntity, MemberVariableEnti
 import { Value, RawValueType } from "./runtimeEnvironment";
 import { escapeString, assertNever, assert, assertFalse, Mutable } from "../util/util";
 import { checkIdentifier, MAGIC_FUNCTION_NAMES } from "./lexical";
-import { FunctionCallExpressionASTNode, FunctionCallExpression, TypedFunctionCallExpression, CompiledFunctionCallExpression, RuntimeFunctionCallExpression, FunctionCall, TypedFunctionCall, CompiledFunctionCall, RuntimeFunctionCall } from "./functionCall";
+import { FunctionCallExpressionASTNode, FunctionCallExpression, TypedFunctionCallExpression, CompiledFunctionCallExpression, RuntimeFunctionCallExpression } from "./FunctionCallExpression";
 import { RuntimeExpression, VCResultTypes, ValueCategory, Expression, CompiledExpression, TypedExpression, SpecificTypedExpression, t_TypedExpression, allWellTyped } from "./expressionBase";
 import { ConstructOutlet, TernaryExpressionOutlet, CommaExpressionOutlet, AssignmentExpressionOutlet, BinaryOperatorExpressionOutlet, UnaryOperatorExpressionOutlet, SubscriptExpressionOutlet, IdentifierOutlet, NumericLiteralOutlet, ParenthesesOutlet, MagicFunctionCallExpressionOutlet, StringLiteralExpressionOutlet, LValueToRValueOutlet, ArrayToPointerOutlet, TypeConversionOutlet, QualificationConversionOutlet, DotExpressionOutlet, ArrowExpressionOutlet, OutputOperatorExpressionOutlet, PostfixIncrementExpressionOutlet, InputOperatorExpressionOutlet, StreamToBoolOutlet, NonMemberOperatorOverloadExpressionOutlet, MemberOperatorOverloadExpressionOutlet, InitializerListOutlet as InitializerListExpressionOutlet, CompoundAssignmentExpressionOutlet, ThisExpressionOutlet } from "../view/codeOutlets";
 import { Predicates } from "./predicates";
 import { OpaqueExpressionASTNode, OpaqueExpression, RuntimeOpaqueExpression, TypedOpaqueExpression, CompiledOpaqueExpression } from "./opaqueExpression";
-import { CompiledTemporaryDeallocator } from "./PotentialFullExpression";
+import { CompiledFunctionCall, CompiledTemporaryDeallocator, FunctionCall, RuntimeFunctionCall, TypedFunctionCall } from "./PotentialFullExpression";
 import { DirectInitializer } from "./initializers";
 
 
@@ -5521,80 +5521,80 @@ export interface CompiledStreamToBoolConversion extends TypedStreamToBoolConvers
 
 
 
-/**
- * A conversion that ensures a prvalue, which may or may not be an object, is
- * "materialized" into an lvalue that is an object and to which a reference may be bound.
- * 
- * Note that Lobster handles "guaranteed copy elision" a bit differently than the
- * standard. The standard (C++17 and beyond) basically says that prvalues don't ever
- * create temporary objects, instead, a prvalue is simply an expression that has the
- * ability to initialize an object or an operand to an operator. For example, in
- * `int func(); int i = func();`, C++17 and beyond considers that there is no "temporary
- * return object" that the return statement for `func()` initailizes. Rather, the call
- * to `func()` is simply a prvalue that doesn't initialize anything until the compiler
- * sees the context of `int i = ` and the return target becomes `i`.
- * Lobster handles this differently. Lobster's concept of a prvalue is that it may itself
- * already be a temporary object. It will go ahead and create the temporary return
- * object in the above example and then simply elide the copy behind the scenes. (So that
- * e.g. if it was a class-type object and not an int, there would be no extra copy ctor).
- */
-export class TemporaryMaterializationConversion<T extends CompleteObjectType> extends ImplicitConversion<T, "prvalue", T, "lvalue"> {
+// /**
+//  * A conversion that ensures a prvalue, which may or may not be an object, is
+//  * "materialized" into an lvalue that is an object and to which a reference may be bound.
+//  * 
+//  * Note that Lobster handles "guaranteed copy elision" a bit differently than the
+//  * standard. The standard (C++17 and beyond) basically says that prvalues don't ever
+//  * create temporary objects, instead, a prvalue is simply an expression that has the
+//  * ability to initialize an object or an operand to an operator. For example, in
+//  * `int func(); int i = func();`, C++17 and beyond considers that there is no "temporary
+//  * return object" that the return statement for `func()` initailizes. Rather, the call
+//  * to `func()` is simply a prvalue that doesn't initialize anything until the compiler
+//  * sees the context of `int i = ` and the return target becomes `i`.
+//  * Lobster handles this differently. Lobster's concept of a prvalue is that it may itself
+//  * already be a temporary object. It will go ahead and create the temporary return
+//  * object in the above example and then simply elide the copy behind the scenes. (So that
+//  * e.g. if it was a class-type object and not an int, there would be no extra copy ctor).
+//  */
+// export class TemporaryMaterializationConversion<T extends CompleteObjectType> extends ImplicitConversion<T, "prvalue", T, "lvalue"> {
 
-    public readonly materializedObject?: TemporaryObjectEntity<T>;
-    public readonly initializer: DirectInitializer;
+//     public readonly materializedObject?: TemporaryObjectEntity<T>;
+//     public readonly initializer: DirectInitializer;
 
-    public constructor(from: TypedExpression<T, "prvalue">) {
-        super(from, from.type, "lvalue");
+//     public constructor(from: TypedExpression<T, "prvalue">) {
+//         super(from, from.type, "lvalue");
         
-        // if the expression is of non-class type, 
-        this.materializedObject = this.createTemporaryObject(this.type, "[materialized temporary]");
-        this.initializer = DirectInitializer.create(this.context, this.materializedObject, [from], "direct");
-    }
+//         // if the expression is of non-class type, 
+//         this.materializedObject = this.createTemporaryObject(this.type, "[materialized temporary]");
+//         this.initializer = DirectInitializer.create(this.context, this.materializedObject, [from], "direct");
+//     }
 
-    public operate(fromEvalResult: VCResultTypes<T, "prvalue">) {
+//     public operate(fromEvalResult: VCResultTypes<T, "prvalue">) {
         
-        if (fromEvalResult instanceof Value) {
-            let materializedObject = this.materializedObject.objectInstance(this);
-        }
-        // this.materializedObject.setV
-        let eltsPointer = this.elementsArray!.getArrayElemSubobject(0).getPointerTo();
-        (<CPPObject<PointerType<ArithmeticType>>>this.materializedObject!.getMemberObject("begin")!).setValue(eltsPointer);
-        (<CPPObject<PointerType<ArithmeticType>>>this.materializedObject!.getMemberObject("begin")!).setValue(eltsPointer.pointerOffsetRaw(this.elements.length));
-        this.setEvalResult(<this["evalResult"]><unknown>this.materializedObject!);
-        return <VCResultTypes<T, "lvalue">>fromEvalResult.getValue(); // Cast technically necessary here
-        // TODO: add alert if value is invalid
-        // e.g. inst.setEvalResult(readValueWithAlert(evalValue, sim, this.from, inst.childInstances.from));
-    }
+//         if (fromEvalResult instanceof Value) {
+//             let materializedObject = this.materializedObject.objectInstance(this);
+//         }
+//         // this.materializedObject.setV
+//         let eltsPointer = this.elementsArray!.getArrayElemSubobject(0).getPointerTo();
+//         (<CPPObject<PointerType<ArithmeticType>>>this.materializedObject!.getMemberObject("begin")!).setValue(eltsPointer);
+//         (<CPPObject<PointerType<ArithmeticType>>>this.materializedObject!.getMemberObject("begin")!).setValue(eltsPointer.pointerOffsetRaw(this.elements.length));
+//         this.setEvalResult(<this["evalResult"]><unknown>this.materializedObject!);
+//         return <VCResultTypes<T, "lvalue">>fromEvalResult.getValue(); // Cast technically necessary here
+//         // TODO: add alert if value is invalid
+//         // e.g. inst.setEvalResult(readValueWithAlert(evalValue, sim, this.from, inst.childInstances.from));
+//     }
 
-    public createDefaultOutlet(this: CompiledTemporaryMaterializationConversion, element: JQuery, parent?: ConstructOutlet) {
-        return new TemporaryMaterializationOutlet(element, this, parent);
-    }
+//     public createDefaultOutlet(this: CompiledTemporaryMaterializationConversion, element: JQuery, parent?: ConstructOutlet) {
+//         return new TemporaryMaterializationOutlet(element, this, parent);
+//     }
 
-    // describeEvalResult : function(depth, sim, inst){
-    //     if (inst && inst.evalResult){
-    //         return inst.evalResult.describe();
-    //     }
-    //     else if (depth == 0){
-    //         return {message: "the value of " + this.getSourceText()};
-    //     }
-    //     else{
-    //         return {message: "the value of " + this.from.describeEvalResult(depth-1,sim, inst && inst.childInstances && inst.childInstances.from).message};
-    //     }
-    // },
+//     // describeEvalResult : function(depth, sim, inst){
+//     //     if (inst && inst.evalResult){
+//     //         return inst.evalResult.describe();
+//     //     }
+//     //     else if (depth == 0){
+//     //         return {message: "the value of " + this.getSourceText()};
+//     //     }
+//     //     else{
+//     //         return {message: "the value of " + this.from.describeEvalResult(depth-1,sim, inst && inst.childInstances && inst.childInstances.from).message};
+//     //     }
+//     // },
 
-    // explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-    //     return {message: "The value of " + this.from.describeEvalResult(0, sim, inst && inst.childInstances && inst.childInstances.from).message + " will be looked up."};
-    // }
+//     // explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//     //     return {message: "The value of " + this.from.describeEvalResult(0, sim, inst && inst.childInstances && inst.childInstances.from).message + " will be looked up."};
+//     // }
 
-}
-export interface TypedTemporaryMaterializationConversion<T extends AtomicType = AtomicType> extends TemporaryMaterializationConversion<T>, t_TypedExpression {
+// }
+// export interface TypedTemporaryMaterializationConversion<T extends AtomicType = AtomicType> extends TemporaryMaterializationConversion<T>, t_TypedExpression {
 
-}
+// }
 
-export interface CompiledTemporaryMaterializationConversion<T extends AtomicType = AtomicType> extends TypedTemporaryMaterializationConversion<T>, SuccessfullyCompiled {
-    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
-    readonly from: CompiledExpression<T, "lvalue">; // satisfies CompiledImplicitConversion and TemporaryMaterialization structure
-}
+// export interface CompiledTemporaryMaterializationConversion<T extends AtomicType = AtomicType> extends TypedTemporaryMaterializationConversion<T>, SuccessfullyCompiled {
+//     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+//     readonly from: CompiledExpression<T, "lvalue">; // satisfies CompiledImplicitConversion and TemporaryMaterialization structure
+// }
 
 
 

@@ -1,9 +1,9 @@
 import { Simulation, SimulationAction, STEP_FORWARD_ACTION } from "./Simulation";
-import { FunctionCall, RuntimeFunctionCall } from "./functionCall";
 import { Mutable } from "../util/util";
 import { setCPP_ANIMATIONS } from "../view/simOutlets";
 import { DirectInitializer, RuntimeDirectInitializer } from "./initializers";
 import { PassByReferenceParameterEntity, PassByValueParameterEntity } from "./entities";
+import { FunctionCall, RuntimeFunctionCall } from "./PotentialFullExpression";
 
 
 export class SynchronousSimulationRunner {
