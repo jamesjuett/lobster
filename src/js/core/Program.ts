@@ -6,13 +6,13 @@ import { GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, Compile
 import { NamespaceScope, GlobalObjectEntity, selectOverloadedDefinition, FunctionEntity, ClassEntity } from "./entities";
 import { Observable } from "../util/observe";
 import { TranslationUnitContext, CPPConstruct, createTranslationUnitContext, ProgramContext, GlobalObjectAllocator, CompiledGlobalObjectAllocator, ASTNode, createLibraryContext } from "./constructs";
-import { FunctionCall } from "./functionCall";
 import { StringLiteralExpression } from "./expressions";
 import { FunctionType, Int, VoidType, CompleteClassType, Double } from "./types";
 import { startCase } from "lodash";
 import { registerOpaqueExpression, RuntimeOpaqueExpression } from "./opaqueExpression";
 import { getDataPtr } from "../lib/string";
 import { Value } from "./runtimeEnvironment";
+import { FunctionCall } from "./PotentialFullExpression";
 
 
 

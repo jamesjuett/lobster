@@ -24,8 +24,9 @@ $(() => {
             filesElem.toggle();
         });
         programElem.append(showFilesButton);
-        for (var name in test.program.sourceFiles) {
-            var sourceFile = test.program.sourceFiles[name];
+        for (let tuName in test.program.translationUnits) {
+            var sourceFile = test.program.sourceFiles[tuName];
+            test.program.translationUnits
             filesElem.append(sourceFile.name + "\n" + sourceFile.text);
         }
         programElem.append(filesElem);
@@ -229,6 +230,94 @@ int main() {
           ]
       );
 
+      // ---------- Basic Reference Test ----------
+  
+      new SingleTranslationUnitTest(
+          "Basic Reference Test",
+  `int main() {
+  int x = 3;
+  int &y = x;
+  assert(y == 3);
+  x = 10;
+  assert(y == 10);
+  y = 5;
+  assert(x == 5); 
+}`,
+          [
+              new NoErrorsNoWarningsVerifier(),
+              new NoBadRuntimeEventsVerifier(true)
+          ]
+      );
+
+      // ---------- Const Reference Test ----------
+  
+      new SingleTranslationUnitTest(
+          "Const Reference Test",
+  `int main() {
+  int x;
+  int &rx = x;
+  const int &crx = x;
+  rx = 10;
+  crx = 10;
+  rx = crx;
+  crx = rx;
+  
+  const int y;
+  int &ry = y;
+  const int &cry = y;
+  ry = 10;
+  cry = 10;
+  ry = cry;
+  cry = ry;
+  
+  rx = ry;
+  rx = cry;
+  crx = ry;
+  crx = cry;
+  
+  ry = rx;
+  ry = crx;
+  cry = rx;
+  cry = crx;
+}
+`,
+    [
+      new NoteVerifier([
+        {line: 6, id: "expr.assignment.lhs_const"},
+        {line: 8, id: "expr.assignment.lhs_const"},
+        {line: 11, id: "declaration.init.referenceConstness"},
+        {line: 14, id: "expr.assignment.lhs_const"},
+        {line: 16, id: "expr.assignment.lhs_const"},
+        {line: 20, id: "expr.assignment.lhs_const"},
+        {line: 21, id: "expr.assignment.lhs_const"},
+        {line: 25, id: "expr.assignment.lhs_const"},
+        {line: 26, id: "expr.assignment.lhs_const"},
+      ])
+    ]);
+
+
+      
+
+      // ---------- Basic Reference Test ----------
+  
+      new SingleTranslationUnitTest(
+          "Basic Reference Test",
+  `int main() {
+  int x = 3;
+  int &y = x;
+  assert(y == 3);
+  x = 10;
+  assert(y == 10);
+  y = 5;
+  assert(x == 5); 
+}`,
+          [
+              new NoErrorsNoWarningsVerifier(),
+              new NoBadRuntimeEventsVerifier(true)
+          ]
+      );
+
+
     // ---------- Basic Selection Test ----------
 
     new SingleTranslationUnitTest(
@@ -294,7 +383,7 @@ int main() {
             new NoBadRuntimeEventsVerifier(true)
         ]
     );
-
+  
     // ---------- Basic Iteration Test ----------
 
     new SingleTranslationUnitTest(
@@ -453,23 +542,23 @@ int main() {
     assert(i3_ptr == &i3);
   
     // Function call with function pointer
-    int (*func_ptr)(int, int&, int*) = func;
-    int (*func_ptr2)(int, int&, int*) = &func;
-    int (*func_ptr3)(int, int&, int*) = *func;
-    i1 = i2 = i3 = 5;
-    func_ptr(i1, i2, i3_ptr);
-    assert(i1 == 5);
-    assert(i2 == 2);
-    assert(i3 == 2);
-    assert(i4 == 2);
-    assert(i3_ptr == &i3);
-    i1 = i2 = i3 = 5;
-    (*func_ptr)(i1, i2, i3_ptr);
-    assert(i1 == 5);
-    assert(i2 == 2);
-    assert(i3 == 2);
-    assert(i4 == 2);
-    assert(i3_ptr == &i3);
+    // int (*func_ptr)(int, int&, int*) = func;
+    // int (*func_ptr2)(int, int&, int*) = &func;
+    // int (*func_ptr3)(int, int&, int*) = *func;
+    // i1 = i2 = i3 = 5;
+    // func_ptr(i1, i2, i3_ptr);
+    // assert(i1 == 5);
+    // assert(i2 == 2);
+    // assert(i3 == 2);
+    // assert(i4 == 2);
+    // assert(i3_ptr == &i3);
+    // i1 = i2 = i3 = 5;
+    // (*func_ptr)(i1, i2, i3_ptr);
+    // assert(i1 == 5);
+    // assert(i2 == 2);
+    // assert(i3 == 2);
+    // assert(i4 == 2);
+    // assert(i3_ptr == &i3);
   
     // Member access with . and ->
     TestClass j;
@@ -528,13 +617,13 @@ int main() {
     assert(p == 10);
   
     // new/delete/delete[]
-    int *q1 = new int(3);
-    double *q2 = new double(4.5);
-    double **q3 = new (double*)(q2);
+    // int *q1 = new int(3);
+    // double *q2 = new double(4.5);
+    // double **q3 = new (double*)(q2);
   
-    delete q1;
-    delete *q3;
-    delete q3;
+    // delete q1;
+    // delete *q3;
+    // delete q3;
   }`,
           [
               new NoErrorsNoWarningsVerifier(),

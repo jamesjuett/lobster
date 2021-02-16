@@ -8,10 +8,10 @@ import { ExpressionASTNode, NumericLiteralASTNode, createExpressionFromAST, pars
 import { BlockASTNode, Block, createStatementFromAST, CompiledBlock } from "./statements";
 import { IdentifierASTNode, checkIdentifier } from "./lexical";
 import { CPPObject, ArraySubobject } from "./objects";
-import { RuntimeFunctionCall } from "./functionCall";
 import { Expression } from "./expressionBase";
 import { RuntimeFunction } from "./functions";
 import { parseDeclarator, parseFunctionDefinition } from "../parse/cpp_parser_util";
+import { RuntimeFunctionCall } from "./PotentialFullExpression";
 
 export type StorageSpecifierKey = "register" | "static" | "thread_local" | "extern" | "mutable";
 

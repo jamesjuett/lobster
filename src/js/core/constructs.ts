@@ -9,7 +9,6 @@ import { GlobalVariableDefinition, CompiledGlobalVariableDefinition, CompiledFun
 import { RuntimeFunction } from "./functions";
 import { CPPObject, TemporaryObject } from "./objects";
 import { ForStatement, WhileStatement } from "./statements";
-import { FunctionCall, CompiledFunctionCall } from "./functionCall";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 
 

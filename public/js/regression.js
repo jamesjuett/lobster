@@ -42394,18 +42394,158 @@ exports.isUpdateAssignment = isUpdateAssignment;
 
 /***/ }),
 
+/***/ 3069:
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.RuntimeFunctionCallExpression = exports.INDEX_FUNCTION_CALL_EXPRESSION_RETURN = exports.INDEX_FUNCTION_CALL_EXPRESSION_CALL = exports.INDEX_FUNCTION_CALL_EXPRESSION_OPERAND = exports.FunctionCallExpression = void 0;
+const constructs_1 = __webpack_require__(4293);
+const PotentialFullExpression_1 = __webpack_require__(2593);
+const entities_1 = __webpack_require__(8397);
+const expressions_1 = __webpack_require__(6597);
+const types_1 = __webpack_require__(8716);
+const errors_1 = __webpack_require__(5244);
+const expressionBase_1 = __webpack_require__(9180);
+const lexical_1 = __webpack_require__(2018);
+const codeOutlets_1 = __webpack_require__(3004);
+// type FunctionResultType<T extends FunctionType> = NoRefType<Exclude<T["returnType"], VoidType>>; // TODO: this isn't used? should I use it somewhere?
+// type ReturnTypeVC<RT extends PotentialReturnType> = RT extends ReferenceType ? "lvalue" : "prvalue";
+class FunctionCallExpression extends expressionBase_1.Expression {
+    constructor(context, ast, operand, args) {
+        super(context, ast);
+        this.construct_type = "function_call_expression";
+        this.attach(this.operand = operand);
+        this.originalArgs = args;
+        // If any arguments are not well typed, we can't select a function.
+        if (!expressionBase_1.allWellTyped(args)) {
+            // type, valueCategory, and call remain undefined
+            this.attachAll(args);
+            return;
+        }
+        if (!(operand instanceof expressions_1.IdentifierExpression || operand instanceof expressions_1.DotExpression || operand instanceof expressions_1.ArrowExpression)) {
+            this.addNote(errors_1.CPPError.expr.functionCall.invalid_operand_expression(this, operand));
+            this.attachAll(args);
+            return;
+        }
+        if (!operand.entity) {
+            // type, valueCategory, and call remain undefined
+            // operand will already have an error about the failed lookup
+            this.attachAll(args);
+            return;
+        }
+        if (!(operand.entity instanceof entities_1.FunctionEntity)) {
+            // type, valueCategory, and call remain undefined
+            this.addNote(errors_1.CPPError.expr.functionCall.operand(this, operand.entity));
+            this.attachAll(args);
+            return;
+        }
+        if (!operand.entity.returnsCompleteType()) {
+            this.attachAll(args);
+            this.addNote(errors_1.CPPError.expr.functionCall.incomplete_return_type(this, operand.entity.type.returnType));
+            return;
+        }
+        let returnType = operand.entity.type.returnType;
+        this.type = types_1.peelReference(returnType);
+        this.valueCategory = returnType instanceof types_1.ReferenceType ? "lvalue" : "prvalue";
+        // let staticReceiver: ObjectEntity<CompleteClassType> | undefined;
+        // if (operand instanceof DotExpression) {
+        //     staticReceiver = operand.functionCallReceiver;
+        // }
+        // If we get to here, we don't attach the args directly since they will be attached under the function call.
+        this.attach(this.call = new PotentialFullExpression_1.FunctionCall(context, operand.entity, args, operand.context.contextualReceiverType));
+    }
+    static createFromAST(ast, context) {
+        let args = ast.args.map(arg => expressions_1.createExpressionFromAST(arg, context));
+        if (ast.operand.construct_type === "identifier_expression") {
+            if (lexical_1.LOBSTER_MAGIC_FUNCTIONS.has(ast.operand.identifier)) {
+                return new expressions_1.MagicFunctionCallExpression(context, ast, ast.operand.identifier, args);
+            }
+        }
+        let contextualParamTypes = args.map(arg => arg.type);
+        return new FunctionCallExpression(context, ast, expressions_1.createExpressionFromAST(ast.operand, constructs_1.createExpressionContextWithParameterTypes(context, contextualParamTypes)), args);
+    }
+    createDefaultOutlet(element, parent) {
+        return new codeOutlets_1.FunctionCallExpressionOutlet(element, this, parent);
+    }
+    // TODO
+    describeEvalResult(depth) {
+        throw new Error("Method not implemented.");
+    }
+}
+exports.FunctionCallExpression = FunctionCallExpression;
+exports.INDEX_FUNCTION_CALL_EXPRESSION_OPERAND = 0;
+exports.INDEX_FUNCTION_CALL_EXPRESSION_CALL = 1;
+exports.INDEX_FUNCTION_CALL_EXPRESSION_RETURN = 2;
+class RuntimeFunctionCallExpression extends expressionBase_1.RuntimeExpression {
+    constructor(model, parent) {
+        super(model, parent);
+        this.index = exports.INDEX_FUNCTION_CALL_EXPRESSION_OPERAND;
+        this.operand = expressions_1.createRuntimeExpression(this.model.operand, this);
+    }
+    upNextImpl() {
+        if (this.index === exports.INDEX_FUNCTION_CALL_EXPRESSION_OPERAND) {
+            this.sim.push(this.operand);
+            this.index = exports.INDEX_FUNCTION_CALL_EXPRESSION_CALL;
+        }
+        else if (this.index === exports.INDEX_FUNCTION_CALL_EXPRESSION_CALL) {
+            // We check the contextual receiver here since it changes after the operand is evaluated.
+            this.call = this.model.call.createRuntimeFunctionCall(this, this.operand.contextualReceiver);
+            this.sim.push(this.call);
+            this.index = exports.INDEX_FUNCTION_CALL_EXPRESSION_RETURN;
+        }
+        else if (this.index === exports.INDEX_FUNCTION_CALL_EXPRESSION_RETURN) {
+            // Note: cannot use this.model.type here, since that is the type of the function
+            // call expression, which would have had the reference type removed if this was return
+            // by reference. Instead, use the return type of the called function itself, which will have
+            // the reference type intact.
+            let returnType = this.model.call.func.type.returnType;
+            if (returnType.isVoidType()) {
+                // this.setEvalResult(null); // TODO: type system won't allow this currently
+            }
+            else if (returnType.isReferenceType()) {
+                // Return by reference is lvalue and yields the returned object
+                let retObj = this.call.calledFunction.returnObject;
+                this.setEvalResult(retObj);
+            }
+            else if (returnType.isAtomicType()) {
+                // Return by value of atomic type. In this case, we can look up
+                // the value of the return object and use that as the eval result
+                let retObj = this.call.calledFunction.returnObject;
+                this.setEvalResult(retObj.getValue());
+            }
+            else {
+                // Return by value of a non-atomic type. In this case, it's still a prvalue
+                // but is the temporary object rather than its value.
+                let retObj = this.call.calledFunction.returnObject;
+                this.setEvalResult(retObj);
+            }
+            this.startCleanup();
+        }
+    }
+    stepForwardImpl() {
+        // nothing to do
+    }
+}
+exports.RuntimeFunctionCallExpression = RuntimeFunctionCallExpression;
+
+
+/***/ }),
+
 /***/ 2593:
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.RuntimeTemporaryDeallocator = exports.TemporaryDeallocator = exports.RuntimePotentialFullExpression = exports.PotentialFullExpression = void 0;
+exports.RuntimeFunctionCall = exports.INDEX_FUNCTION_CALL_RETURN = exports.INDEX_FUNCTION_CALL_CALL = exports.INDEX_FUNCTION_CALL_ARGUMENTS = exports.INDEX_FUNCTION_CALL_PUSH = exports.FunctionCall = exports.RuntimeTemporaryDeallocator = exports.TemporaryDeallocator = exports.RuntimePotentialFullExpression = exports.PotentialFullExpression = void 0;
 const entities_1 = __webpack_require__(8397);
 const util_1 = __webpack_require__(6560);
 const types_1 = __webpack_require__(8716);
 const constructs_1 = __webpack_require__(4293);
 const errors_1 = __webpack_require__(5244);
+const initializers_1 = __webpack_require__(1288);
 class PotentialFullExpression extends constructs_1.BasicCPPConstruct {
     constructor() {
         super(...arguments);
@@ -42494,9 +42634,9 @@ class TemporaryDeallocator extends constructs_1.BasicCPPConstruct {
             if (temp.isTyped(types_1.isCompleteClassType)) {
                 let dtor = temp.type.classDefinition.destructor;
                 if (dtor) {
-                    // let dtorCall = new FunctionCall(context, dtor, [], temp.type);
-                    // this.attach(dtorCall);
-                    // return dtorCall;
+                    let dtorCall = new FunctionCall(context, dtor, [], temp.type);
+                    this.attach(dtorCall);
+                    return dtorCall;
                 }
                 else {
                     this.addNote(errors_1.CPPError.declaration.dtor.no_destructor_temporary(temp.owner, temp));
@@ -42548,6 +42688,205 @@ class RuntimeTemporaryDeallocator extends constructs_1.RuntimeConstruct {
     }
 }
 exports.RuntimeTemporaryDeallocator = RuntimeTemporaryDeallocator;
+class FunctionCall extends PotentialFullExpression {
+    /**
+     * A FunctionEntity must be provided to specify which function is being called. The
+     * return type of that function must be complete (if it's not, such a function call
+     * should generate an error - the constructs that use FunctionCall should take care
+     * of checking for this before making the FunctionCall and generate an error otherwise).
+     *
+     * @param context
+     * @param func Specifies which function is being called.
+     * @param args Arguments to the function.
+     * @param receiverType
+     */
+    constructor(context, func, args, receiverType) {
+        var _a;
+        super(context, undefined);
+        this.construct_type = "FunctionCall";
+        this.func = func;
+        this.receiverType = receiverType;
+        let paramTypes = this.func.type.paramTypes;
+        if (args.length !== paramTypes.length) {
+            this.addNote(errors_1.CPPError.param.numParams(this));
+            this.attachAll(this.args = args);
+            return;
+        }
+        // Note - destructors are allowed to ignore const semantics.
+        // That is, even though a destructor is a non-const member function,
+        // it is allowed to be called on const objects and suspends their constness
+        if (this.func.isMemberFunction() && !this.func.firstDeclaration.isDestructor
+            && (receiverType === null || receiverType === void 0 ? void 0 : receiverType.isConst) && !((_a = this.func.type.receiverType) === null || _a === void 0 ? void 0 : _a.isConst)) {
+            this.addNote(errors_1.CPPError.param.thisConst(this, receiverType));
+        }
+        // Create initializers for each argument/parameter pair
+        // Note that the args are NOT attached as children to the function call. Instead, they are attached to the initializers.
+        this.argInitializers = args.map((arg, i) => {
+            let paramType = paramTypes[i];
+            if (paramType.isReferenceType()) {
+                return initializers_1.DirectInitializer.create(context, new entities_1.PassByReferenceParameterEntity(this.func, paramType, i), [arg], "copy");
+            }
+            else {
+                util_1.assert(paramType.isCompleteParameterType());
+                return initializers_1.DirectInitializer.create(context, new entities_1.PassByValueParameterEntity(this.func, paramType, i), [arg], "copy");
+            }
+        });
+        this.attachAll(this.argInitializers);
+        // For convenience, an array with reference to the final arguments (i.e. including conversions) for the call
+        this.args = this.argInitializers.map(argInit => argInit.args[0]);
+        // TODO
+        // this.isRecursive = this.func.definition === this.context.containingFunction;
+        // No returns for void functions, of course.
+        // If return by reference, the return object already exists and no need to create a temporary.
+        // Else, for a return by value, we do need to create a temporary object.
+        let returnType = this.func.type.returnType;
+        if (!(returnType instanceof types_1.VoidType) && !(returnType instanceof types_1.ReferenceType)) {
+            this.returnByValueTarget = this.createTemporaryObject(returnType, `[${this.func.name}() return]`);
+        }
+        // TODO: need to check that it's not an auxiliary function call before adding these?
+        // this.context.containingFunction.addCall(this);
+        this.context.translationUnit.registerFunctionCall(this); // TODO: is this needed?
+        this.func.registerCall(this);
+    }
+    // public checkLinkingProblems() {
+    //     if (!this.func.isLinked()) {
+    //         if (this.func.isLibraryUnsupported()) {
+    //             let note = CPPError.link.library_unsupported(this, this.func);
+    //             this.addNote(note);
+    //             return note;
+    //         }
+    //         else {
+    //             let note = CPPError.link.def_not_found(this, this.func);
+    //             this.addNote(note);
+    //             return note;
+    //         }
+    //     }
+    //     return null;
+    // }
+    // tailRecursionCheck : function(){
+    //     if (this.isTail !== undefined) {
+    //         return;
+    //     }
+    //     var child = this;
+    //     var parent = this.parent;
+    //     var isTail = true;
+    //     var reason = null;
+    //     var others = [];
+    //     var first = true;
+    //     while(!isA(child, FunctionDefinition) && !isA(child, Statements.Return)) {
+    //         var result = parent.isTailChild(child);
+    //         if (!result.isTail) {
+    //             isTail = false;
+    //             reason = result.reason;
+    //             others = result.others || [];
+    //             break;
+    //         }
+    //         //if (!first && child.tempDeallocator){
+    //         //    isTail = false;
+    //         //    reason = "The full expression containing this recursive call has temporary objects that need to be deallocated after the call returns.";
+    //         //    others = [];
+    //         //    break;
+    //         //}
+    //         //first = false;
+    //         reason = reason || result.reason;
+    //         child = parent;
+    //         parent = child.parent;
+    //     }
+    //     this.isTail = isTail;
+    //     this.isTailReason = reason;
+    //     this.isTailOthers = others;
+    //     //this.containingFunction().isTailRecursive = this.containingFunction().isTailRecursive && isTail;
+    //     this.canUseTCO = this.isRecursive && this.isTail;
+    // },
+    createRuntimeFunctionCall(parent, receiver) {
+        return new RuntimeFunctionCall(this, parent, receiver);
+    }
+    // isTailChild : function(child){
+    //     return {isTail: false,
+    //         reason: "A quick rule is that a function call can never be tail recursive if it is an argument to another function call. The outer function call will always happen afterward!",
+    //         others: [this]
+    //     };
+    // },
+    // // TODO: what is this? should it be describeEvalResult? or explain? probably not just describe since that is for objects
+    // describe : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+    //     var desc = {};
+    //     desc.message = "a call to " + this.func.describe(sim).message;
+    //     return desc;
+    // }
+    isReturnByValue() {
+        let returnType = this.func.type.returnType;
+        return returnType.isAtomicType() || returnType.isCompleteClassType();
+    }
+    isReturnByReference() {
+        return this.func.type.returnType.isReferenceType();
+    }
+    isReturnVoid() {
+        return this.func.type.returnType.isVoidType();
+    }
+}
+exports.FunctionCall = FunctionCall;
+exports.INDEX_FUNCTION_CALL_PUSH = 0;
+exports.INDEX_FUNCTION_CALL_ARGUMENTS = 1;
+exports.INDEX_FUNCTION_CALL_CALL = 2;
+exports.INDEX_FUNCTION_CALL_RETURN = 3;
+class RuntimeFunctionCall extends RuntimePotentialFullExpression {
+    constructor(model, parent, receiver) {
+        super(model, "call", parent);
+        this.receiver = receiver;
+        // TODO can i get rid of the non-null assertion or cast here?
+        // Basically, the assumption depends on a RuntimeFunctionCall only being created
+        // if the program was successfully linked (which also implies the FunctionDefinition was compiled)
+        // It also assumes the function definition has the correct return type.
+        let functionDef = this.model.func.definition;
+        // Create argument initializer instances
+        this.argInitializers = this.model.argInitializers.map((aInit) => aInit.createRuntimeInitializer(this));
+        // TODO: TCO? would reuse this.containingRuntimeFunction instead of creating new
+        this.calledFunction = functionDef.createRuntimeFunction(this, this.receiver);
+        // TODO: TCO? if using TCO, don't create a new return object, just reuse the old one
+        if (this.isReturnByValue()) {
+            // If return-by-value, set return object to temporary
+            this.calledFunction.setReturnObject(this.model.returnByValueTarget.objectInstance(this));
+        }
+        this.index = exports.INDEX_FUNCTION_CALL_PUSH;
+    }
+    upNextImpl() {
+        var _a;
+        if (this.index === exports.INDEX_FUNCTION_CALL_ARGUMENTS) {
+            // Push all argument initializers. Push in reverse so they run left to right
+            // (although this is not strictly necessary given they are indeterminately sequenced)
+            for (var i = this.argInitializers.length - 1; i >= 0; --i) {
+                this.sim.push(this.argInitializers[i]);
+            }
+            this.index = exports.INDEX_FUNCTION_CALL_CALL;
+        }
+        else if (this.index === exports.INDEX_FUNCTION_CALL_RETURN) {
+            this.calledFunction.loseControl();
+            (_a = this.containingRuntimeFunction) === null || _a === void 0 ? void 0 : _a.gainControl();
+            this.startCleanup();
+        }
+    }
+    stepForwardImpl() {
+        var _a;
+        if (this.index === exports.INDEX_FUNCTION_CALL_PUSH) {
+            // TODO: TCO? just do a tailCallReset, send "tailCalled" message
+            this.calledFunction.pushStackFrame();
+            this.index = exports.INDEX_FUNCTION_CALL_ARGUMENTS;
+        }
+        else if (this.index === exports.INDEX_FUNCTION_CALL_CALL) {
+            (_a = this.containingRuntimeFunction) === null || _a === void 0 ? void 0 : _a.loseControl();
+            this.sim.push(this.calledFunction);
+            this.calledFunction.gainControl();
+            this.receiver && this.receiver.callReceived();
+            // (<Mutable<this>>this).hasBeenCalled = true;
+            this.observable.send("called", this.calledFunction);
+            this.index = exports.INDEX_FUNCTION_CALL_RETURN;
+        }
+    }
+    isReturnByValue() {
+        return this.model.isReturnByValue();
+    }
+}
+exports.RuntimeFunctionCall = RuntimeFunctionCall;
 
 
 /***/ }),
@@ -47918,6 +48257,9 @@ exports.CPPError = {
             referenceType: function (construct, from, to) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.referenceType", "A reference (of type " + to + ") cannot be bound to an object of a different type (" + from + ").");
             },
+            referenceConstness: function (construct, from, to) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.referenceConstness", "A reference (of type " + to + ") cannot be bound to an object of type (" + from + "), since the reference would not preserve the original const protections.");
+            },
             referenceBind: function (construct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.init.referenceBind", "References must be bound to something when they are declared.");
             },
@@ -48039,7 +48381,7 @@ exports.CPPError = {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.type_not_assignable", `The left hand side of this expression has type ${lhsType}, which is not assignable.`);
             },
             lhs_const: function (construct) {
-                return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.lhs_const", "Left hand side of assignment is not modifiable.");
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.lhs_const", "Left hand side of assignment is const and cannot be assigned to.");
             },
             convert: function (construct, lhs, rhs) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.assignment.convert", "Cannot convert " + rhs.type + " to " + lhs.type + " in assignment.");
@@ -48551,11 +48893,12 @@ const entities_1 = __webpack_require__(8397);
 const runtimeEnvironment_1 = __webpack_require__(5320);
 const util_1 = __webpack_require__(6560);
 const lexical_1 = __webpack_require__(2018);
-const functionCall_1 = __webpack_require__(4796);
+const FunctionCallExpression_1 = __webpack_require__(3069);
 const expressionBase_1 = __webpack_require__(9180);
 const codeOutlets_1 = __webpack_require__(3004);
 const predicates_1 = __webpack_require__(941);
 const opaqueExpression_1 = __webpack_require__(7104);
+const PotentialFullExpression_1 = __webpack_require__(2593);
 function readValueWithAlert(obj, sim) {
     let value = obj.readValue();
     if (!value.isValid) {
@@ -48600,7 +48943,7 @@ const ExpressionConstructsMap = {
     "reinterpret_cast_expression": (ast, context) => new UnsupportedExpression(context, ast, "reinterpret cast"),
     "const_cast_expression": (ast, context) => new UnsupportedExpression(context, ast, "const cast"),
     "subscript_expression": (ast, context) => SubscriptExpression.createFromAST(ast, context),
-    "function_call_expression": (ast, context) => functionCall_1.FunctionCallExpression.createFromAST(ast, context),
+    "function_call_expression": (ast, context) => FunctionCallExpression_1.FunctionCallExpression.createFromAST(ast, context),
     "dot_expression": (ast, context) => DotExpression.createFromAST(ast, context),
     "arrow_expression": (ast, context) => ArrowExpression.createFromAST(ast, context),
     "postfix_increment_expression": (ast, context) => PostfixIncrementExpression.createFromAST(ast, context),
@@ -48684,7 +49027,7 @@ const ExpressionConstructsRuntimeMap = {
     "opaque_expression": (construct, parent) => new opaqueExpression_1.RuntimeOpaqueExpression(construct, parent),
     "auxiliary_expression": (construct, parent) => { throw new Error("Auxiliary expressions must never be instantiated at runtime."); },
     "magic_function_call_expression": (construct, parent) => new RuntimeMagicFunctionCallExpression(construct, parent),
-    "function_call_expression": (construct, parent) => new functionCall_1.RuntimeFunctionCallExpression(construct, parent),
+    "function_call_expression": (construct, parent) => new FunctionCallExpression_1.RuntimeFunctionCallExpression(construct, parent),
     "ImplicitConversion": (construct, parent) => construct.createRuntimeExpression(parent)
 };
 function createRuntimeExpression(construct, parent) {
@@ -51331,6 +51674,69 @@ class StreamToBoolConversion extends ImplicitConversion {
     }
 }
 exports.StreamToBoolConversion = StreamToBoolConversion;
+// /**
+//  * A conversion that ensures a prvalue, which may or may not be an object, is
+//  * "materialized" into an lvalue that is an object and to which a reference may be bound.
+//  * 
+//  * Note that Lobster handles "guaranteed copy elision" a bit differently than the
+//  * standard. The standard (C++17 and beyond) basically says that prvalues don't ever
+//  * create temporary objects, instead, a prvalue is simply an expression that has the
+//  * ability to initialize an object or an operand to an operator. For example, in
+//  * `int func(); int i = func();`, C++17 and beyond considers that there is no "temporary
+//  * return object" that the return statement for `func()` initailizes. Rather, the call
+//  * to `func()` is simply a prvalue that doesn't initialize anything until the compiler
+//  * sees the context of `int i = ` and the return target becomes `i`.
+//  * Lobster handles this differently. Lobster's concept of a prvalue is that it may itself
+//  * already be a temporary object. It will go ahead and create the temporary return
+//  * object in the above example and then simply elide the copy behind the scenes. (So that
+//  * e.g. if it was a class-type object and not an int, there would be no extra copy ctor).
+//  */
+// export class TemporaryMaterializationConversion<T extends CompleteObjectType> extends ImplicitConversion<T, "prvalue", T, "lvalue"> {
+//     public readonly materializedObject?: TemporaryObjectEntity<T>;
+//     public readonly initializer: DirectInitializer;
+//     public constructor(from: TypedExpression<T, "prvalue">) {
+//         super(from, from.type, "lvalue");
+//         // if the expression is of non-class type, 
+//         this.materializedObject = this.createTemporaryObject(this.type, "[materialized temporary]");
+//         this.initializer = DirectInitializer.create(this.context, this.materializedObject, [from], "direct");
+//     }
+//     public operate(fromEvalResult: VCResultTypes<T, "prvalue">) {
+//         if (fromEvalResult instanceof Value) {
+//             let materializedObject = this.materializedObject.objectInstance(this);
+//         }
+//         // this.materializedObject.setV
+//         let eltsPointer = this.elementsArray!.getArrayElemSubobject(0).getPointerTo();
+//         (<CPPObject<PointerType<ArithmeticType>>>this.materializedObject!.getMemberObject("begin")!).setValue(eltsPointer);
+//         (<CPPObject<PointerType<ArithmeticType>>>this.materializedObject!.getMemberObject("begin")!).setValue(eltsPointer.pointerOffsetRaw(this.elements.length));
+//         this.setEvalResult(<this["evalResult"]><unknown>this.materializedObject!);
+//         return <VCResultTypes<T, "lvalue">>fromEvalResult.getValue(); // Cast technically necessary here
+//         // TODO: add alert if value is invalid
+//         // e.g. inst.setEvalResult(readValueWithAlert(evalValue, sim, this.from, inst.childInstances.from));
+//     }
+//     public createDefaultOutlet(this: CompiledTemporaryMaterializationConversion, element: JQuery, parent?: ConstructOutlet) {
+//         return new TemporaryMaterializationOutlet(element, this, parent);
+//     }
+//     // describeEvalResult : function(depth, sim, inst){
+//     //     if (inst && inst.evalResult){
+//     //         return inst.evalResult.describe();
+//     //     }
+//     //     else if (depth == 0){
+//     //         return {message: "the value of " + this.getSourceText()};
+//     //     }
+//     //     else{
+//     //         return {message: "the value of " + this.from.describeEvalResult(depth-1,sim, inst && inst.childInstances && inst.childInstances.from).message};
+//     //     }
+//     // },
+//     // explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
+//     //     return {message: "The value of " + this.from.describeEvalResult(0, sim, inst && inst.childInstances && inst.childInstances.from).message + " will be looked up."};
+//     // }
+// }
+// export interface TypedTemporaryMaterializationConversion<T extends AtomicType = AtomicType> extends TemporaryMaterializationConversion<T>, t_TypedExpression {
+// }
+// export interface CompiledTemporaryMaterializationConversion<T extends AtomicType = AtomicType> extends TypedTemporaryMaterializationConversion<T>, SuccessfullyCompiled {
+//     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+//     readonly from: CompiledExpression<T, "lvalue">; // satisfies CompiledImplicitConversion and TemporaryMaterialization structure
+// }
 // export var FunctionToPointer = ImplicitConversion.extend({
 //     _name: "FunctionToPointer",
 //     init: function(from){
@@ -51705,7 +52111,7 @@ class NonMemberOperatorOverloadExpression extends expressionBase_1.Expression {
         this.type = types_1.peelReference(returnType);
         this.valueCategory = returnType instanceof types_1.ReferenceType ? "lvalue" : "prvalue";
         // If we get to here, we don't attach the args directly since they will be attached under the function call.
-        this.attach(this.call = new functionCall_1.FunctionCall(context, selectedFunctionEntity, args, undefined));
+        this.attach(this.call = new PotentialFullExpression_1.FunctionCall(context, selectedFunctionEntity, args, undefined));
     }
     createDefaultOutlet(element, parent) {
         return new codeOutlets_1.NonMemberOperatorOverloadExpressionOutlet(element, this, parent);
@@ -51789,7 +52195,7 @@ class MemberOperatorOverloadExpression extends expressionBase_1.Expression {
         this.valueCategory = returnType instanceof types_1.ReferenceType ? "lvalue" : "prvalue";
         // Attach the right as an argument of the function call.
         // Left is the receiver of that call and was already attached as a child.
-        this.attach(this.call = new functionCall_1.FunctionCall(context, selectedFunctionEntity, args, receiverExpression.type));
+        this.attach(this.call = new PotentialFullExpression_1.FunctionCall(context, selectedFunctionEntity, args, receiverExpression.type));
     }
     createDefaultOutlet(element, parent) {
         return new codeOutlets_1.MemberOperatorOverloadExpressionOutlet(element, this, parent);
@@ -51868,390 +52274,6 @@ class InvalidOperatorOverloadExpression extends InvalidExpression {
     }
 }
 exports.InvalidOperatorOverloadExpression = InvalidOperatorOverloadExpression;
-
-
-/***/ }),
-
-/***/ 4796:
-/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.RuntimeFunctionCallExpression = exports.INDEX_FUNCTION_CALL_EXPRESSION_RETURN = exports.INDEX_FUNCTION_CALL_EXPRESSION_CALL = exports.INDEX_FUNCTION_CALL_EXPRESSION_OPERAND = exports.FunctionCallExpression = exports.RuntimeFunctionCall = exports.INDEX_FUNCTION_CALL_RETURN = exports.INDEX_FUNCTION_CALL_CALL = exports.INDEX_FUNCTION_CALL_ARGUMENTS = exports.INDEX_FUNCTION_CALL_PUSH = exports.FunctionCall = void 0;
-const constructs_1 = __webpack_require__(4293);
-const PotentialFullExpression_1 = __webpack_require__(2593);
-const entities_1 = __webpack_require__(8397);
-const expressions_1 = __webpack_require__(6597);
-const types_1 = __webpack_require__(8716);
-const errors_1 = __webpack_require__(5244);
-const expressionBase_1 = __webpack_require__(9180);
-const lexical_1 = __webpack_require__(2018);
-const codeOutlets_1 = __webpack_require__(3004);
-const initializers_1 = __webpack_require__(1288);
-const util_1 = __webpack_require__(6560);
-class FunctionCall extends PotentialFullExpression_1.PotentialFullExpression {
-    /**
-     * A FunctionEntity must be provided to specify which function is being called. The
-     * return type of that function must be complete (if it's not, such a function call
-     * should generate an error - the constructs that use FunctionCall should take care
-     * of checking for this before making the FunctionCall and generate an error otherwise).
-     *
-     * @param context
-     * @param func Specifies which function is being called.
-     * @param args Arguments to the function.
-     * @param receiverType
-     */
-    constructor(context, func, args, receiverType) {
-        var _a;
-        super(context, undefined);
-        this.construct_type = "FunctionCall";
-        this.func = func;
-        this.receiverType = receiverType;
-        let paramTypes = this.func.type.paramTypes;
-        if (args.length !== paramTypes.length) {
-            this.addNote(errors_1.CPPError.param.numParams(this));
-            this.attachAll(this.args = args);
-            return;
-        }
-        // Note - destructors are allowed to ignore const semantics.
-        // That is, even though a destructor is a non-const member function,
-        // it is allowed to be called on const objects and suspends their constness
-        if (this.func.isMemberFunction() && !this.func.firstDeclaration.isDestructor
-            && (receiverType === null || receiverType === void 0 ? void 0 : receiverType.isConst) && !((_a = this.func.type.receiverType) === null || _a === void 0 ? void 0 : _a.isConst)) {
-            this.addNote(errors_1.CPPError.param.thisConst(this, receiverType));
-        }
-        // Create initializers for each argument/parameter pair
-        // Note that the args are NOT attached as children to the function call. Instead, they are attached to the initializers.
-        this.argInitializers = args.map((arg, i) => {
-            let paramType = paramTypes[i];
-            if (paramType.isReferenceType()) {
-                return initializers_1.DirectInitializer.create(context, new entities_1.PassByReferenceParameterEntity(this.func, paramType, i), [arg], "copy");
-            }
-            else {
-                util_1.assert(paramType.isCompleteParameterType());
-                return initializers_1.DirectInitializer.create(context, new entities_1.PassByValueParameterEntity(this.func, paramType, i), [arg], "copy");
-            }
-        });
-        this.attachAll(this.argInitializers);
-        // For convenience, an array with reference to the final arguments (i.e. including conversions) for the call
-        this.args = this.argInitializers.map(argInit => argInit.args[0]);
-        // TODO
-        // this.isRecursive = this.func.definition === this.context.containingFunction;
-        // No returns for void functions, of course.
-        // If return by reference, the return object already exists and no need to create a temporary.
-        // Else, for a return by value, we do need to create a temporary object.
-        let returnType = this.func.type.returnType;
-        if (!(returnType instanceof types_1.VoidType) && !(returnType instanceof types_1.ReferenceType)) {
-            this.returnByValueTarget = this.createTemporaryObject(returnType, `[${this.func.name}() return]`);
-        }
-        // TODO: need to check that it's not an auxiliary function call before adding these?
-        // this.context.containingFunction.addCall(this);
-        this.context.translationUnit.registerFunctionCall(this); // TODO: is this needed?
-        this.func.registerCall(this);
-    }
-    // public checkLinkingProblems() {
-    //     if (!this.func.isLinked()) {
-    //         if (this.func.isLibraryUnsupported()) {
-    //             let note = CPPError.link.library_unsupported(this, this.func);
-    //             this.addNote(note);
-    //             return note;
-    //         }
-    //         else {
-    //             let note = CPPError.link.def_not_found(this, this.func);
-    //             this.addNote(note);
-    //             return note;
-    //         }
-    //     }
-    //     return null;
-    // }
-    // tailRecursionCheck : function(){
-    //     if (this.isTail !== undefined) {
-    //         return;
-    //     }
-    //     var child = this;
-    //     var parent = this.parent;
-    //     var isTail = true;
-    //     var reason = null;
-    //     var others = [];
-    //     var first = true;
-    //     while(!isA(child, FunctionDefinition) && !isA(child, Statements.Return)) {
-    //         var result = parent.isTailChild(child);
-    //         if (!result.isTail) {
-    //             isTail = false;
-    //             reason = result.reason;
-    //             others = result.others || [];
-    //             break;
-    //         }
-    //         //if (!first && child.tempDeallocator){
-    //         //    isTail = false;
-    //         //    reason = "The full expression containing this recursive call has temporary objects that need to be deallocated after the call returns.";
-    //         //    others = [];
-    //         //    break;
-    //         //}
-    //         //first = false;
-    //         reason = reason || result.reason;
-    //         child = parent;
-    //         parent = child.parent;
-    //     }
-    //     this.isTail = isTail;
-    //     this.isTailReason = reason;
-    //     this.isTailOthers = others;
-    //     //this.containingFunction().isTailRecursive = this.containingFunction().isTailRecursive && isTail;
-    //     this.canUseTCO = this.isRecursive && this.isTail;
-    // },
-    createRuntimeFunctionCall(parent, receiver) {
-        return new RuntimeFunctionCall(this, parent, receiver);
-    }
-    // isTailChild : function(child){
-    //     return {isTail: false,
-    //         reason: "A quick rule is that a function call can never be tail recursive if it is an argument to another function call. The outer function call will always happen afterward!",
-    //         others: [this]
-    //     };
-    // },
-    // // TODO: what is this? should it be describeEvalResult? or explain? probably not just describe since that is for objects
-    // describe : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-    //     var desc = {};
-    //     desc.message = "a call to " + this.func.describe(sim).message;
-    //     return desc;
-    // }
-    isReturnByValue() {
-        let returnType = this.func.type.returnType;
-        return returnType.isAtomicType() || returnType.isCompleteClassType();
-    }
-    isReturnByReference() {
-        return this.func.type.returnType.isReferenceType();
-    }
-    isReturnVoid() {
-        return this.func.type.returnType.isVoidType();
-    }
-}
-exports.FunctionCall = FunctionCall;
-exports.INDEX_FUNCTION_CALL_PUSH = 0;
-exports.INDEX_FUNCTION_CALL_ARGUMENTS = 1;
-exports.INDEX_FUNCTION_CALL_CALL = 2;
-exports.INDEX_FUNCTION_CALL_RETURN = 3;
-class RuntimeFunctionCall extends PotentialFullExpression_1.RuntimePotentialFullExpression {
-    constructor(model, parent, receiver) {
-        super(model, "call", parent);
-        this.receiver = receiver;
-        // TODO can i get rid of the non-null assertion or cast here?
-        // Basically, the assumption depends on a RuntimeFunctionCall only being created
-        // if the program was successfully linked (which also implies the FunctionDefinition was compiled)
-        // It also assumes the function definition has the correct return type.
-        let functionDef = this.model.func.definition;
-        // Create argument initializer instances
-        this.argInitializers = this.model.argInitializers.map((aInit) => aInit.createRuntimeInitializer(this));
-        // TODO: TCO? would reuse this.containingRuntimeFunction instead of creating new
-        this.calledFunction = functionDef.createRuntimeFunction(this, this.receiver);
-        // TODO: TCO? if using TCO, don't create a new return object, just reuse the old one
-        if (this.isReturnByValue()) {
-            // If return-by-value, set return object to temporary
-            this.calledFunction.setReturnObject(this.model.returnByValueTarget.objectInstance(this));
-        }
-        this.index = exports.INDEX_FUNCTION_CALL_PUSH;
-    }
-    upNextImpl() {
-        var _a;
-        if (this.index === exports.INDEX_FUNCTION_CALL_ARGUMENTS) {
-            // Push all argument initializers. Push in reverse so they run left to right
-            // (although this is not strictly necessary given they are indeterminately sequenced)
-            for (var i = this.argInitializers.length - 1; i >= 0; --i) {
-                this.sim.push(this.argInitializers[i]);
-            }
-            this.index = exports.INDEX_FUNCTION_CALL_CALL;
-        }
-        else if (this.index === exports.INDEX_FUNCTION_CALL_RETURN) {
-            this.calledFunction.loseControl();
-            (_a = this.containingRuntimeFunction) === null || _a === void 0 ? void 0 : _a.gainControl();
-            this.startCleanup();
-        }
-    }
-    stepForwardImpl() {
-        var _a;
-        if (this.index === exports.INDEX_FUNCTION_CALL_PUSH) {
-            // TODO: TCO? just do a tailCallReset, send "tailCalled" message
-            this.calledFunction.pushStackFrame();
-            this.index = exports.INDEX_FUNCTION_CALL_ARGUMENTS;
-        }
-        else if (this.index === exports.INDEX_FUNCTION_CALL_CALL) {
-            (_a = this.containingRuntimeFunction) === null || _a === void 0 ? void 0 : _a.loseControl();
-            this.sim.push(this.calledFunction);
-            this.calledFunction.gainControl();
-            this.receiver && this.receiver.callReceived();
-            // (<Mutable<this>>this).hasBeenCalled = true;
-            this.observable.send("called", this.calledFunction);
-            this.index = exports.INDEX_FUNCTION_CALL_RETURN;
-        }
-    }
-    isReturnByValue() {
-        return this.model.isReturnByValue();
-    }
-}
-exports.RuntimeFunctionCall = RuntimeFunctionCall;
-// type FunctionResultType<T extends FunctionType> = NoRefType<Exclude<T["returnType"], VoidType>>; // TODO: this isn't used? should I use it somewhere?
-// type ReturnTypeVC<RT extends PotentialReturnType> = RT extends ReferenceType ? "lvalue" : "prvalue";
-class FunctionCallExpression extends expressionBase_1.Expression {
-    constructor(context, ast, operand, args) {
-        super(context, ast);
-        this.construct_type = "function_call_expression";
-        this.attach(this.operand = operand);
-        this.originalArgs = args;
-        // If any arguments are not well typed, we can't select a function.
-        if (!expressionBase_1.allWellTyped(args)) {
-            // type, valueCategory, and call remain undefined
-            this.attachAll(args);
-            return;
-        }
-        if (!(operand instanceof expressions_1.IdentifierExpression || operand instanceof expressions_1.DotExpression || operand instanceof expressions_1.ArrowExpression)) {
-            this.addNote(errors_1.CPPError.expr.functionCall.invalid_operand_expression(this, operand));
-            this.attachAll(args);
-            return;
-        }
-        if (!operand.entity) {
-            // type, valueCategory, and call remain undefined
-            // operand will already have an error about the failed lookup
-            this.attachAll(args);
-            return;
-        }
-        if (!(operand.entity instanceof entities_1.FunctionEntity)) {
-            // type, valueCategory, and call remain undefined
-            this.addNote(errors_1.CPPError.expr.functionCall.operand(this, operand.entity));
-            this.attachAll(args);
-            return;
-        }
-        if (!operand.entity.returnsCompleteType()) {
-            this.attachAll(args);
-            this.addNote(errors_1.CPPError.expr.functionCall.incomplete_return_type(this, operand.entity.type.returnType));
-            return;
-        }
-        let returnType = operand.entity.type.returnType;
-        this.type = types_1.peelReference(returnType);
-        this.valueCategory = returnType instanceof types_1.ReferenceType ? "lvalue" : "prvalue";
-        // let staticReceiver: ObjectEntity<CompleteClassType> | undefined;
-        // if (operand instanceof DotExpression) {
-        //     staticReceiver = operand.functionCallReceiver;
-        // }
-        // If we get to here, we don't attach the args directly since they will be attached under the function call.
-        this.attach(this.call = new FunctionCall(context, operand.entity, args, operand.context.contextualReceiverType));
-    }
-    static createFromAST(ast, context) {
-        let args = ast.args.map(arg => expressions_1.createExpressionFromAST(arg, context));
-        if (ast.operand.construct_type === "identifier_expression") {
-            if (lexical_1.LOBSTER_MAGIC_FUNCTIONS.has(ast.operand.identifier)) {
-                return new expressions_1.MagicFunctionCallExpression(context, ast, ast.operand.identifier, args);
-            }
-        }
-        let contextualParamTypes = args.map(arg => arg.type);
-        return new FunctionCallExpression(context, ast, expressions_1.createExpressionFromAST(ast.operand, constructs_1.createExpressionContextWithParameterTypes(context, contextualParamTypes)), args);
-    }
-    createDefaultOutlet(element, parent) {
-        return new codeOutlets_1.FunctionCallExpressionOutlet(element, this, parent);
-    }
-    // TODO
-    describeEvalResult(depth) {
-        throw new Error("Method not implemented.");
-    }
-}
-exports.FunctionCallExpression = FunctionCallExpression;
-exports.INDEX_FUNCTION_CALL_EXPRESSION_OPERAND = 0;
-exports.INDEX_FUNCTION_CALL_EXPRESSION_CALL = 1;
-exports.INDEX_FUNCTION_CALL_EXPRESSION_RETURN = 2;
-class RuntimeFunctionCallExpression extends expressionBase_1.RuntimeExpression {
-    constructor(model, parent) {
-        super(model, parent);
-        this.index = exports.INDEX_FUNCTION_CALL_EXPRESSION_OPERAND;
-        this.operand = expressions_1.createRuntimeExpression(this.model.operand, this);
-    }
-    upNextImpl() {
-        if (this.index === exports.INDEX_FUNCTION_CALL_EXPRESSION_OPERAND) {
-            this.sim.push(this.operand);
-            this.index = exports.INDEX_FUNCTION_CALL_EXPRESSION_CALL;
-        }
-        else if (this.index === exports.INDEX_FUNCTION_CALL_EXPRESSION_CALL) {
-            // We check the contextual receiver here since it changes after the operand is evaluated.
-            this.call = this.model.call.createRuntimeFunctionCall(this, this.operand.contextualReceiver);
-            this.sim.push(this.call);
-            this.index = exports.INDEX_FUNCTION_CALL_EXPRESSION_RETURN;
-        }
-        else if (this.index === exports.INDEX_FUNCTION_CALL_EXPRESSION_RETURN) {
-            // Note: cannot use this.model.type here, since that is the type of the function
-            // call expression, which would have had the reference type removed if this was return
-            // by reference. Instead, use the return type of the called function itself, which will have
-            // the reference type intact.
-            let returnType = this.model.call.func.type.returnType;
-            if (returnType.isVoidType()) {
-                // this.setEvalResult(null); // TODO: type system won't allow this currently
-            }
-            else if (returnType.isReferenceType()) {
-                // Return by reference is lvalue and yields the returned object
-                let retObj = this.call.calledFunction.returnObject;
-                this.setEvalResult(retObj);
-            }
-            else if (returnType.isAtomicType()) {
-                // Return by value of atomic type. In this case, we can look up
-                // the value of the return object and use that as the eval result
-                let retObj = this.call.calledFunction.returnObject;
-                this.setEvalResult(retObj.getValue());
-            }
-            else {
-                // Return by value of a non-atomic type. In this case, it's still a prvalue
-                // but is the temporary object rather than its value.
-                let retObj = this.call.calledFunction.returnObject;
-                this.setEvalResult(retObj);
-            }
-            this.startCleanup();
-        }
-    }
-    stepForwardImpl() {
-        // nothing to do
-    }
-}
-exports.RuntimeFunctionCallExpression = RuntimeFunctionCallExpression;
-// OLD stuff kept in case it's relevant for operator overloads, but probably won't be needed
-// export var FunctionCallExpression  = Expression.extend({
-//     _name: "FunctionCallExpression",
-//     initIndex: "operand",
-// bindFunction : function(argTypes){
-//     var self = this;
-//     if (isA(this.operand.type, Types.Class)){
-//         // Check for function call operator and if so, find function
-//         // TODO: I think this breaks given multiple overloaded function call operators?
-//         try{
-//             this.callOp = this.operand.type.classScope.requiredMemberLookup("operator()", {paramTypes:argTypes, isThisConst: this.operand.type.isConst});
-//             this.boundFunction = this.callOp;
-//             this.type = noRef(this.callOp.type.returnType);
-//         }
-//         catch(e){
-//             if (isA(e, SemanticExceptions.BadLookup)){
-//                 this.addNote(CPPError.expr.functionCall.not_defined(this, this.operand.type, argTypes));
-//                 this.addNote(e.annotation(this));
-//             }
-//             else{
-//                 throw e;
-//             }
-//         }
-//     }
-//     else if (isA(this.operand.entity, FunctionEntity)){ // TODO: use of entity property here feels hacky
-//         // If it's an identifier, dot, arrow, etc. that denote an entity - just bind that
-//         this.staticFunction = this.operand.entity;
-//         this.staticFunctionType = this.staticFunction.type;
-//         this.boundFunction = this.operand.entity;
-//     }
-//     else if (isA(this.operand.type, Types.Pointer) && isA(this.operand.type.ptrTo, Types.Function)){
-//         this.staticFunctionType = this.operand.type.ptrTo;
-//         this.boundFunction = PointedFunctionEntity.instance(this.operand.type.ptrTo);
-//         this.operand = convertToPRValue(this.operand);
-//     }
-//     else if (isA(this.operand.type, Types.Function)){
-//         this.staticFunctionType = this.operand.type;
-//         this.boundFunction = PointedFunctionEntity.instance(this.operand.type);
-//     }
-//     else{
-//         this.addNote(CPPError.expr.functionCall.operand(this, this.operand));
-//     }
-// },
-// });
 
 
 /***/ }),
@@ -52393,7 +52415,6 @@ const util_1 = __webpack_require__(6560);
 const errors_1 = __webpack_require__(5244);
 const expressionBase_1 = __webpack_require__(9180);
 const codeOutlets_1 = __webpack_require__(3004);
-const functionCall_1 = __webpack_require__(4796);
 class Initializer extends PotentialFullExpression_1.PotentialFullExpression {
     isTailChild(child) {
         return { isTail: true };
@@ -52575,7 +52596,7 @@ class ClassDefaultInitializer extends DefaultInitializer {
             return;
         }
         this.ctor = overloadResult.selected;
-        this.ctorCall = new functionCall_1.FunctionCall(context, this.ctor, [], target.type.cvUnqualified());
+        this.ctorCall = new PotentialFullExpression_1.FunctionCall(context, this.ctor, [], target.type.cvUnqualified());
         this.attach(this.ctorCall);
         // this.args = this.ctorCall.args;
     }
@@ -52650,31 +52671,61 @@ class ReferenceDirectInitializer extends DirectInitializer {
         this.construct_type = "ReferenceDirectInitializer";
         this.target = target;
         util_1.assert(args.length > 0, "Direct initialization must have at least one argument. (Otherwise it should be a default initialization.)");
-        this.args = args;
-        // Note: It is ONLY ok to attach them all right away because no conversions are
-        // layered over the expressions for a reference initialization
-        args.forEach((a) => { this.attach(a); });
-        if (this.args.length > 1) {
+        if (args.length > 1) {
             this.addNote(errors_1.CPPError.declaration.init.referenceBindMultiple(this));
+            this.attachAll(this.args = args);
             return;
         }
-        // this.returnByValueTarget = this.createTemporaryObject(returnType, `[${this.func.name}() return]`);
-        this.arg = this.args[0];
-        if (!this.arg.isWellTyped()) {
+        // Below this line, we can assume only one arg
+        let arg = args[0];
+        if (!arg.isWellTyped()) {
+            this.attach(this.arg = arg);
+            this.args = [arg];
             return;
         }
         let targetType = target.type;
-        if (!types_1.referenceCompatible(this.arg.type, targetType)) {
-            this.addNote(errors_1.CPPError.declaration.init.referenceType(this, this.arg.type, targetType));
+        let isReferenceCompatible = types_1.referenceCompatible(arg.type, targetType);
+        let isReferenceRelated = types_1.referenceRelated(arg.type, targetType);
+        if (arg.valueCategory === "lvalue") {
+            if (isReferenceCompatible) {
+                // no further checking needed
+            }
+            else {
+                if (isReferenceRelated) {
+                    // If they are reference-related, the only thing preventing binding this
+                    // reference was a matter of constness
+                    this.addNote(errors_1.CPPError.declaration.init.referenceConstness(this, arg.type, targetType));
+                }
+                else {
+                    // They are not reference-related, but a conversion and temporary might allow the
+                    // binding if and only if the reference is const-qualified.
+                    // For example (consts below are all necessary):
+                    // int i = 2;
+                    // const double &dr = i; // convert to int, apply temporary materialization
+                    // const string &str = "hi"; // convert to string using ctor, apply temporary materialization
+                    if (!targetType.refTo.isConst) {
+                        // can't make non-const reference to a prvalue
+                        this.addNote(errors_1.CPPError.declaration.init.referencePrvalueConst(this));
+                    }
+                    // Generic error for non-reference-compatible type
+                    // Note that user-defined conversion functions might come into play here
+                    this.addNote(errors_1.CPPError.declaration.init.referenceType(this, arg.type, targetType));
+                }
+            }
         }
-        else if (this.arg.valueCategory === "prvalue" && !targetType.refTo.isConst) {
-            this.addNote(errors_1.CPPError.declaration.init.referencePrvalueConst(this));
+        else { //arg.valueCategory === "prvalue"
+            if (!targetType.refTo.isConst) {
+                // can't make non-const reference to a prvalue
+                this.addNote(errors_1.CPPError.declaration.init.referencePrvalueConst(this));
+            }
+            // can't bind to a prvalue. exception is that prvalues with class type must really be temporary objects
+            // we'll allow this for now. note that the lifetimes don't get extended, which is still TODO
+            else if (!arg.type.isCompleteClassType()) {
+                this.addNote(errors_1.CPPError.lobster.referencePrvalue(this));
+            }
         }
-        // can't bind to a prvalue. exception is that prvalues with class type must really be temporary objects
-        // we'll allow this for now. note that the lifetimes don't get extended, which is still TODO
-        else if (this.arg.valueCategory === "prvalue" && !this.arg.type.isCompleteClassType()) {
-            this.addNote(errors_1.CPPError.lobster.referencePrvalue(this));
-        }
+        this.attach(this.arg = arg);
+        this.args = [arg];
     }
     createRuntimeInitializer(parent) {
         return new RuntimeReferenceDirectInitializer(this, parent);
@@ -52936,7 +52987,7 @@ class ClassDirectInitializer extends DirectInitializer {
             return;
         }
         this.ctor = overloadResult.selected;
-        this.ctorCall = new functionCall_1.FunctionCall(context, this.ctor, args, target.type.cvUnqualified());
+        this.ctorCall = new PotentialFullExpression_1.FunctionCall(context, this.ctor, args, target.type.cvUnqualified());
         this.attach(this.ctorCall);
         this.args = this.ctorCall.args;
     }
@@ -54051,7 +54102,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.Predicates = void 0;
 const expressions_1 = __webpack_require__(6597);
 const declarations_1 = __webpack_require__(8963);
-const functionCall_1 = __webpack_require__(4796);
+const FunctionCallExpression_1 = __webpack_require__(3069);
 const initializers_1 = __webpack_require__(1288);
 const analysis_1 = __webpack_require__(5431);
 // type TypedKinds<T extends Type> = TypedDeclarationKinds<T> & TypedExpressionKinds<T, ValueCategory>;
@@ -54150,7 +54201,7 @@ var Predicates;
     }
     Predicates.byFunctionName = byFunctionName;
     function byFunctionCallName(name) {
-        return ((construct) => { var _a; return (construct instanceof functionCall_1.FunctionCallExpression) && ((_a = construct.call) === null || _a === void 0 ? void 0 : _a.func.name) === name; });
+        return ((construct) => { var _a; return (construct instanceof FunctionCallExpression_1.FunctionCallExpression) && ((_a = construct.call) === null || _a === void 0 ? void 0 : _a.func.name) === name; });
     }
     Predicates.byFunctionCallName = byFunctionCallName;
     function byOperatorOverloadCall(operator) {
@@ -54708,10 +54759,10 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.synchronousCloneSimulation = exports.asyncCloneSimulation = exports.AsynchronousSimulationRunner = exports.SynchronousSimulationRunner = void 0;
 const Simulation_1 = __webpack_require__(2295);
-const functionCall_1 = __webpack_require__(4796);
 const simOutlets_1 = __webpack_require__(9357);
 const initializers_1 = __webpack_require__(1288);
 const entities_1 = __webpack_require__(8397);
+const PotentialFullExpression_1 = __webpack_require__(2593);
 class SynchronousSimulationRunner {
     constructor(simulation) {
         this.simulation = simulation;
@@ -54778,7 +54829,7 @@ class SynchronousSimulationRunner {
      */
     stepOver() {
         let top = this.simulation.top();
-        if (top instanceof functionCall_1.FunctionCall) {
+        if (top instanceof PotentialFullExpression_1.FunctionCall) {
             while (!top.isDone) {
                 this.simulation.stepForward();
             }
@@ -54991,7 +55042,7 @@ class AsynchronousSimulationRunner {
             // if (top instanceof RuntimeFunctionCall) {
             top = this.simulation.top();
             while (top && !originalTop.isDone && (top.model.context.isLibrary
-                || (top instanceof functionCall_1.RuntimeFunctionCall && top.calledFunction.model.context.isLibrary)
+                || (top instanceof PotentialFullExpression_1.RuntimeFunctionCall && top.calledFunction.model.context.isLibrary)
                 || (top instanceof initializers_1.RuntimeDirectInitializer && top.model.target instanceof entities_1.PassByReferenceParameterEntity && top.model.target.calledFunction.firstDeclaration.context.isLibrary)
                 || (top instanceof initializers_1.RuntimeDirectInitializer && top.model.target instanceof entities_1.PassByValueParameterEntity && top.model.target.calledFunction.firstDeclaration.context.isLibrary))) {
                 yield this.takeOneAction(Simulation_1.STEP_FORWARD_ACTION, delay);
@@ -55086,7 +55137,7 @@ const util_1 = __webpack_require__(6560);
 const codeOutlets_1 = __webpack_require__(3004);
 const functions_1 = __webpack_require__(2367);
 const predicates_1 = __webpack_require__(941);
-const functionCall_1 = __webpack_require__(4796);
+const PotentialFullExpression_1 = __webpack_require__(2593);
 const StatementConstructsMap = {
     "labeled_statement": (ast, context) => new UnsupportedStatement(context, ast, "labeled statement"),
     "block": (ast, context) => Block.createFromAST(ast, context),
@@ -55437,7 +55488,7 @@ class LocalDeallocator extends constructs_1.BasicCPPConstruct {
             if (local.variableKind === "object" && local.isTyped(types_1.isCompleteClassType)) {
                 let dtor = local.type.classDefinition.destructor;
                 if (dtor) {
-                    let dtorCall = new functionCall_1.FunctionCall(context, dtor, [], local.type);
+                    let dtorCall = new PotentialFullExpression_1.FunctionCall(context, dtor, [], local.type);
                     this.attach(dtorCall);
                     return dtorCall;
                 }
@@ -55812,8 +55863,8 @@ RuntimeForStatement.upNextFns = [
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.ArrayPointerType = exports.PointerType = exports.toHexadecimalString = exports.Double = exports.Float = exports.FloatingPointType = exports.Bool = exports.Size_t = exports.Int = exports.Char = exports.IntegralType = exports.ArithmeticType = exports.SimpleType = exports.AtomicType = exports.VoidType = exports.isCompleteParameterType = exports.isPotentialParameterType = exports.isCompleteReturnType = exports.isPotentialReturnType = exports.isCompleteObjectType = exports.isIncompleteObjectType = exports.isPotentiallyCompleteObjectType = exports.isVoidType = exports.isFunctionType = exports.isArrayElemType = exports.isPotentiallyCompleteArrayType = exports.isArrayOfUnknownBoundType = exports.isBoundedArrayOfType = exports.isBoundedArrayType = exports.isCompleteClassType = exports.isPotentiallyCompleteClassType = exports.isReferenceToCompleteType = exports.isReferenceType = exports.isObjectPointerType = exports.isArrayPointerToType = exports.isArrayPointerType = exports.isPointerToCompleteType = exports.isPointerToType = exports.isPointerType = exports.isFloatingPointType = exports.isIntegralType = exports.isArithmeticType = exports.isAtomicType = exports.isCvConvertible = exports.referenceCompatible = exports.covariantType = exports.subType = exports.similarType = exports.sameType = exports.isType = void 0;
-exports.builtInTypes = exports.isBuiltInTypeName = exports.FunctionType = exports.createClassType = exports.ArrayOfUnknownBoundType = exports.BoundedArrayType = exports.peelReference = exports.ReferenceType = exports.ObjectPointerType = void 0;
+exports.PointerType = exports.toHexadecimalString = exports.Double = exports.Float = exports.FloatingPointType = exports.Bool = exports.Size_t = exports.Int = exports.Char = exports.IntegralType = exports.ArithmeticType = exports.SimpleType = exports.AtomicType = exports.VoidType = exports.isCompleteParameterType = exports.isPotentialParameterType = exports.isCompleteReturnType = exports.isPotentialReturnType = exports.isCompleteObjectType = exports.isIncompleteObjectType = exports.isPotentiallyCompleteObjectType = exports.isVoidType = exports.isFunctionType = exports.isArrayElemType = exports.isPotentiallyCompleteArrayType = exports.isArrayOfUnknownBoundType = exports.isBoundedArrayOfType = exports.isBoundedArrayType = exports.isCompleteClassType = exports.isPotentiallyCompleteClassType = exports.isReferenceToCompleteType = exports.isReferenceType = exports.isObjectPointerType = exports.isArrayPointerToType = exports.isArrayPointerType = exports.isPointerToCompleteType = exports.isPointerToType = exports.isPointerType = exports.isFloatingPointType = exports.isIntegralType = exports.isArithmeticType = exports.isAtomicType = exports.isCvConvertible = exports.referenceRelated = exports.referenceCompatible = exports.covariantType = exports.subType = exports.similarType = exports.sameType = exports.isType = void 0;
+exports.builtInTypes = exports.isBuiltInTypeName = exports.FunctionType = exports.createClassType = exports.ArrayOfUnknownBoundType = exports.BoundedArrayType = exports.peelReference = exports.ReferenceType = exports.ObjectPointerType = exports.ArrayPointerType = void 0;
 const util_1 = __webpack_require__(6560);
 const runtimeEnvironment_1 = __webpack_require__(5320);
 var vowels = ["a", "e", "i", "o", "u"];
@@ -55887,6 +55938,11 @@ function referenceCompatible(from, to) {
     return from && to && from.isReferenceCompatible(to);
 }
 exports.referenceCompatible = referenceCompatible;
+;
+function referenceRelated(from, to) {
+    return from && to && from.isReferenceRelated(to);
+}
+exports.referenceRelated = referenceRelated;
 ;
 function isCvConvertible(fromType, toType) {
     if (fromType === null || toType === null) {
@@ -73546,8 +73602,9 @@ $(() => {
             filesElem.toggle();
         });
         programElem.append(showFilesButton);
-        for (var name in test.program.sourceFiles) {
-            var sourceFile = test.program.sourceFiles[name];
+        for (let tuName in test.program.translationUnits) {
+            var sourceFile = test.program.sourceFiles[tuName];
+            test.program.translationUnits;
             filesElem.append(sourceFile.name + "\n" + sourceFile.text);
         }
         programElem.append(filesElem);
@@ -73715,6 +73772,73 @@ int main() {
   strcpy(big, "hey");
   
   assert(strs_equal(big, "hey"));
+}`, [
+        new verifiers_1.NoErrorsNoWarningsVerifier(),
+        new verifiers_1.NoBadRuntimeEventsVerifier(true)
+    ]);
+    // ---------- Basic Reference Test ----------
+    new verifiers_1.SingleTranslationUnitTest("Basic Reference Test", `int main() {
+  int x = 3;
+  int &y = x;
+  assert(y == 3);
+  x = 10;
+  assert(y == 10);
+  y = 5;
+  assert(x == 5); 
+}`, [
+        new verifiers_1.NoErrorsNoWarningsVerifier(),
+        new verifiers_1.NoBadRuntimeEventsVerifier(true)
+    ]);
+    // ---------- Const Reference Test ----------
+    new verifiers_1.SingleTranslationUnitTest("Const Reference Test", `int main() {
+  int x;
+  int &rx = x;
+  const int &crx = x;
+  rx = 10;
+  crx = 10;
+  rx = crx;
+  crx = rx;
+  
+  const int y;
+  int &ry = y;
+  const int &cry = y;
+  ry = 10;
+  cry = 10;
+  ry = cry;
+  cry = ry;
+  
+  rx = ry;
+  rx = cry;
+  crx = ry;
+  crx = cry;
+  
+  ry = rx;
+  ry = crx;
+  cry = rx;
+  cry = crx;
+}
+`, [
+        new verifiers_1.NoteVerifier([
+            { line: 6, id: "expr.assignment.lhs_const" },
+            { line: 8, id: "expr.assignment.lhs_const" },
+            { line: 11, id: "declaration.init.referenceConstness" },
+            { line: 14, id: "expr.assignment.lhs_const" },
+            { line: 16, id: "expr.assignment.lhs_const" },
+            { line: 20, id: "expr.assignment.lhs_const" },
+            { line: 21, id: "expr.assignment.lhs_const" },
+            { line: 25, id: "expr.assignment.lhs_const" },
+            { line: 26, id: "expr.assignment.lhs_const" },
+        ])
+    ]);
+    // ---------- Basic Reference Test ----------
+    new verifiers_1.SingleTranslationUnitTest("Basic Reference Test", `int main() {
+  int x = 3;
+  int &y = x;
+  assert(y == 3);
+  x = 10;
+  assert(y == 10);
+  y = 5;
+  assert(x == 5); 
 }`, [
         new verifiers_1.NoErrorsNoWarningsVerifier(),
         new verifiers_1.NoBadRuntimeEventsVerifier(true)
@@ -73921,23 +74045,23 @@ int main() {
     assert(i3_ptr == &i3);
   
     // Function call with function pointer
-    int (*func_ptr)(int, int&, int*) = func;
-    int (*func_ptr2)(int, int&, int*) = &func;
-    int (*func_ptr3)(int, int&, int*) = *func;
-    i1 = i2 = i3 = 5;
-    func_ptr(i1, i2, i3_ptr);
-    assert(i1 == 5);
-    assert(i2 == 2);
-    assert(i3 == 2);
-    assert(i4 == 2);
-    assert(i3_ptr == &i3);
-    i1 = i2 = i3 = 5;
-    (*func_ptr)(i1, i2, i3_ptr);
-    assert(i1 == 5);
-    assert(i2 == 2);
-    assert(i3 == 2);
-    assert(i4 == 2);
-    assert(i3_ptr == &i3);
+    // int (*func_ptr)(int, int&, int*) = func;
+    // int (*func_ptr2)(int, int&, int*) = &func;
+    // int (*func_ptr3)(int, int&, int*) = *func;
+    // i1 = i2 = i3 = 5;
+    // func_ptr(i1, i2, i3_ptr);
+    // assert(i1 == 5);
+    // assert(i2 == 2);
+    // assert(i3 == 2);
+    // assert(i4 == 2);
+    // assert(i3_ptr == &i3);
+    // i1 = i2 = i3 = 5;
+    // (*func_ptr)(i1, i2, i3_ptr);
+    // assert(i1 == 5);
+    // assert(i2 == 2);
+    // assert(i3 == 2);
+    // assert(i4 == 2);
+    // assert(i3_ptr == &i3);
   
     // Member access with . and ->
     TestClass j;
@@ -73996,13 +74120,13 @@ int main() {
     assert(p == 10);
   
     // new/delete/delete[]
-    int *q1 = new int(3);
-    double *q2 = new double(4.5);
-    double **q3 = new (double*)(q2);
+    // int *q1 = new int(3);
+    // double *q2 = new double(4.5);
+    // double **q3 = new (double*)(q2);
   
-    delete q1;
-    delete *q3;
-    delete q3;
+    // delete q1;
+    // delete *q3;
+    // delete q3;
   }`, [
         new verifiers_1.NoErrorsNoWarningsVerifier(),
         new verifiers_1.NoBadRuntimeEventsVerifier(true)

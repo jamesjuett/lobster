@@ -3,7 +3,7 @@ import { Program, TranslationUnit } from "../core/Program";
 import { AssignmentExpression, AnalyticBinaryOperatorExpression, NumericLiteralExpression, IdentifierExpression, AnalyticExpression } from "../core/expressions";
 import { CPPError, Note, NoteKind, CompilerNote } from "../core/errors";
 import { Constructor } from "../util/util";
-import { FunctionCallExpression } from "../core/functionCall";
+import { FunctionCallExpression } from "../core/FunctionCallExpression";
 import { VariableDefinition, FunctionDefinition, LocalVariableDefinition, TypedLocalVariableDefinition } from "../core/declarations";
 import { DirectInitializer } from "../core/initializers";
 import { ForStatement, CompiledForStatement, UnsupportedStatement } from "../core/statements";
