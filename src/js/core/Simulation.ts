@@ -276,6 +276,11 @@ export class Simulation {
             this.pop();
         }
     }
+    
+    public startCleanupUntil(rt: RuntimeConstruct) {
+        let toCleanUp = this._execStack.slice(this._execStack.indexOf(rt)+1);
+        toCleanUp.forEach(rt => rt.startCleanup());
+    }
 
     public topFunction(): RuntimeFunction | undefined {
         for (let i = this.execStack.length - 1; i >= 0; --i) {
