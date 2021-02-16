@@ -5541,16 +5541,21 @@ export interface CompiledStreamToBoolConversion extends TypedStreamToBoolConvers
 export class TemporaryMaterializationConversion<T extends CompleteObjectType> extends ImplicitConversion<T, "prvalue", T, "lvalue"> {
 
     public readonly materializedObject?: TemporaryObjectEntity<T>;
-    public readonly initializer: DirectInitializer
+    public readonly initializer: DirectInitializer;
 
     public constructor(from: TypedExpression<T, "prvalue">) {
         super(from, from.type, "lvalue");
+        
+        // if the expression is of non-class type, 
         this.materializedObject = this.createTemporaryObject(this.type, "[materialized temporary]");
+        this.initializer = DirectInitializer.create(this.context, this.materializedObject, [from], "direct");
     }
 
     public operate(fromEvalResult: VCResultTypes<T, "prvalue">) {
         
-        (<Mutable<this>>this).materializedObject = this.model.materializedObject.objectInstance(this);
+        if (fromEvalResult instanceof Value) {
+            let materializedObject = this.materializedObject.objectInstance(this);
+        }
         // this.materializedObject.setV
         let eltsPointer = this.elementsArray!.getArrayElemSubobject(0).getPointerTo();
         (<CPPObject<PointerType<ArithmeticType>>>this.materializedObject!.getMemberObject("begin")!).setValue(eltsPointer);
