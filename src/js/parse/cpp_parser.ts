@@ -608,10 +608,10 @@ function peg$parse(input: string, options?: IParseOptions) {
   const peg$c355 = "this";
   const peg$c356 = peg$literalExpectation("this", false);
   const peg$c357 = function(): any {return track({construct_type: "this_expression"}, location(), text()); };
-  const peg$c358 = function(id: any): any { return track(absorb({construct_type: "identifier_expression"}, id), location(), text()); };
+  const peg$c358 = function(id: any): any { return track({construct_type: "identifier_expression", identifier: id}, location(), text()); };
   const peg$c359 = function(n: any, u: any): any {
       n.push(u);
-      return {identifier: n};
+      return {construct_type: "qualified_identifier", components: n};
     };
   const peg$c360 = "::";
   const peg$c361 = peg$literalExpectation("::", false);
@@ -686,7 +686,7 @@ function peg$parse(input: string, options?: IParseOptions) {
   const peg$c430 = /^[0-8]/;
   const peg$c431 = peg$classExpectation([["0", "8"]], false, false);
   const peg$c432 = peg$otherExpectation("identifier");
-  const peg$c433 = function(first: any, rest: any): any {return track({identifier: first + rest.join("")}, location(), text());};
+  const peg$c433 = function(first: any, rest: any): any {return track({construct_type: "unqualified_identifier", identifier: first + rest.join("")}, location(), text());};
   const peg$c434 = /^[a-zA-Z0-9_]/;
   const peg$c435 = peg$classExpectation([["a", "z"], ["A", "Z"], ["0", "9"], "_"], false, false);
   const peg$c436 = /^[a-zA-Z_]/;
@@ -753,7 +753,7 @@ function peg$parse(input: string, options?: IParseOptions) {
       return track({construct_type: "base_specifier", name: c}, location(), text());};
   const peg$c484 = function(n: any, c: any): any {
       n.push(c);
-      return n;};
+      return {construct_type: "qualified_identifier", components: n};};
 
   let peg$currPos = 0;
   let peg$savedPos = 0;

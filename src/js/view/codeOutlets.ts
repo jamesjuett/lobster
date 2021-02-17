@@ -17,6 +17,7 @@ import { RuntimeFunctionCallExpression, CompiledFunctionCallExpression } from ".
 import { RuntimeFunction } from "../core/functions";
 import { RuntimeOpaqueExpression, CompiledOpaqueExpression } from "../core/opaqueExpression";
 import { encode } from "he";
+import { stringifyIdentifier } from "../core/lexical";
 
 const EVAL_FADE_DURATION = 500;
 const RESET_FADE_DURATION = 500;
@@ -2115,7 +2116,7 @@ export class IdentifierOutlet extends ExpressionOutlet<RuntimeObjectIdentifierEx
         super(element, construct, parent, false);
         this.exprElem.addClass("code-name");
 
-        this.exprElem.append(this.construct.name);
+        this.exprElem.append(stringifyIdentifier(this.construct.name));
     }
 
 }

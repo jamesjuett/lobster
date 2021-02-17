@@ -53,11 +53,17 @@ export class Scope {
 
     public readonly translationUnit: TranslationUnit;
     public readonly parent?: Scope;
+    public readonly name?: string;
+    public readonly children: { [index: string]: NamedScope | undefined } = {};
 
     public constructor(translationUnit: TranslationUnit, parent?: Scope) {
         assert(!parent || translationUnit === parent.translationUnit);
         this.translationUnit = translationUnit;
         this.parent = parent;
+    }
+
+    public addChild(child: NamedScope) {
+        this.children[child.name] = child;
     }
 
     /** Attempts to declare a variable in this scope.
@@ -249,31 +255,6 @@ export class Scope {
     //     return res;
     // }
 
-    // // TODO: this should be a member function of the Program class
-    // public qualifiedLookup(names, options){
-    //     assert(Array.isArray(names) && names.length > 0);
-    //     var scope = this.sim.getGlobalScope();
-    //     for(var i = 0; scope && i < names.length - 1; ++i){
-    //         scope = scope.children[names[i].identifier];
-    //     }
-
-    //     if (!scope){
-    //         return null;
-    //     }
-
-    //     var name = names.last().identifier;
-    //     var result = scope.lookup(name, copyMixin(options, {qualified:true}));
-
-    //     // Qualified lookup suppresses virtual function call mechanism, so if we
-    //     // just looked up a MemberFunctionEntity, we create a proxy to do that.
-    //     if (Array.isArray(result)){
-    //         result = result.map(function(elem){
-    //             return elem instanceof MemberFunctionEntity ? elem.suppressedVirtualProxy() : elem;
-    //         });
-    //     }
-    //     return result;
-    // }
-
     /**
      * Performs unqualified name lookup of a given name in this scope. Returns the entity found, or undefined
      * if no entity can be found. Note that the entity found may be a function overload group. Lookup may
@@ -390,18 +371,24 @@ export class BlockScope extends Scope {
 
 }
 
-export class NamespaceScope extends Scope {
+
+export class NamedScope extends Scope {
 
     public readonly name: string;
-    // private readonly children: { [index: string]: NamespaceScope | undefined };
 
-    public constructor(translationUnit: TranslationUnit, name: string, parent?: NamespaceScope) {
+    public constructor(translationUnit: TranslationUnit, name: string, parent?: Scope) {
         super(translationUnit, parent);
         this.name = name;
-        // this.children = {};
-        // if (parent) {
-        //     parent.addChild(this);
-        // }
+        if (parent) {
+            parent.addChild(this);
+        }
+    }
+}
+
+export class NamespaceScope extends NamedScope {
+
+    public constructor(translationUnit: TranslationUnit, name: string, parent?: NamespaceScope) {
+        super(translationUnit, name, parent);
     }
 
     protected variableEntityCreated(newEntity: VariableEntity) {
@@ -410,17 +397,10 @@ export class NamespaceScope extends Scope {
             this.translationUnit.context.program.registerGlobalObjectEntity(newEntity);
         }
     }
-
-    // private addChild(child: NamespaceScope) {
-    //     if (child.name) {
-    //         this.children[child.name] = child;
-    //     }
-    // }
 }
 
-export class ClassScope extends Scope {
+export class ClassScope extends NamedScope {
 
-    public readonly name: string;
     public readonly base?: ClassScope;
 
     /**
@@ -431,8 +411,7 @@ export class ClassScope extends Scope {
      * @param base 
      */
     public constructor(translationUnit: TranslationUnit, name: string, parent?: Scope | ClassScope, base?: ClassScope) {
-        super(translationUnit, parent);
-        this.name = name;
+        super(translationUnit, name, parent);
         this.base = base;
     }
 

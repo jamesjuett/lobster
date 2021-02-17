@@ -6,7 +6,7 @@ import { Initializer, DefaultInitializer, DirectInitializer, InitializerASTNode,
 import { LocalObjectEntity, LocalReferenceEntity, GlobalObjectEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity, BlockScope, ClassEntity, MemberObjectEntity, MemberReferenceEntity, MemberVariableEntity, ObjectEntityType } from "./entities";
 import { ExpressionASTNode, NumericLiteralASTNode, createExpressionFromAST, parseNumericLiteralValueFromAST, isConvertible } from "./expressions";
 import { BlockASTNode, Block, createStatementFromAST, CompiledBlock } from "./statements";
-import { IdentifierASTNode, checkIdentifier } from "./lexical";
+import { UnqualifiedIdentifierASTNode, checkIdentifier, QualifiedIdentifierASTNode, IdentifierASTNode, LexicalIdentifier, astToIdentifier, stringifyIdentifier } from "./lexical";
 import { CPPObject, ArraySubobject } from "./objects";
 import { Expression } from "./expressionBase";
 import { RuntimeFunction } from "./functions";
@@ -1195,7 +1195,7 @@ export interface DeclaratorASTNode extends ASTNode {
     readonly reference?: DeclaratorASTNode;
     readonly const?: boolean;
     readonly volatile?: boolean;
-    readonly name?: IdentifierASTNode;
+    readonly name?: UnqualifiedIdentifierASTNode;
     readonly postfixes?: readonly (ArrayPostfixDeclaratorASTNode | FunctionPostfixDeclaratorASTNode)[];
 }
 
@@ -1912,18 +1912,18 @@ export type ClassKey = "struct" | "class";
 export interface ElaboratedTypeSpecifierASTNode extends ASTNode {
     readonly construct_type: "elaborated_type_specifier";
     readonly classKey: ClassKey;
-    readonly name: IdentifierASTNode;
+    readonly name: UnqualifiedIdentifierASTNode;
 }
 
 export interface ClassHeadASTNode extends ASTNode {
     readonly construct_type: "class_head";
     readonly classKey: ClassKey;
-    readonly name: IdentifierASTNode;
+    readonly name: UnqualifiedIdentifierASTNode;
     readonly bases: readonly BaseSpecifierASTNode[];
 }
 
 export interface BaseSpecifierASTNode extends ASTNode {
-    readonly name: { identifier: string };
+    readonly name: IdentifierASTNode;
     readonly virtual?: true;
     readonly access?: AccessSpecifier;
 }
@@ -1958,7 +1958,7 @@ export interface CtorInitializerASTNode extends ASTNode {
 
 export interface MemberInitializerASTNode extends ASTNode {
     readonly construct_type: "member_initializer";
-    readonly member: IdentifierASTNode;
+    readonly member: UnqualifiedIdentifierASTNode;
     readonly args: readonly ExpressionASTNode[];
 }
 
@@ -2602,14 +2602,14 @@ export interface CompiledClassDefinition<T extends CompleteClassType = CompleteC
 export class BaseSpecifier extends BasicCPPConstruct<TranslationUnitContext, BaseSpecifierASTNode> {
     public readonly construct_type = "base_specifier";
 
-    public readonly name: string;
+    public readonly name: LexicalIdentifier;
     public readonly accessLevel: AccessSpecifier;
     public readonly virtual: boolean;
     public readonly baseEntity?: ClassEntity;
 
     public constructor(context: TranslationUnitContext, ast: BaseSpecifierASTNode, defaultAccessLevel: AccessSpecifier) {
         super(context, ast);
-        this.name = ast.name.identifier;
+        this.name = astToIdentifier(ast.name);
         this.accessLevel = ast.access ?? defaultAccessLevel;
         this.virtual = !!ast.virtual;
 
@@ -2619,10 +2619,12 @@ export class BaseSpecifier extends BasicCPPConstruct<TranslationUnitContext, Bas
 
         checkIdentifier(this, this.name, this);
 
-        let lookupResult = this.context.contextualScope.lookup(this.name);
+        let lookupResult = typeof this.name === "string"
+            ? this.context.contextualScope.lookup(this.name)
+            : this.context.translationUnit.qualifiedLookup(this.name);
 
         if (!lookupResult) {
-            this.addNote(CPPError.iden.not_found(this, this.name));
+            this.addNote(CPPError.iden.not_found(this, stringifyIdentifier(this.name)));
         }
         else if (lookupResult.declarationKind === "class") {
             this.baseEntity = lookupResult;
