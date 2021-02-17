@@ -2288,7 +2288,7 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         let src =`//@className=${this.name}\n${this.name}(${refParamCanBeConst ? "const " : ""}${this.name} &other)`;
         let memInits : string[] = this.memberVariableEntities.map(mem => `${mem.name}(other.${mem.name})`);
         if (this.baseClass) {
-            memInits.unshift(this.baseClass.className + "()");
+            memInits.unshift(this.baseClass.className + "(other)");
         }
         if (memInits.length > 0) {
             src += `\n : ${memInits.join(", ")}`;
