@@ -433,6 +433,7 @@ export class RuntimeFunctionCall<T extends FunctionType<CompleteReturnType> = Fu
             (<Mutable<this>>this).index = INDEX_FUNCTION_CALL_CALL;
         }
         else if (this.index === INDEX_FUNCTION_CALL_RETURN) {
+            this.receiver && this.receiver.callEnded();
             this.calledFunction.loseControl();
             this.containingRuntimeFunction?.gainControl();
             this.startCleanup();

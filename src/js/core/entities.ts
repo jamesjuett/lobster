@@ -279,7 +279,7 @@ export class Scope {
         // If we don't have an entity in this scope and we didn't specify we
         // wanted an own entity, look in parent scope (if there is one)
         if (!ent && !options.noParent && this.parent) {
-            return this.parent.lookup(name, Object.assign({}, options, {noBase: true}));
+            return this.parent.lookup(name, Object.assign({}, options));
         }
 
         // If we didn't find anything, return undefined
@@ -1204,7 +1204,7 @@ export class BaseSubobjectEntity extends CPPEntity<CompleteClassType> implements
 
     public describe() {
         return {
-            name: "[the " + this.type.className + " base class] of" + this.containingEntity.describe().name,
+            name: "the " + this.type.className + " base class of " + this.containingEntity.describe().name,
             message: "the " + this.type.className + " base class subobject of " + this.containingEntity.describe()
         };
     }

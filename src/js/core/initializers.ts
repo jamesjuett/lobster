@@ -1184,6 +1184,7 @@ export class CtorInitializer extends BasicCPPConstruct<MemberBlockContext, CtorI
         // If there's a base class and no explicit base initializer, add a default one
         if (baseType && !this.baseInitializer) {
             this.baseInitializer = new ClassDefaultInitializer(createImplicitContext(context), new BaseSubobjectEntity(this.target, baseType));
+            this.attach(this.baseInitializer);
         }
 
         receiverType.classDefinition.memberVariableEntities.forEach(memEntity => {

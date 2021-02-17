@@ -594,10 +594,10 @@ function peg$parse(input: string, options?: IParseOptions) {
   const peg$c343 = function(args: any): any { return track({construct_type: "function_call_expression", args: args || []}, location(), text()); };
   const peg$c344 = ".";
   const peg$c345 = peg$literalExpectation(".", false);
-  const peg$c346 = function(name: any): any { return track({construct_type: "dot_expression", member: name}, location(), text()); };
+  const peg$c346 = function(mem: any): any { return track({construct_type: "dot_expression", member: mem}, location(), text()); };
   const peg$c347 = "->";
   const peg$c348 = peg$literalExpectation("->", false);
-  const peg$c349 = function(name: any): any { return track({construct_type: "arrow_expression", member: name}, location(), text()); };
+  const peg$c349 = function(mem: any): any { return track({construct_type: "arrow_expression", member: mem}, location(), text()); };
   const peg$c350 = function(): any { return track({construct_type: "postfix_increment_expression", operator: "++"}, location(), text()); };
   const peg$c351 = function(): any { return track({construct_type: "postfix_increment_expression", operator: "--"}, location(), text()); };
   const peg$c352 = function(type: any, args: any): any {
@@ -9129,7 +9129,7 @@ function peg$parse(input: string, options?: IParseOptions) {
         if (s1 !== peg$FAILED) {
           s2 = peg$parsews();
           if (s2 !== peg$FAILED) {
-            s3 = peg$parsename();
+            s3 = peg$parseid_expression();
             if (s3 !== peg$FAILED) {
               peg$savedPos = s0;
               s1 = peg$c346(s3);
@@ -9158,7 +9158,7 @@ function peg$parse(input: string, options?: IParseOptions) {
           if (s1 !== peg$FAILED) {
             s2 = peg$parsews();
             if (s2 !== peg$FAILED) {
-              s3 = peg$parsename();
+              s3 = peg$parseid_expression();
               if (s3 !== peg$FAILED) {
                 peg$savedPos = s0;
                 s1 = peg$c349(s3);
@@ -9458,7 +9458,13 @@ function peg$parse(input: string, options?: IParseOptions) {
           s0 = peg$FAILED;
         }
         if (s0 === peg$FAILED) {
-          s0 = peg$parseexp_id();
+          s0 = peg$currPos;
+          s1 = peg$parseid_expression();
+          if (s1 !== peg$FAILED) {
+            peg$savedPos = s0;
+            s1 = peg$c358(s1);
+          }
+          s0 = s1;
           if (s0 === peg$FAILED) {
             s0 = peg$parseopaque_expression();
           }
@@ -9469,19 +9475,13 @@ function peg$parse(input: string, options?: IParseOptions) {
     return s0;
   }
 
-  function peg$parseexp_id(): any {
-    let s0, s1;
+  function peg$parseid_expression(): any {
+    let s0;
 
-    s0 = peg$currPos;
-    s1 = peg$parsequalified_id();
-    if (s1 === peg$FAILED) {
-      s1 = peg$parsename();
+    s0 = peg$parsequalified_id();
+    if (s0 === peg$FAILED) {
+      s0 = peg$parsename();
     }
-    if (s1 !== peg$FAILED) {
-      peg$savedPos = s0;
-      s1 = peg$c358(s1);
-    }
-    s0 = s1;
 
     return s0;
   }
