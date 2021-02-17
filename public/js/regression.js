@@ -42862,6 +42862,7 @@ class RuntimeFunctionCall extends RuntimePotentialFullExpression {
             this.index = exports.INDEX_FUNCTION_CALL_CALL;
         }
         else if (this.index === exports.INDEX_FUNCTION_CALL_RETURN) {
+            this.receiver && this.receiver.callEnded();
             this.calledFunction.loseControl();
             (_a = this.containingRuntimeFunction) === null || _a === void 0 ? void 0 : _a.gainControl();
             this.startCleanup();
@@ -46773,7 +46774,7 @@ class Scope {
         // If we don't have an entity in this scope and we didn't specify we
         // wanted an own entity, look in parent scope (if there is one)
         if (!ent && !options.noParent && this.parent) {
-            return this.parent.lookup(name, Object.assign({}, options, { noBase: true }));
+            return this.parent.lookup(name, Object.assign({}, options));
         }
         // If we didn't find anything, return undefined
         if (!ent) {
@@ -47363,7 +47364,7 @@ class BaseSubobjectEntity extends CPPEntity {
     }
     describe() {
         return {
-            name: this.containingEntity.describe().name + ".[" + this.type.className + " base]",
+            name: "the " + this.type.className + " base class of " + this.containingEntity.describe().name,
             message: "the " + this.type.className + " base class subobject of " + this.containingEntity.describe()
         };
     }
@@ -53123,6 +53124,7 @@ class CtorInitializer extends constructs_1.BasicCPPConstruct {
         // If there's a base class and no explicit base initializer, add a default one
         if (baseType && !this.baseInitializer) {
             this.baseInitializer = new ClassDefaultInitializer(constructs_1.createImplicitContext(context), new entities_1.BaseSubobjectEntity(this.target, baseType));
+            this.attach(this.baseInitializer);
         }
         receiverType.classDefinition.memberVariableEntities.forEach(memEntity => {
             let memName = memEntity.name;
@@ -57464,12 +57466,48 @@ MATH_FUNCTIONS.forEach(mathFn => {
 
 /***/ }),
 
+/***/ 2899:
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+const Program_1 = __webpack_require__(5386);
+const opaqueExpression_1 = __webpack_require__(7104);
+const types_1 = __webpack_require__(8716);
+const runtimeEnvironment_1 = __webpack_require__(5320);
+Program_1.registerLibraryHeader("cstdlib", new Program_1.SourceFile("cstdlib.h", `int rand() {
+    return @rand;
+}
+
+void srand(int seed) {
+    @srand;
+}`, true));
+opaqueExpression_1.registerOpaqueExpression("rand", {
+    type: types_1.Int.INT,
+    valueCategory: "prvalue",
+    operate: (rt) => {
+        return new runtimeEnvironment_1.Value(rt.sim.rng.randomInteger(0, 1000000), types_1.Int.INT);
+    }
+});
+opaqueExpression_1.registerOpaqueExpression("srand", {
+    type: types_1.VoidType.VOID,
+    valueCategory: "prvalue",
+    operate: (rt) => {
+        rt.sim.rng.setRandomSeed(opaqueExpression_1.getLocal(rt, "seed").getValue().rawValue);
+    }
+});
+
+
+/***/ }),
+
 /***/ 826:
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+__webpack_require__(2899);
 __webpack_require__(1842);
 __webpack_require__(6624);
 __webpack_require__(7296);
@@ -60227,10 +60265,10 @@ function peg$parse(input, options) {
     const peg$c343 = function (args) { return track({ construct_type: "function_call_expression", args: args || [] }, location(), text()); };
     const peg$c344 = ".";
     const peg$c345 = peg$literalExpectation(".", false);
-    const peg$c346 = function (name) { return track({ construct_type: "dot_expression", member: name }, location(), text()); };
+    const peg$c346 = function (mem) { return track({ construct_type: "dot_expression", member: mem }, location(), text()); };
     const peg$c347 = "->";
     const peg$c348 = peg$literalExpectation("->", false);
-    const peg$c349 = function (name) { return track({ construct_type: "arrow_expression", member: name }, location(), text()); };
+    const peg$c349 = function (mem) { return track({ construct_type: "arrow_expression", member: mem }, location(), text()); };
     const peg$c350 = function () { return track({ construct_type: "postfix_increment_expression", operator: "++" }, location(), text()); };
     const peg$c351 = function () { return track({ construct_type: "postfix_increment_expression", operator: "--" }, location(), text()); };
     const peg$c352 = function (type, args) {
@@ -69972,7 +70010,7 @@ function peg$parse(input, options) {
                 if (s1 !== peg$FAILED) {
                     s2 = peg$parsews();
                     if (s2 !== peg$FAILED) {
-                        s3 = peg$parsename();
+                        s3 = peg$parseid_expression();
                         if (s3 !== peg$FAILED) {
                             peg$savedPos = s0;
                             s1 = peg$c346(s3);
@@ -70007,7 +70045,7 @@ function peg$parse(input, options) {
                     if (s1 !== peg$FAILED) {
                         s2 = peg$parsews();
                         if (s2 !== peg$FAILED) {
-                            s3 = peg$parsename();
+                            s3 = peg$parseid_expression();
                             if (s3 !== peg$FAILED) {
                                 peg$savedPos = s0;
                                 s1 = peg$c349(s3);
@@ -70353,7 +70391,13 @@ function peg$parse(input, options) {
                     s0 = peg$FAILED;
                 }
                 if (s0 === peg$FAILED) {
-                    s0 = peg$parseexp_id();
+                    s0 = peg$currPos;
+                    s1 = peg$parseid_expression();
+                    if (s1 !== peg$FAILED) {
+                        peg$savedPos = s0;
+                        s1 = peg$c358(s1);
+                    }
+                    s0 = s1;
                     if (s0 === peg$FAILED) {
                         s0 = peg$parseopaque_expression();
                     }
@@ -70362,18 +70406,12 @@ function peg$parse(input, options) {
         }
         return s0;
     }
-    function peg$parseexp_id() {
-        let s0, s1;
-        s0 = peg$currPos;
-        s1 = peg$parsequalified_id();
-        if (s1 === peg$FAILED) {
-            s1 = peg$parsename();
+    function peg$parseid_expression() {
+        let s0;
+        s0 = peg$parsequalified_id();
+        if (s0 === peg$FAILED) {
+            s0 = peg$parsename();
         }
-        if (s1 !== peg$FAILED) {
-            peg$savedPos = s0;
-            s1 = peg$c358(s1);
-        }
-        s0 = s1;
         return s0;
     }
     function peg$parsequalified_id() {
@@ -78547,6 +78585,22 @@ class ClassMemoryObjectOutlet extends MemoryObjectOutlet {
         }
         classHeaderElem.append($('<span class="className">' + className + '</span>'));
         let membersElem = $('<div class="members"></div>');
+        let baseObj = this.object.getBaseSubobject();
+        if (baseObj) {
+            createMemoryObjectOutlet($("<div></div>").appendTo(membersElem), baseObj, this.memoryOutlet);
+        }
+        // let baseType: CompleteClassType | undefined = this.object.type;
+        // while (baseType = baseType.classDefinition.baseClass) {
+        //     baseType.classDefinition.memberVariableEntities.forEach(memEntity => {
+        //         let memName = memEntity.name;
+        //         if (memEntity instanceof MemberReferenceEntity) {
+        //             new ReferenceMemoryOutlet($("<div></div>").appendTo(membersElem), memEntity);
+        //         }
+        //         else {
+        //             createMemoryObjectOutlet($("<div></div>").appendTo(membersElem), this.object.getMemberObject(memName)!, this.memoryOutlet);
+        //         }
+        //     });
+        // }
         this.object.type.classDefinition.memberVariableEntities.forEach(memEntity => {
             let memName = memEntity.name;
             if (memEntity instanceof entities_1.MemberReferenceEntity) {
