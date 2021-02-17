@@ -1074,7 +1074,7 @@ export class CtorInitializer extends BasicCPPConstruct<MemberBlockContext, CtorI
 
     public readonly target: ReceiverEntity;
 
-    public readonly delegatedConstructorInitializer?: ClassDirectInitializer;
+    public readonly delegatedConstructorInitializer?: ClassDefaultInitializer | ClassDirectInitializer;
     public readonly baseInitializer?: ClassDefaultInitializer | ClassDirectInitializer;
     public readonly memberInitializers: readonly (DefaultInitializer | DirectInitializer)[] = [];
     public readonly memberInitializersByName: { [index: string]: DirectInitializer | DefaultInitializer | undefined } = { };
@@ -1126,7 +1126,9 @@ export class CtorInitializer extends BasicCPPConstruct<MemberBlockContext, CtorI
             let comp = components[i];
             if (comp.kind === "delegatedConstructor") {
 
-                let delegatedCtor = new ClassDirectInitializer(context, this.target, comp.args, "direct")
+                let delegatedCtor = comp.args.length === 0
+                    ? new ClassDefaultInitializer(context, this.target)
+                    : new ClassDirectInitializer(context, this.target, comp.args, "direct");
                 this.attach(delegatedCtor);
 
                 if (this.delegatedConstructorInitializer) {
@@ -1145,7 +1147,9 @@ export class CtorInitializer extends BasicCPPConstruct<MemberBlockContext, CtorI
                 // there wasn't a base class to match the name of the init against
                 assert(baseType);
 
-                let baseInit = new ClassDirectInitializer(context, new BaseSubobjectEntity(this.target, baseType), comp.args, "direct");
+                let baseInit = comp.args.length === 0
+                    ? new ClassDefaultInitializer(context, new BaseSubobjectEntity(this.target, baseType))
+                    : new ClassDirectInitializer(context, new BaseSubobjectEntity(this.target, baseType), comp.args, "direct");
                 this.attach(baseInit);
 
                 if (!this.baseInitializer) {
@@ -1159,7 +1163,9 @@ export class CtorInitializer extends BasicCPPConstruct<MemberBlockContext, CtorI
                 let memName = comp.name;
                 let memEntity = receiverType.classDefinition.memberEntitiesByName[memName];
                 if (memEntity) {
-                    let memInit = DirectInitializer.create(context, memEntity, comp.args, "direct");
+                    let memInit = comp.args.length === 0
+                        ? DefaultInitializer.create(context, memEntity)
+                        : DirectInitializer.create(context, memEntity, comp.args, "direct");
                     this.attach(memInit);
 
                     if (!this.memberInitializersByName[memName]) {
