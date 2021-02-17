@@ -10,6 +10,7 @@ import { ForStatement, CompiledForStatement, UnsupportedStatement } from "../cor
 import { BoundedArrayType, isBoundedArrayType, CompleteObjectType, Type, ReferenceType, isVoidType, isAtomicType, isCompleteObjectType, isPotentiallyCompleteClassType, isIntegralType, isPointerType, isFunctionType, isType, Int, sameType, Double } from "../core/types";
 import { Expression } from "../core/expressionBase";
 import { Predicates, AnalyticConstruct } from "../core/predicates";
+import { isUnqualifiedIdentifier } from "../core/lexical";
 
 export type CPPConstructTest<Original extends CPPConstruct, T extends Original> = (construct: Original) => construct is T;
 
@@ -171,7 +172,7 @@ export function isUpdateAssignment(exp: AnalyticConstruct): exp is AssignmentExp
     let lhs: IdentifierExpression;
     return Predicates.byKind("assignment_expression")(exp) &&
         Predicates.byKind("identifier_expression")(exp.lhs) && (lhs = exp.lhs) &&
-        findConstructs(lhs, Predicates.byIdentifierName(lhs.name)).length !== 0;
+        isUnqualifiedIdentifier(lhs.name) && findConstructs(lhs, Predicates.byIdentifierName(lhs.name)).length !== 0;
 }
 
 // ASK JAMES -> ok to have CPPConstruct param type? Is there a better fit for this? (AnalyticConstruct caused analyzer errors)

@@ -42,11 +42,11 @@ export const ALT_OPS = new Set([
 // export type Name = UnqualifiedName | QualifiedName;
 
 //TODO: not sure if this is the right place for this. May be bettor suited for error.ts
-export function checkIdentifier(src: TranslationUnitConstruct, name: string, noteHandler: NoteHandler) {
+export function checkIdentifier(src: TranslationUnitConstruct, name: LexicalIdentifier, noteHandler: NoteHandler) {
 
     // Special case for qualified names
-    if (name.includes("::")) {
-        name.split("::").forEach((elem) => checkIdentifier(src, elem, noteHandler));
+    if (typeof name !== "string") {
+        name.forEach((elem) => checkIdentifier(src, elem, noteHandler));
         return;
     }
 
@@ -76,14 +76,48 @@ export function fullyQualifiedNameToUnqualified(fqname: string) {
     }
 }
 
-export interface SourceCode {
-    text: string;
-    line: number;
-    column: number;
-    start: number;
-    end: number;
+export interface UnqualifiedIdentifierASTNode extends ASTNode {
+    construct_type: "unqualified_identifier";
+    readonly identifier: string;
 }
 
-export interface IdentifierASTNode extends ASTNode {
+export interface QualifiedClassNameComponent extends ASTNode {
     readonly identifier: string;
+}
+
+export interface QualifiedIdentifierASTNode extends ASTNode {
+    construct_type: "qualified_identifier";
+    components: readonly QualifiedClassNameComponent[];
+}
+
+export type IdentifierASTNode = UnqualifiedIdentifierASTNode | QualifiedIdentifierASTNode;
+
+export type QualifiedIdentifier = readonly string[];
+
+export type LexicalIdentifier = string | QualifiedIdentifier;
+
+export function astToIdentifier(ast: IdentifierASTNode) : LexicalIdentifier {
+    if (ast.construct_type === "unqualified_identifier") {
+        return ast.identifier;
+    }
+    else {
+        return ast.components.map(c => c.identifier);
+    }
+}
+
+export function stringifyIdentifier(id: LexicalIdentifier) {
+    if (typeof id === "string") {
+        return id;
+    }
+    else {
+        return id.join("::");
+    }
+}
+
+export function isUnqualifiedIdentifier(id: LexicalIdentifier) : id is string {
+    return typeof id === "string";
+}
+
+export function isQualifiedIdentifier(id: LexicalIdentifier) : id is QualifiedIdentifier {
+    return typeof id !== "string";
 }
