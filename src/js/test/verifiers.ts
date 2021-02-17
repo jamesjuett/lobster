@@ -160,6 +160,35 @@ export class NoCrashesVerifier extends TestVerifier {
     }
 }
 
+
+
+export class OutputVerifier extends TestVerifier {
+    public readonly verifierName = "OutputVerifier";
+
+    public readonly expectedOutput: string;
+
+    public constructor(expectedOutput: string) {
+        super();
+        this.expectedOutput = expectedOutput;
+    }
+
+    protected verifyImpl(program: Program) : Omit<VerificationStatus, "verifierName"> {
+        if (!program.isRunnable()) {
+            return {status: "failure", message: "The program either failed to compile or is missing a main function."};
+        }
+
+        let sim = new Simulation(program);
+        sim.stepToEnd();
+
+        if (sim.allOutput === this.expectedOutput) {
+            return VERIFICATION_SUCCESSFUL;
+        }
+        else {
+            return {status: "failure", message: "The programs output did not match what was expected."};
+        }
+    }
+}
+
 /**
  * Checks that no assertions fail and no crashes occur.
  */

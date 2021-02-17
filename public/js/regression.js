@@ -55509,8 +55509,8 @@ exports.LocalDeallocator = LocalDeallocator;
 class RuntimeLocalDeallocator extends constructs_1.RuntimeConstruct {
     constructor(model, parent) {
         super(model, "expression", parent);
-        this.index = 0;
         this.justDestructed = undefined;
+        this.index = this.model.context.blockLocals.localVariables.length - 1;
     }
     upNextImpl() {
         var _a;
@@ -55519,11 +55519,11 @@ class RuntimeLocalDeallocator extends constructs_1.RuntimeConstruct {
             this.sim.memory.killObject(this.justDestructed, this);
             this.justDestructed = undefined;
         }
-        while (this.index < locals.length) {
+        while (this.index >= 0) {
             // Destroy local at given index
             let local = locals[this.index];
             let dtor = this.model.dtors[this.index];
-            ++this.index;
+            --this.index;
             if (local.variableKind === "reference") {
                 // If the program is running, and this reference was bound
                 // to some object, the referred type should have
@@ -74358,6 +74358,121 @@ int main() {
         new verifiers_1.NoErrorsNoWarningsVerifier(),
         new verifiers_1.NoBadRuntimeEventsVerifier(true)
     ]);
+    // ---------- Big Three Test ----------
+    new verifiers_1.SingleTranslationUnitTest("Big Three Test", `#include <iostream>
+using namespace std;
+
+class Mole {
+public:
+  Mole(int s_in)
+    : s(s_in) {
+    cout << "Mole ctor: "
+         << s << endl;
+  }
+  
+  Mole(const Mole &other)
+    : s(other.s) {
+    cout << "Mole copy ctor: "
+         << s << endl;
+  }
+  
+  Mole &operator=(const Mole &rhs) {
+    cout << "Mole assignment op: "
+         << "assign " << rhs.s << " to " << s << endl;
+    s = rhs.s;
+    return *this;
+  }
+
+  ~Mole() {
+    cout << "Mole dtor: "
+         << s << endl;
+  }
+
+private:
+  int s;
+};
+
+Mole * func() {
+  Mole m(12);
+  return &m;
+}
+
+Mole & func2(Mole m, Mole &mr) {
+  Mole m3(mr);
+  return m3;
+}
+
+Mole func3() {
+  Mole m(99);
+  return m;
+}
+
+int main() {
+  Mole m(3);
+  Mole *mPtr;
+  cout << "Line 1" << endl; // Line 1
+  mPtr = func();
+  mPtr = mPtr;
+  cout << "Line 2" <<  endl; // Line 2
+  if (3 < 5) {
+    Mole m_if(4);
+  }
+  cout << "Line 3" << endl; // Line 3
+  func();
+  cout << "Line 4" << endl; // Line 4
+  Mole m6(22);
+  m6 = m;
+  Mole &m4 = func2(m, m6);
+  Mole m5(88);
+  m5 = func3();
+  Mole m8(func3());
+  Mole m9 = func3();
+  cout << "end of main" << endl;
+}
+`, [
+        new verifiers_1.NoErrorsNoWarningsVerifier(),
+        new verifiers_1.NoBadRuntimeEventsVerifier(true),
+        new verifiers_1.OutputVerifier(`Mole ctor: 3
+Line 1
+Mole ctor: 12
+Mole dtor: 12
+Line 2
+Mole ctor: 4
+Mole dtor: 4
+Line 3
+Mole ctor: 12
+Mole dtor: 12
+Line 4
+Mole ctor: 22
+Mole assignment op: assign 3 to 22
+Mole copy ctor: 3
+Mole copy ctor: 3
+Mole dtor: 3
+Mole dtor: 3
+Mole ctor: 88
+Mole ctor: 99
+Mole copy ctor: 99
+Mole dtor: 99
+Mole assignment op: assign 99 to 88
+Mole dtor: 99
+Mole ctor: 99
+Mole copy ctor: 99
+Mole dtor: 99
+Mole copy ctor: 99
+Mole dtor: 99
+Mole ctor: 99
+Mole copy ctor: 99
+Mole dtor: 99
+Mole copy ctor: 99
+Mole dtor: 99
+end of main
+Mole dtor: 99
+Mole dtor: 99
+Mole dtor: 99
+Mole dtor: 3
+Mole dtor: 3
+`)
+    ]);
     // ---------- Constructor Declaration Test ----------
     new verifiers_1.SingleTranslationUnitTest("Constructor Declaration Test", `class A {
 public:
@@ -74533,7 +74648,7 @@ int main() {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.SingleTranslationUnitTest = exports.ProgramTest = exports.BasicSynchronousRunnerTest = exports.NoBadRuntimeEventsVerifier = exports.NoCrashesVerifier = exports.NoAssertionFailuresVerifier = exports.NoteVerifier = exports.NoErrorsNoWarningsVerifier = exports.TestVerifier = void 0;
+exports.SingleTranslationUnitTest = exports.ProgramTest = exports.BasicSynchronousRunnerTest = exports.NoBadRuntimeEventsVerifier = exports.OutputVerifier = exports.NoCrashesVerifier = exports.NoAssertionFailuresVerifier = exports.NoteVerifier = exports.NoErrorsNoWarningsVerifier = exports.TestVerifier = void 0;
 const Program_1 = __webpack_require__(5386);
 const Simulation_1 = __webpack_require__(2295);
 const util_1 = __webpack_require__(6560);
@@ -74664,6 +74779,27 @@ class NoCrashesVerifier extends TestVerifier {
     }
 }
 exports.NoCrashesVerifier = NoCrashesVerifier;
+class OutputVerifier extends TestVerifier {
+    constructor(expectedOutput) {
+        super();
+        this.verifierName = "OutputVerifier";
+        this.expectedOutput = expectedOutput;
+    }
+    verifyImpl(program) {
+        if (!program.isRunnable()) {
+            return { status: "failure", message: "The program either failed to compile or is missing a main function." };
+        }
+        let sim = new Simulation_1.Simulation(program);
+        sim.stepToEnd();
+        if (sim.allOutput === this.expectedOutput) {
+            return VERIFICATION_SUCCESSFUL;
+        }
+        else {
+            return { status: "failure", message: "The programs output did not match what was expected." };
+        }
+    }
+}
+exports.OutputVerifier = OutputVerifier;
 /**
  * Checks that no assertions fail and no crashes occur.
  */
