@@ -1204,7 +1204,7 @@ export class BaseSubobjectEntity extends CPPEntity<CompleteClassType> implements
 
     public describe() {
         return {
-            name: this.containingEntity.describe().name + ".[" + this.type.className + " base]",
+            name: "[the " + this.type.className + " base class] of" + this.containingEntity.describe().name,
             message: "the " + this.type.className + " base class subobject of " + this.containingEntity.describe()
         };
     }
