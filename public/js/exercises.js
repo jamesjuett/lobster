@@ -56237,8 +56237,8 @@ exports.LocalDeallocator = LocalDeallocator;
 class RuntimeLocalDeallocator extends constructs_1.RuntimeConstruct {
     constructor(model, parent) {
         super(model, "expression", parent);
-        this.index = 0;
         this.justDestructed = undefined;
+        this.index = this.model.context.blockLocals.localVariables.length - 1;
     }
     upNextImpl() {
         var _a;
@@ -56247,11 +56247,11 @@ class RuntimeLocalDeallocator extends constructs_1.RuntimeConstruct {
             this.sim.memory.killObject(this.justDestructed, this);
             this.justDestructed = undefined;
         }
-        while (this.index < locals.length) {
+        while (this.index >= 0) {
             // Destroy local at given index
             let local = locals[this.index];
             let dtor = this.model.dtors[this.index];
-            ++this.index;
+            --this.index;
             if (local.variableKind === "reference") {
                 // If the program is running, and this reference was bound
                 // to some object, the referred type should have

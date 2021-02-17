@@ -657,12 +657,13 @@ export interface CompiledLocalDeallocator extends LocalDeallocator, Successfully
 
 export class RuntimeLocalDeallocator extends RuntimeConstruct<CompiledLocalDeallocator> {
 
-    private index = 0;
+    private index;
     private justDestructed: AutoObject<CompleteClassType> | undefined = undefined;
     public readonly parent!: RuntimeBlock; // narrows type from base class
 
     public constructor(model: CompiledLocalDeallocator, parent: RuntimeBlock) {
         super(model, "expression", parent);
+        this.index = this.model.context.blockLocals.localVariables.length - 1;
     }
 
     protected upNextImpl() {
@@ -674,11 +675,11 @@ export class RuntimeLocalDeallocator extends RuntimeConstruct<CompiledLocalDeall
             this.justDestructed = undefined;
         }
 
-        while(this.index < locals.length) {
+        while(this.index >= 0) {
             // Destroy local at given index
             let local = locals[this.index];
             let dtor = this.model.dtors[this.index];
-            ++this.index;
+            --this.index;
 
             if (local.variableKind === "reference") {
 
