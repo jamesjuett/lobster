@@ -1,7 +1,8 @@
 import Cookies from "js-cookie";
-import { EXERCISE_CHECKPOINTS, getExerciseCheckpoints, OutputCheckpoint, outputComparator } from "../analysis/checkpoints";
+import { OutputCheckpoint, outputComparator } from "../analysis/checkpoints";
+import { DEFAULT_EXERCISE, EXERCISE_SPECIFICATIONS, getExerciseSpecification, makeExerciseSpecification } from "../exercises";
 import { Exercise, FileData, Project } from "../core/Project";
-import { SimpleExerciseLobsterOutlet } from "../exercises";
+import { SimpleExerciseLobsterOutlet } from "../view/SimpleExerciseLobsterOutlet";
 import { listenTo, Message, messageResponse, MessageResponses, stopListeningTo } from "../util/observe";
 import { assert, Mutable } from "../util/util";
 import { ICON_PERSON } from "./octicons";
@@ -54,8 +55,7 @@ export class LobsterApplication {
         
         this.lobsterOutlet = new SimpleExerciseLobsterOutlet(
             $(".lobster-lobster"),
-            defaultProject,
-            "Nice work!");
+            defaultProject);
         
         this.projectSaveOutlet = new ProjectSaveOutlet(
             $(".lobster-project-save-outlet"),
@@ -119,7 +119,7 @@ export class LobsterApplication {
         });
 
         // Edit Exercise Modal
-        Object.keys(EXERCISE_CHECKPOINTS).forEach(
+        Object.keys(EXERCISE_SPECIFICATIONS).forEach(
             (key) => $("#lobster-exercise-key-choices").append(`<option value="${key}">`)
         );
         $("#lobster-edit-exercise-modal").on('show.bs.modal', () => {
@@ -195,7 +195,7 @@ export class LobsterApplication {
     private async setProjectFromData(projectData: FullProjectData) {
         (<Mutable<this>>this).activeProjectData = projectData; // will be undefined if no exercise
 
-        let checkpoints = getExerciseCheckpoints(projectData.exercise.exercise_key);
+        let exerciseSpec = getExerciseSpecification(projectData.exercise.exercise_key);
         let extras = getExtras(projectData.exercise.exercise_key).concat(
             getExtras(projectData.exercise.extra_keys));
 
@@ -203,7 +203,7 @@ export class LobsterApplication {
             projectData.name,
             projectData.id,
             parseProjectContents(projectData).files,
-            new Exercise(checkpoints),
+            new Exercise(exerciseSpec ?? DEFAULT_EXERCISE),
             extras
         ).turnOnAutoCompile(), projectData.write_access);
     }
@@ -321,7 +321,7 @@ export class LobsterApplication {
     }
 
     private async editActiveExercise(exercise_key: string) {
-        this.activeProject.exercise.setCheckpoints(getExerciseCheckpoints(exercise_key));
+        this.activeProject.exercise.changeSpecification(getExerciseSpecification(exercise_key) ?? DEFAULT_EXERCISE);
         if (this.activeProjectData) {
             this.activeProjectData.exercise.exercise_key = exercise_key;
             await saveExercise(this.activeProjectData.exercise);
@@ -336,9 +336,11 @@ function createDefaultProject() {
         undefined, [
             { name: "file.cpp", code: `#include <iostream>\n\nusing namespace std;\n\nint main() {\n  cout << "Hello World!" << endl;\n}`, isTranslationUnit: true }
         ],
-        new Exercise([
-                new OutputCheckpoint('Print "Hello World!"', outputComparator("Hello World!", true))
-        ])
+        new Exercise(makeExerciseSpecification({
+            checkpoints: [
+                    new OutputCheckpoint('Print "Hello World!"', outputComparator("Hello World!", true))
+            ]
+        }))
     ).turnOnAutoCompile();
 }
 

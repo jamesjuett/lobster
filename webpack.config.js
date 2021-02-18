@@ -5,7 +5,7 @@ module.exports = {
   entry: {
     'main': './src/js/main.ts',
     // 'main.min': './src/js/main.ts',
-    'exercises': './src/js/exercises.ts',
+    'embedded_exercises': './src/js/embedded_exercises.ts',
     // 'exercises.min': './src/js/exercises.ts',
     'regression': './src/js/test/regression.ts',
     // 'regression.min': './src/js/test/regression.ts'

@@ -672,7 +672,7 @@ export class DefaultLobsterOutlet {
 
     public _act!: MessageResponses;
 
-    public constructor(element: JQuery, project = new Project("unnammed project", undefined, [], new Exercise([]))) {
+    public constructor(element: JQuery, project: Project) {
         this.element = element;
         this.project = project;
 

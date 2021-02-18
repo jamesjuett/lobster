@@ -127,3 +127,5 @@ export function createSimpleExerciseOutlet(id: string) {
 
     `);
 }
+
+
