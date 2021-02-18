@@ -3,7 +3,7 @@ import { parse as cpp_parse } from "../parse/cpp_parser";
 import { NoteKind, SyntaxNote, CPPError, NoteRecorder, Note } from "./errors";
 import { Mutable, asMutable, assertFalse, assert } from "../util/util";
 import { GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, CompiledFunctionDefinition, CompiledGlobalVariableDefinition, DeclarationASTNode, FunctionDeclaration, TypeSpecifier, StorageSpecifier, Declarator, FunctionDefinitionGroup, ClassDefinition, TopLevelDeclarationASTNode, TopLevelDeclaration, createTopLevelDeclarationFromAST, SimpleDeclaration, ClassDefinitionASTNode, SimpleDeclarationASTNode, NonMemberSimpleDeclarationASTNode, DeclaratorASTNode } from "./declarations";
-import { NamespaceScope, GlobalObjectEntity, selectOverloadedDefinition, FunctionEntity, ClassEntity } from "./entities";
+import { NamespaceScope, GlobalObjectEntity, selectOverloadedDefinition, FunctionEntity, ClassEntity, NameLookupOptions, Scope, NamedScope } from "./entities";
 import { Observable } from "../util/observe";
 import { TranslationUnitContext, CPPConstruct, createTranslationUnitContext, ProgramContext, GlobalObjectAllocator, CompiledGlobalObjectAllocator, ASTNode, createLibraryContext } from "./constructs";
 import { StringLiteralExpression } from "./expressions";
@@ -701,6 +701,36 @@ export class TranslationUnit {
     public addNote(note: Note) {
         this.notes.addNote(note);
         this.program.addNote(note);
+    }
+
+    /**
+     * An array of all of the identifiers that comprise the qualified name.
+     * If you've got a string like "std::vector", just use .split("::"") to
+     * get the corresponding array, like ["std", "vector"].
+     */
+    public qualifiedLookup(name: readonly string[], options: NameLookupOptions = {kind: "normal"}){
+        assert(name.length > 0);
+
+        var scope : NamedScope | undefined = this.globalScope;
+        for(var i = 0; scope && i < name.length - 1; ++i) {
+            scope = scope.children[name[i]];
+        }
+
+        if (!scope){
+            return undefined;
+        }
+
+        var unqualifiedName = name[name.length - 1];
+        var result = scope.lookup(unqualifiedName, Object.assign({}, options, {noParent: true}));
+
+        // Qualified lookup suppresses virtual function call mechanism, so if we
+        // just looked up a MemberFunctionEntity, we create a proxy to do that.
+        // if (Array.isArray(result)){
+        //     result = result.map(function(elem){
+        //         return elem instanceof MemberFunctionEntity ? elem.suppressedVirtualProxy() : elem;
+        //     });
+        // }
+        return result;
     }
 }
 

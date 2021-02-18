@@ -745,8 +745,8 @@ exp_postfix
 op_postfix
   = "[" ws sub:expression ws "]" { return track({construct_type:"subscript_expression", offset:sub}, location(), text()); }
   / "(" ws args:exp_list? ws ")" { return track({construct_type: "function_call_expression", args: args || []}, location(), text()); }
-  / "." ws name:name { return track({construct_type: "dot_expression", member: name}, location(), text()); }
-  / "->" ws name:name  { return track({construct_type: "arrow_expression", member: name}, location(), text()); }
+  / "." ws mem:id_expression { return track({construct_type: "dot_expression", member: mem}, location(), text()); }
+  / "->" ws mem:id_expression  { return track({construct_type: "arrow_expression", member: mem}, location(), text()); }
   / "++" { return track({construct_type: "postfix_increment_expression", operator: "++"}, location(), text()); }
   / "--" { return track({construct_type: "postfix_increment_expression", operator: "--"}, location(), text()); }
 
@@ -766,11 +766,12 @@ exp_primary
   = "(" ws sub:expression ws ")" {return track({construct_type: "parentheses_expression", subexpression:sub}, location(), text());}
   / literal
   / "this" !identifierChar {return track({construct_type: "this_expression"}, location(), text()); }
-  / exp_id
+  / id:id_expression { return track({construct_type: "identifier_expression", identifier: id}, location(), text()); }
   / opaque_expression
 
-exp_id
-  = id:(qualified_id / unqualified_id) { return track(absorb({construct_type: "identifier_expression"}, id), location(), text()); }
+id_expression
+  = qualified_id
+  / unqualified_id
 
 
 unqualified_id
@@ -779,7 +780,7 @@ unqualified_id
 qualified_id
   = n:nested_name_specifier ws u:unqualified_id {
     n.push(u);
-    return {identifier: n};
+    return {construct_type: "qualified_identifier", components: n};
   }
 
 nested_name_specifier
@@ -871,7 +872,7 @@ octal_escape
 
 identifier "identifier"
   = first:identifierFirstChar rest:identifierChar*
-    {return track({identifier: first + rest.join("")}, location(), text());}
+    {return track({construct_type: "unqualified_identifier", identifier: first + rest.join("")}, location(), text());}
 
 identifierChar = [a-zA-Z0-9_]
 
@@ -996,7 +997,7 @@ base_specifier
 qualified_class_name
   = n:nested_name_specifier ws c:class_name{
     n.push(c);
-    return n;}
+    return {construct_type: "qualified_identifier", components: n};}
   / class_name
 
 

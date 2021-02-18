@@ -42156,6 +42156,7 @@ const Program_1 = __webpack_require__(5386);
 const errors_1 = __webpack_require__(5244);
 const types_1 = __webpack_require__(8716);
 const predicates_1 = __webpack_require__(941);
+const lexical_1 = __webpack_require__(2018);
 function constructTest(constructClass) {
     return ((construct) => construct instanceof constructClass);
 }
@@ -42288,7 +42289,7 @@ function isUpdateAssignment(exp) {
     let lhs;
     return predicates_1.Predicates.byKind("assignment_expression")(exp) &&
         predicates_1.Predicates.byKind("identifier_expression")(exp.lhs) && (lhs = exp.lhs) &&
-        findConstructs(lhs, predicates_1.Predicates.byIdentifierName(lhs.name)).length !== 0;
+        lexical_1.isUnqualifiedIdentifier(lhs.name) && findConstructs(lhs, predicates_1.Predicates.byIdentifierName(lhs.name)).length !== 0;
 }
 exports.isUpdateAssignment = isUpdateAssignment;
 // ASK JAMES -> ok to have CPPConstruct param type? Is there a better fit for this? (AnalyticConstruct caused analyzer errors)
@@ -42459,8 +42460,9 @@ class FunctionCallExpression extends expressionBase_1.Expression {
     static createFromAST(ast, context) {
         let args = ast.args.map(arg => expressions_1.createExpressionFromAST(arg, context));
         if (ast.operand.construct_type === "identifier_expression") {
-            if (lexical_1.LOBSTER_MAGIC_FUNCTIONS.has(ast.operand.identifier)) {
-                return new expressions_1.MagicFunctionCallExpression(context, ast, ast.operand.identifier, args);
+            let identifierStr = lexical_1.stringifyIdentifier(lexical_1.astToIdentifier(ast.operand.identifier));
+            if (lexical_1.LOBSTER_MAGIC_FUNCTIONS.has(identifierStr)) {
+                return new expressions_1.MagicFunctionCallExpression(context, ast, identifierStr, args);
             }
         }
         let contextualParamTypes = args.map(arg => arg.type);
@@ -42860,6 +42862,7 @@ class RuntimeFunctionCall extends RuntimePotentialFullExpression {
             this.index = exports.INDEX_FUNCTION_CALL_CALL;
         }
         else if (this.index === exports.INDEX_FUNCTION_CALL_RETURN) {
+            this.receiver && this.receiver.callEnded();
             this.calledFunction.loseControl();
             (_a = this.containingRuntimeFunction) === null || _a === void 0 ? void 0 : _a.gainControl();
             this.startCleanup();
@@ -43369,6 +43372,31 @@ class TranslationUnit {
     addNote(note) {
         this.notes.addNote(note);
         this.program.addNote(note);
+    }
+    /**
+     * An array of all of the identifiers that comprise the qualified name.
+     * If you've got a string like "std::vector", just use .split("::"") to
+     * get the corresponding array, like ["std", "vector"].
+     */
+    qualifiedLookup(name, options = { kind: "normal" }) {
+        util_1.assert(name.length > 0);
+        var scope = this.globalScope;
+        for (var i = 0; scope && i < name.length - 1; ++i) {
+            scope = scope.children[name[i]];
+        }
+        if (!scope) {
+            return undefined;
+        }
+        var unqualifiedName = name[name.length - 1];
+        var result = scope.lookup(unqualifiedName, Object.assign({}, options, { noParent: true }));
+        // Qualified lookup suppresses virtual function call mechanism, so if we
+        // just looked up a MemberFunctionEntity, we create a proxy to do that.
+        // if (Array.isArray(result)){
+        //     result = result.map(function(elem){
+        //         return elem instanceof MemberFunctionEntity ? elem.suppressedVirtualProxy() : elem;
+        //     });
+        // }
+        return result;
     }
 }
 exports.TranslationUnit = TranslationUnit;
@@ -45896,7 +45924,7 @@ class ClassDefinition extends constructs_1.BasicCPPConstruct {
         let src = `//@className=${this.name}\n${this.name}(${refParamCanBeConst ? "const " : ""}${this.name} &other)`;
         let memInits = this.memberVariableEntities.map(mem => `${mem.name}(other.${mem.name})`);
         if (this.baseClass) {
-            memInits.unshift(this.baseClass.className + "()");
+            memInits.unshift(this.baseClass.className + "(other)");
         }
         if (memInits.length > 0) {
             src += `\n : ${memInits.join(", ")}`;
@@ -46132,16 +46160,18 @@ class BaseSpecifier extends constructs_1.BasicCPPConstruct {
         var _a;
         super(context, ast);
         this.construct_type = "base_specifier";
-        this.name = ast.name.identifier;
+        this.name = lexical_1.astToIdentifier(ast.name);
         this.accessLevel = (_a = ast.access) !== null && _a !== void 0 ? _a : defaultAccessLevel;
         this.virtual = !!ast.virtual;
         if (this.virtual) {
             this.addNote(errors_1.CPPError.class_def.virtual_inheritance(this));
         }
         lexical_1.checkIdentifier(this, this.name, this);
-        let lookupResult = this.context.contextualScope.lookup(this.name);
+        let lookupResult = typeof this.name === "string"
+            ? this.context.contextualScope.lookup(this.name)
+            : this.context.translationUnit.qualifiedLookup(this.name);
         if (!lookupResult) {
-            this.addNote(errors_1.CPPError.iden.not_found(this, this.name));
+            this.addNote(errors_1.CPPError.iden.not_found(this, lexical_1.stringifyIdentifier(this.name)));
         }
         else if (lookupResult.declarationKind === "class") {
             this.baseEntity = lookupResult;
@@ -46543,7 +46573,7 @@ exports.FunctionDefinitionGroup = FunctionDefinitionGroup;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.selectOverloadedDefinition = exports.ClassEntity = exports.FunctionEntity = exports.TemporaryObjectEntity = exports.MemberReferenceEntity = exports.MemberObjectEntity = exports.MemberAccessEntity = exports.BaseSubobjectEntity = exports.ArraySubobjectEntity = exports.ReceiverEntity = exports.PassByReferenceParameterEntity = exports.PassByValueParameterEntity = exports.ReturnByReferenceEntity = exports.ReturnObjectEntity = exports.GlobalObjectEntity = exports.LocalReferenceEntity = exports.LocalObjectEntity = exports.runtimeObjectLookup = exports.FunctionOverloadGroup = exports.NamedEntity = exports.CPPEntity = exports.ClassScope = exports.NamespaceScope = exports.BlockScope = exports.Scope = void 0;
+exports.selectOverloadedDefinition = exports.ClassEntity = exports.FunctionEntity = exports.TemporaryObjectEntity = exports.MemberReferenceEntity = exports.MemberObjectEntity = exports.MemberAccessEntity = exports.BaseSubobjectEntity = exports.ArraySubobjectEntity = exports.ReceiverEntity = exports.PassByReferenceParameterEntity = exports.PassByValueParameterEntity = exports.ReturnByReferenceEntity = exports.ReturnObjectEntity = exports.GlobalObjectEntity = exports.LocalReferenceEntity = exports.LocalObjectEntity = exports.runtimeObjectLookup = exports.FunctionOverloadGroup = exports.NamedEntity = exports.CPPEntity = exports.ClassScope = exports.NamespaceScope = exports.NamedScope = exports.BlockScope = exports.Scope = void 0;
 const types_1 = __webpack_require__(8716);
 const util_1 = __webpack_require__(6560);
 const observe_1 = __webpack_require__(5114);
@@ -46556,9 +46586,13 @@ class Scope {
         this.entities = {};
         this.hiddenClassEntities = {};
         this.typeEntities = {};
+        this.children = {};
         util_1.assert(!parent || translationUnit === parent.translationUnit);
         this.translationUnit = translationUnit;
         this.parent = parent;
+    }
+    addChild(child) {
+        this.children[child.name] = child;
     }
     /** Attempts to declare a variable in this scope.
      * @param newEntity The variable being declared.
@@ -46719,27 +46753,6 @@ class Scope {
     //     }
     //     return res;
     // }
-    // // TODO: this should be a member function of the Program class
-    // public qualifiedLookup(names, options){
-    //     assert(Array.isArray(names) && names.length > 0);
-    //     var scope = this.sim.getGlobalScope();
-    //     for(var i = 0; scope && i < names.length - 1; ++i){
-    //         scope = scope.children[names[i].identifier];
-    //     }
-    //     if (!scope){
-    //         return null;
-    //     }
-    //     var name = names.last().identifier;
-    //     var result = scope.lookup(name, copyMixin(options, {qualified:true}));
-    //     // Qualified lookup suppresses virtual function call mechanism, so if we
-    //     // just looked up a MemberFunctionEntity, we create a proxy to do that.
-    //     if (Array.isArray(result)){
-    //         result = result.map(function(elem){
-    //             return elem instanceof MemberFunctionEntity ? elem.suppressedVirtualProxy() : elem;
-    //         });
-    //     }
-    //     return result;
-    // }
     /**
      * Performs unqualified name lookup of a given name in this scope. Returns the entity found, or undefined
      * if no entity can be found. Note that the entity found may be a function overload group. Lookup may
@@ -46761,7 +46774,7 @@ class Scope {
         // If we don't have an entity in this scope and we didn't specify we
         // wanted an own entity, look in parent scope (if there is one)
         if (!ent && !options.noParent && this.parent) {
-            return this.parent.lookup(name, Object.assign({}, options, { noBase: true }));
+            return this.parent.lookup(name, Object.assign({}, options));
         }
         // If we didn't find anything, return undefined
         if (!ent) {
@@ -46838,15 +46851,19 @@ exports.Scope = Scope;
 class BlockScope extends Scope {
 }
 exports.BlockScope = BlockScope;
-class NamespaceScope extends Scope {
-    // private readonly children: { [index: string]: NamespaceScope | undefined };
+class NamedScope extends Scope {
     constructor(translationUnit, name, parent) {
         super(translationUnit, parent);
         this.name = name;
-        // this.children = {};
-        // if (parent) {
-        //     parent.addChild(this);
-        // }
+        if (parent) {
+            parent.addChild(this);
+        }
+    }
+}
+exports.NamedScope = NamedScope;
+class NamespaceScope extends NamedScope {
+    constructor(translationUnit, name, parent) {
+        super(translationUnit, name, parent);
     }
     variableEntityCreated(newEntity) {
         super.variableEntityCreated(newEntity);
@@ -46856,7 +46873,7 @@ class NamespaceScope extends Scope {
     }
 }
 exports.NamespaceScope = NamespaceScope;
-class ClassScope extends Scope {
+class ClassScope extends NamedScope {
     /**
      *
      * @param translationUnit
@@ -46865,8 +46882,7 @@ class ClassScope extends Scope {
      * @param base
      */
     constructor(translationUnit, name, parent, base) {
-        super(translationUnit, parent);
-        this.name = name;
+        super(translationUnit, name, parent);
         this.base = base;
     }
     variableEntityCreated(newEntity) {
@@ -47348,7 +47364,7 @@ class BaseSubobjectEntity extends CPPEntity {
     }
     describe() {
         return {
-            name: this.containingEntity.describe().name + ".[" + this.type.className + " base]",
+            name: "the " + this.type.className + " base class of " + this.containingEntity.describe().name,
             message: "the " + this.type.className + " base class subobject of " + this.containingEntity.describe()
         };
     }
@@ -50682,16 +50698,19 @@ class DotExpression extends expressionBase_1.Expression {
             this.functionCallReceiver = this.operand.getEntity();
         }
         let classType = this.operand.type;
-        let entityOrError = entityLookup(this, memberName, classType.classScope, { kind: "normal", noParent: true });
+        let lookupResult = typeof memberName === "string"
+            ? classType.classScope.lookup(memberName, { kind: "normal", noParent: true })
+            : this.context.translationUnit.qualifiedLookup(memberName);
+        let entityOrError = entityLookup(this, lookupResult);
         switch (entityOrError) {
             case "not_found":
-                this.addNote(errors_1.CPPError.expr.dot.no_such_member(this, classType, memberName));
+                this.addNote(errors_1.CPPError.expr.dot.no_such_member(this, classType, lexical_1.stringifyIdentifier(memberName)));
                 break;
             case "ambiguous":
-                this.addNote(errors_1.CPPError.expr.dot.ambiguous_member(this, memberName));
+                this.addNote(errors_1.CPPError.expr.dot.ambiguous_member(this, lexical_1.stringifyIdentifier(memberName)));
                 break;
             case "class_found":
-                this.addNote(errors_1.CPPError.expr.dot.class_entity_found(this, memberName));
+                this.addNote(errors_1.CPPError.expr.dot.class_entity_found(this, lexical_1.stringifyIdentifier(memberName)));
                 break;
             default:
                 if (entityOrError.declarationKind === "function") {
@@ -50713,7 +50732,7 @@ class DotExpression extends expressionBase_1.Expression {
         let receiverContext = ((_a = operand.type) === null || _a === void 0 ? void 0 : _a.isCompleteClassType()) ?
             constructs_1.createExpressionContextWithReceiverType(context, operand.type) :
             context;
-        return new DotExpression(receiverContext, ast, operand, ast.member.identifier);
+        return new DotExpression(receiverContext, ast, operand, lexical_1.astToIdentifier(ast.member));
     }
     createDefaultOutlet(element, parent) {
         return new codeOutlets_1.DotExpressionOutlet(element, this, parent);
@@ -50847,16 +50866,19 @@ class ArrowExpression extends expressionBase_1.Expression {
             return;
         }
         let classType = operandType.ptrTo;
-        let entityOrError = entityLookup(this, memberName, classType.classScope, { kind: "normal", noParent: true });
+        let lookupResult = typeof memberName === "string"
+            ? classType.classScope.lookup(memberName, { kind: "normal", noParent: true })
+            : this.context.translationUnit.qualifiedLookup(memberName);
+        let entityOrError = entityLookup(this, lookupResult);
         switch (entityOrError) {
             case "not_found":
-                this.addNote(errors_1.CPPError.expr.arrow.no_such_member(this, classType, memberName));
+                this.addNote(errors_1.CPPError.expr.arrow.no_such_member(this, classType, lexical_1.stringifyIdentifier(memberName)));
                 break;
             case "ambiguous":
-                this.addNote(errors_1.CPPError.expr.arrow.ambiguous_member(this, memberName));
+                this.addNote(errors_1.CPPError.expr.arrow.ambiguous_member(this, lexical_1.stringifyIdentifier(memberName)));
                 break;
             case "class_found":
-                this.addNote(errors_1.CPPError.expr.arrow.class_entity_found(this, memberName));
+                this.addNote(errors_1.CPPError.expr.arrow.class_entity_found(this, lexical_1.stringifyIdentifier(memberName)));
                 break;
             default:
                 if (entityOrError.declarationKind === "function") {
@@ -50878,7 +50900,7 @@ class ArrowExpression extends expressionBase_1.Expression {
         let receiverContext = ((_a = operand.type) === null || _a === void 0 ? void 0 : _a.isPointerType()) && operand.type.ptrTo.isCompleteClassType() ?
             constructs_1.createExpressionContextWithReceiverType(context, operand.type.ptrTo) :
             context;
-        return new ArrowExpression(receiverContext, ast, operand, ast.member.identifier);
+        return new ArrowExpression(receiverContext, ast, operand, lexical_1.astToIdentifier(ast.member));
     }
     createDefaultOutlet(element, parent) {
         return new codeOutlets_1.ArrowExpressionOutlet(element, this, parent);
@@ -51030,16 +51052,19 @@ class IdentifierExpression extends expressionBase_1.Expression {
         this.valueCategory = "lvalue";
         this.name = name;
         lexical_1.checkIdentifier(this, name, this);
-        let entityOrError = entityLookup(this, this.name, this.context.contextualScope);
+        let lookupResult = typeof this.name === "string"
+            ? this.context.contextualScope.lookup(this.name)
+            : this.context.translationUnit.qualifiedLookup(this.name);
+        let entityOrError = entityLookup(this, lookupResult);
         switch (entityOrError) {
             case "not_found":
-                this.addNote(errors_1.CPPError.iden.not_found(this, this.name));
+                this.addNote(errors_1.CPPError.iden.not_found(this, lexical_1.stringifyIdentifier(this.name)));
                 break;
             case "ambiguous":
-                this.addNote(errors_1.CPPError.iden.ambiguous(this, this.name));
+                this.addNote(errors_1.CPPError.iden.ambiguous(this, lexical_1.stringifyIdentifier(this.name)));
                 break;
             case "class_found":
-                this.addNote(errors_1.CPPError.iden.class_entity_found(this, this.name));
+                this.addNote(errors_1.CPPError.iden.class_entity_found(this, lexical_1.stringifyIdentifier(this.name)));
                 break;
             default:
                 this.entity = entityOrError;
@@ -51047,7 +51072,7 @@ class IdentifierExpression extends expressionBase_1.Expression {
         this.type = types_1.peelReference((_a = this.entity) === null || _a === void 0 ? void 0 : _a.type);
     }
     static createFromAST(ast, context) {
-        return new IdentifierExpression(context, ast, ast.identifier);
+        return new IdentifierExpression(context, ast, lexical_1.astToIdentifier(ast.identifier));
     }
     getEntity() {
         return this.entity;
@@ -51066,8 +51091,7 @@ exports.IdentifierExpression = IdentifierExpression;
  * @param name
  * @param expression
  */
-function entityLookup(expression, name, scope, options = { kind: "normal" }) {
-    let lookupResult = scope.lookup(name, options);
+function entityLookup(expression, lookupResult) {
     if (!lookupResult) {
         return "not_found";
     }
@@ -53047,7 +53071,9 @@ class CtorInitializer extends constructs_1.BasicCPPConstruct {
         for (let i = 0; i < components.length; ++i) {
             let comp = components[i];
             if (comp.kind === "delegatedConstructor") {
-                let delegatedCtor = new ClassDirectInitializer(context, this.target, comp.args, "direct");
+                let delegatedCtor = comp.args.length === 0
+                    ? new ClassDefaultInitializer(context, this.target)
+                    : new ClassDirectInitializer(context, this.target, comp.args, "direct");
                 this.attach(delegatedCtor);
                 if (this.delegatedConstructorInitializer) {
                     delegatedCtor.addNote(errors_1.CPPError.declaration.ctor.init.multiple_delegates(delegatedCtor));
@@ -53064,7 +53090,9 @@ class CtorInitializer extends constructs_1.BasicCPPConstruct {
                 // Theoretically we shouldn't have a base init provided if
                 // there wasn't a base class to match the name of the init against
                 util_1.assert(baseType);
-                let baseInit = new ClassDirectInitializer(context, new entities_1.BaseSubobjectEntity(this.target, baseType), comp.args, "direct");
+                let baseInit = comp.args.length === 0
+                    ? new ClassDefaultInitializer(context, new entities_1.BaseSubobjectEntity(this.target, baseType))
+                    : new ClassDirectInitializer(context, new entities_1.BaseSubobjectEntity(this.target, baseType), comp.args, "direct");
                 this.attach(baseInit);
                 if (!this.baseInitializer) {
                     this.baseInitializer = baseInit;
@@ -53077,7 +53105,9 @@ class CtorInitializer extends constructs_1.BasicCPPConstruct {
                 let memName = comp.name;
                 let memEntity = receiverType.classDefinition.memberEntitiesByName[memName];
                 if (memEntity) {
-                    let memInit = DirectInitializer.create(context, memEntity, comp.args, "direct");
+                    let memInit = comp.args.length === 0
+                        ? DefaultInitializer.create(context, memEntity)
+                        : DirectInitializer.create(context, memEntity, comp.args, "direct");
                     this.attach(memInit);
                     if (!this.memberInitializersByName[memName]) {
                         this.memberInitializersByName[memName] = memInit;
@@ -53094,6 +53124,7 @@ class CtorInitializer extends constructs_1.BasicCPPConstruct {
         // If there's a base class and no explicit base initializer, add a default one
         if (baseType && !this.baseInitializer) {
             this.baseInitializer = new ClassDefaultInitializer(constructs_1.createImplicitContext(context), new entities_1.BaseSubobjectEntity(this.target, baseType));
+            this.attach(this.baseInitializer);
         }
         receiverType.classDefinition.memberVariableEntities.forEach(memEntity => {
             let memName = memEntity.name;
@@ -53308,7 +53339,7 @@ exports.RuntimeArrayAggregateInitializer = RuntimeArrayAggregateInitializer;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.fullyQualifiedNameToUnqualified = exports.createFullyQualifiedName = exports.checkIdentifier = exports.ALT_OPS = exports.LOBSTER_KEYWORDS = exports.LOBSTER_MAGIC_FUNCTIONS = exports.MAGIC_FUNCTION_NAMES = exports.KEYWORDS = void 0;
+exports.isQualifiedIdentifier = exports.isUnqualifiedIdentifier = exports.stringifyIdentifier = exports.astToIdentifier = exports.fullyQualifiedNameToUnqualified = exports.createFullyQualifiedName = exports.checkIdentifier = exports.ALT_OPS = exports.LOBSTER_KEYWORDS = exports.LOBSTER_MAGIC_FUNCTIONS = exports.MAGIC_FUNCTION_NAMES = exports.KEYWORDS = void 0;
 const errors_1 = __webpack_require__(5244);
 exports.KEYWORDS = new Set([
     "alignas", "continue", "friend", "register", "true",
@@ -53345,8 +53376,8 @@ exports.ALT_OPS = new Set([
 //TODO: not sure if this is the right place for this. May be bettor suited for error.ts
 function checkIdentifier(src, name, noteHandler) {
     // Special case for qualified names
-    if (name.includes("::")) {
-        name.split("::").forEach((elem) => checkIdentifier(src, elem, noteHandler));
+    if (typeof name !== "string") {
+        name.forEach((elem) => checkIdentifier(src, elem, noteHandler));
         return;
     }
     // Check that identifier is not a C++ keyword, Lobster keyword, or an alternative representation for an operator
@@ -53376,6 +53407,32 @@ function fullyQualifiedNameToUnqualified(fqname) {
     }
 }
 exports.fullyQualifiedNameToUnqualified = fullyQualifiedNameToUnqualified;
+function astToIdentifier(ast) {
+    if (ast.construct_type === "unqualified_identifier") {
+        return ast.identifier;
+    }
+    else {
+        return ast.components.map(c => c.identifier);
+    }
+}
+exports.astToIdentifier = astToIdentifier;
+function stringifyIdentifier(id) {
+    if (typeof id === "string") {
+        return id;
+    }
+    else {
+        return id.join("::");
+    }
+}
+exports.stringifyIdentifier = stringifyIdentifier;
+function isUnqualifiedIdentifier(id) {
+    return typeof id === "string";
+}
+exports.isUnqualifiedIdentifier = isUnqualifiedIdentifier;
+function isQualifiedIdentifier(id) {
+    return typeof id !== "string";
+}
+exports.isQualifiedIdentifier = isQualifiedIdentifier;
 
 
 /***/ }),
@@ -57409,12 +57466,48 @@ MATH_FUNCTIONS.forEach(mathFn => {
 
 /***/ }),
 
+/***/ 2899:
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+const Program_1 = __webpack_require__(5386);
+const opaqueExpression_1 = __webpack_require__(7104);
+const types_1 = __webpack_require__(8716);
+const runtimeEnvironment_1 = __webpack_require__(5320);
+Program_1.registerLibraryHeader("cstdlib", new Program_1.SourceFile("cstdlib.h", `int rand() {
+    return @rand;
+}
+
+void srand(int seed) {
+    @srand;
+}`, true));
+opaqueExpression_1.registerOpaqueExpression("rand", {
+    type: types_1.Int.INT,
+    valueCategory: "prvalue",
+    operate: (rt) => {
+        return new runtimeEnvironment_1.Value(rt.sim.rng.randomInteger(0, 1000000), types_1.Int.INT);
+    }
+});
+opaqueExpression_1.registerOpaqueExpression("srand", {
+    type: types_1.VoidType.VOID,
+    valueCategory: "prvalue",
+    operate: (rt) => {
+        rt.sim.rng.setRandomSeed(opaqueExpression_1.getLocal(rt, "seed").getValue().rawValue);
+    }
+});
+
+
+/***/ }),
+
 /***/ 826:
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+__webpack_require__(2899);
 __webpack_require__(1842);
 __webpack_require__(6624);
 __webpack_require__(7296);
@@ -60172,10 +60265,10 @@ function peg$parse(input, options) {
     const peg$c343 = function (args) { return track({ construct_type: "function_call_expression", args: args || [] }, location(), text()); };
     const peg$c344 = ".";
     const peg$c345 = peg$literalExpectation(".", false);
-    const peg$c346 = function (name) { return track({ construct_type: "dot_expression", member: name }, location(), text()); };
+    const peg$c346 = function (mem) { return track({ construct_type: "dot_expression", member: mem }, location(), text()); };
     const peg$c347 = "->";
     const peg$c348 = peg$literalExpectation("->", false);
-    const peg$c349 = function (name) { return track({ construct_type: "arrow_expression", member: name }, location(), text()); };
+    const peg$c349 = function (mem) { return track({ construct_type: "arrow_expression", member: mem }, location(), text()); };
     const peg$c350 = function () { return track({ construct_type: "postfix_increment_expression", operator: "++" }, location(), text()); };
     const peg$c351 = function () { return track({ construct_type: "postfix_increment_expression", operator: "--" }, location(), text()); };
     const peg$c352 = function (type, args) {
@@ -60186,10 +60279,10 @@ function peg$parse(input, options) {
     const peg$c355 = "this";
     const peg$c356 = peg$literalExpectation("this", false);
     const peg$c357 = function () { return track({ construct_type: "this_expression" }, location(), text()); };
-    const peg$c358 = function (id) { return track(absorb({ construct_type: "identifier_expression" }, id), location(), text()); };
+    const peg$c358 = function (id) { return track({ construct_type: "identifier_expression", identifier: id }, location(), text()); };
     const peg$c359 = function (n, u) {
         n.push(u);
-        return { identifier: n };
+        return { construct_type: "qualified_identifier", components: n };
     };
     const peg$c360 = "::";
     const peg$c361 = peg$literalExpectation("::", false);
@@ -60264,7 +60357,7 @@ function peg$parse(input, options) {
     const peg$c430 = /^[0-8]/;
     const peg$c431 = peg$classExpectation([["0", "8"]], false, false);
     const peg$c432 = peg$otherExpectation("identifier");
-    const peg$c433 = function (first, rest) { return track({ identifier: first + rest.join("") }, location(), text()); };
+    const peg$c433 = function (first, rest) { return track({ construct_type: "unqualified_identifier", identifier: first + rest.join("") }, location(), text()); };
     const peg$c434 = /^[a-zA-Z0-9_]/;
     const peg$c435 = peg$classExpectation([["a", "z"], ["A", "Z"], ["0", "9"], "_"], false, false);
     const peg$c436 = /^[a-zA-Z_]/;
@@ -60334,7 +60427,7 @@ function peg$parse(input, options) {
     };
     const peg$c484 = function (n, c) {
         n.push(c);
-        return n;
+        return { construct_type: "qualified_identifier", components: n };
     };
     let peg$currPos = 0;
     let peg$savedPos = 0;
@@ -69917,7 +70010,7 @@ function peg$parse(input, options) {
                 if (s1 !== peg$FAILED) {
                     s2 = peg$parsews();
                     if (s2 !== peg$FAILED) {
-                        s3 = peg$parsename();
+                        s3 = peg$parseid_expression();
                         if (s3 !== peg$FAILED) {
                             peg$savedPos = s0;
                             s1 = peg$c346(s3);
@@ -69952,7 +70045,7 @@ function peg$parse(input, options) {
                     if (s1 !== peg$FAILED) {
                         s2 = peg$parsews();
                         if (s2 !== peg$FAILED) {
-                            s3 = peg$parsename();
+                            s3 = peg$parseid_expression();
                             if (s3 !== peg$FAILED) {
                                 peg$savedPos = s0;
                                 s1 = peg$c349(s3);
@@ -70298,7 +70391,13 @@ function peg$parse(input, options) {
                     s0 = peg$FAILED;
                 }
                 if (s0 === peg$FAILED) {
-                    s0 = peg$parseexp_id();
+                    s0 = peg$currPos;
+                    s1 = peg$parseid_expression();
+                    if (s1 !== peg$FAILED) {
+                        peg$savedPos = s0;
+                        s1 = peg$c358(s1);
+                    }
+                    s0 = s1;
                     if (s0 === peg$FAILED) {
                         s0 = peg$parseopaque_expression();
                     }
@@ -70307,18 +70406,12 @@ function peg$parse(input, options) {
         }
         return s0;
     }
-    function peg$parseexp_id() {
-        let s0, s1;
-        s0 = peg$currPos;
-        s1 = peg$parsequalified_id();
-        if (s1 === peg$FAILED) {
-            s1 = peg$parsename();
+    function peg$parseid_expression() {
+        let s0;
+        s0 = peg$parsequalified_id();
+        if (s0 === peg$FAILED) {
+            s0 = peg$parsename();
         }
-        if (s1 !== peg$FAILED) {
-            peg$savedPos = s0;
-            s1 = peg$c358(s1);
-        }
-        s0 = s1;
         return s0;
     }
     function peg$parsequalified_id() {
@@ -75310,6 +75403,7 @@ const entities_1 = __webpack_require__(8397);
 const runtimeEnvironment_1 = __webpack_require__(5320);
 const types_1 = __webpack_require__(8716);
 const he_1 = __webpack_require__(6492);
+const lexical_1 = __webpack_require__(2018);
 const EVAL_FADE_DURATION = 500;
 const RESET_FADE_DURATION = 500;
 exports.CODE_ANIMATIONS = true;
@@ -76722,7 +76816,7 @@ class IdentifierOutlet extends ExpressionOutlet {
     constructor(element, construct, parent) {
         super(element, construct, parent, false);
         this.exprElem.addClass("code-name");
-        this.exprElem.append(this.construct.name);
+        this.exprElem.append(lexical_1.stringifyIdentifier(this.construct.name));
     }
 }
 exports.IdentifierOutlet = IdentifierOutlet;
@@ -78491,6 +78585,22 @@ class ClassMemoryObjectOutlet extends MemoryObjectOutlet {
         }
         classHeaderElem.append($('<span class="className">' + className + '</span>'));
         let membersElem = $('<div class="members"></div>');
+        let baseObj = this.object.getBaseSubobject();
+        if (baseObj) {
+            createMemoryObjectOutlet($("<div></div>").appendTo(membersElem), baseObj, this.memoryOutlet);
+        }
+        // let baseType: CompleteClassType | undefined = this.object.type;
+        // while (baseType = baseType.classDefinition.baseClass) {
+        //     baseType.classDefinition.memberVariableEntities.forEach(memEntity => {
+        //         let memName = memEntity.name;
+        //         if (memEntity instanceof MemberReferenceEntity) {
+        //             new ReferenceMemoryOutlet($("<div></div>").appendTo(membersElem), memEntity);
+        //         }
+        //         else {
+        //             createMemoryObjectOutlet($("<div></div>").appendTo(membersElem), this.object.getMemberObject(memName)!, this.memoryOutlet);
+        //         }
+        //     });
+        // }
         this.object.type.classDefinition.memberVariableEntities.forEach(memEntity => {
             let memName = memEntity.name;
             if (memEntity instanceof entities_1.MemberReferenceEntity) {
