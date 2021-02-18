@@ -6,7 +6,7 @@ import { ReferenceType, PeelReference, peelReference, AtomicType, FunctionType, 
 import { CPPObject } from "./objects";
 import { CPPError } from "./errors";
 import { allWellTyped, CompiledExpression, RuntimeExpression, VCResultTypes, ValueCategory, Expression } from "./expressionBase";
-import { MAGIC_FUNCTION_NAMES, LOBSTER_MAGIC_FUNCTIONS } from "./lexical";
+import { MAGIC_FUNCTION_NAMES, LOBSTER_MAGIC_FUNCTIONS, stringifyIdentifier, astToIdentifier } from "./lexical";
 import { FunctionCallExpressionOutlet, ConstructOutlet } from "../view/codeOutlets";
 import { Mutable } from "../util/util";
 
@@ -88,8 +88,9 @@ export class FunctionCallExpression extends Expression<FunctionCallExpressionAST
         let args = ast.args.map(arg => createExpressionFromAST(arg, context));
 
         if (ast.operand.construct_type === "identifier_expression") {
-            if (LOBSTER_MAGIC_FUNCTIONS.has(ast.operand.identifier)) {
-                return new MagicFunctionCallExpression(context, ast, <MAGIC_FUNCTION_NAMES>ast.operand.identifier, args);
+            let identifierStr = stringifyIdentifier(astToIdentifier(ast.operand.identifier));
+            if (LOBSTER_MAGIC_FUNCTIONS.has(identifierStr)) {
+                return new MagicFunctionCallExpression(context, ast, <MAGIC_FUNCTION_NAMES>identifierStr, args);
             }
         }
 

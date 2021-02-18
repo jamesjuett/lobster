@@ -1669,6 +1669,24 @@ export class ClassMemoryObjectOutlet<T extends CompleteClassType> extends Memory
 
         let membersElem = $('<div class="members"></div>');
 
+        let baseObj = this.object.getBaseSubobject();
+        if (baseObj) {
+            createMemoryObjectOutlet($("<div></div>").appendTo(membersElem), baseObj, this.memoryOutlet);
+        }
+
+        // let baseType: CompleteClassType | undefined = this.object.type;
+        // while (baseType = baseType.classDefinition.baseClass) {
+        //     baseType.classDefinition.memberVariableEntities.forEach(memEntity => {
+        //         let memName = memEntity.name;
+        //         if (memEntity instanceof MemberReferenceEntity) {
+        //             new ReferenceMemoryOutlet($("<div></div>").appendTo(membersElem), memEntity);
+        //         }
+        //         else {
+        //             createMemoryObjectOutlet($("<div></div>").appendTo(membersElem), this.object.getMemberObject(memName)!, this.memoryOutlet);
+        //         }
+        //     });
+        // }
+
         this.object.type.classDefinition.memberVariableEntities.forEach(memEntity => {
             let memName = memEntity.name;
             if (memEntity instanceof MemberReferenceEntity) {
@@ -1677,8 +1695,7 @@ export class ClassMemoryObjectOutlet<T extends CompleteClassType> extends Memory
             else {
                 createMemoryObjectOutlet($("<div></div>").appendTo(membersElem), this.object.getMemberObject(memName)!, this.memoryOutlet);
             }
-
-        })
+        });
         
         this.objElem.append(membersElem);
 
