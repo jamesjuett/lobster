@@ -1,7 +1,7 @@
 import Cookies from "js-cookie";
 import { EXERCISE_CHECKPOINTS, getExerciseCheckpoints, OutputCheckpoint, outputComparator } from "../analysis/checkpoints";
 import { Exercise, FileData, Project } from "../core/Project";
-import { SimpleExerciseLobsterOutlet } from "../exercises";
+import { SimpleExerciseLobsterOutlet } from "../view/SimpleExerciseLobsterOutlet";
 import { listenTo, Message, messageResponse, MessageResponses, stopListeningTo } from "../util/observe";
 import { assert, Mutable } from "../util/util";
 import { ICON_PERSON } from "./octicons";
