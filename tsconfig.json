@@ -9,8 +9,8 @@
       "./src/js/frontend/*.ts",
       "./src/js/util/*.ts",
       "./src/js/main.ts",
-      "./src/js/exercises.ts"
-    ],
+      "src/js/embedded_exercises.ts"
+, "src/js/ExerciseSpecification.ts"    ],
     "exclude": [
       "*node_modules*"
     ],
