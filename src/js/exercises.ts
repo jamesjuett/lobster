@@ -1,6 +1,6 @@
 import { assert } from "./util/util";
 import { decode } from "he";
-import { createSimpleExerciseOutlet } from "./frontend/simple_exercise_outlet";
+import { createRunestoneExerciseOutlet } from "./view/embeddedExerciseOutlet";
 import { Exercise, Project } from "./core/Project";
 import { Checkpoint, getExerciseCheckpoints } from "./analysis/checkpoints";
 
@@ -13,7 +13,7 @@ $(() => {
 
     $(".lobster-ex").each(function() {
 
-        $(this).append(createSimpleExerciseOutlet(""+exID));
+        $(this).append(createRunestoneExerciseOutlet(""+exID));
 
         let filename = $(this).find(".lobster-ex-file-name").html()?.trim() ?? "file.cpp";
         let projectName = $(this).find(".lobster-ex-project-name").html()?.trim() ?? "UnnamedProject";
