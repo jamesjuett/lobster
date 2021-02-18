@@ -13,13 +13,11 @@ export class CheckpointsOutlet {
     
     private readonly element: JQuery;
     private readonly headerElem: JQuery;
-    private readonly completeMessage: string;
 
     private checkpointsContainerElem: JQuery;
 
-    public constructor(element: JQuery, exercise: Exercise, completeMessage: string) {
+    public constructor(element: JQuery, exercise: Exercise) {
         this.element = element;
-        this.completeMessage = completeMessage;
 
         this.checkpointsContainerElem = element.find(".panel-body");
         this.headerElem = element.find(".panel-heading").html("Exercise Progress");
@@ -39,7 +37,7 @@ export class CheckpointsOutlet {
         return exercise;
     }
     
-    @messageResponse("checkpointEvaluationStarted", "unwrap")
+    @messageResponse("allCheckpointEvaluationStarted", "unwrap")
     private async onCheckpointEvaluationStarted(exercise: Exercise) {
         assert(exercise);
         let checkpoints = exercise.checkpoints;
@@ -56,18 +54,19 @@ export class CheckpointsOutlet {
     private async onCheckpointEvaluationFinished(exercise: Exercise) {
         assert(exercise);
         let checkpoints = exercise.checkpoints;
-        let statuses = exercise.checkpointStatuses;
+        let finished = exercise.checkpointEvaluationsFinished;
+        let completions = exercise.checkpointCompletions;
         this.checkpointsContainerElem.empty();
         checkpoints.map((c, i) => new CheckpointOutlet(
             $(`<span class="lobster-checkpoint"></span>`).appendTo(this.checkpointsContainerElem),
             c.name,
-            statuses[i] ? "complete" : "incomplete"
+            finished[i] ? (completions[i] ? "complete" : "incomplete") : "thinking"
         ));
 
         // TODO remove special cases here, set completion policy
         // if (statuses.every(Boolean) || this.exercise.name !== "ch13_03_ex" && this.exercise.name !== "ch13_04_ex" && statuses[statuses.length - 1]) {
-        if (statuses[statuses.length - 1]) {
-            this.headerElem.html(`<b>${this.completeMessage}</b>`);
+        if (exercise.isComplete) {
+            this.headerElem.html(`<b>${this.exercise.completionMessage}</b>`);
             this.element.removeClass("panel-default");
             this.element.removeClass("panel-danger");
             this.element.addClass("panel-success");

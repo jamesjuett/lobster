@@ -18,7 +18,6 @@ export class SimpleExerciseLobsterOutlet {
   private isInstantMemoryDiagramActive: boolean;
 
   public readonly project: Project;
-  public readonly completeMessage: string;
 
   public readonly sim?: Simulation;
 
@@ -32,9 +31,8 @@ export class SimpleExerciseLobsterOutlet {
 
   public _act!: MessageResponses;
 
-  public constructor(element: JQuery, project: Project, completeMessage: string) {
+  public constructor(element: JQuery, project: Project) {
     this.element = element;
-    this.completeMessage = completeMessage;
     // Set up simulation and source tabs
     // var sourceTab = element.find(".sourceTab");
     // var simTab = element.find(".simTab");
@@ -65,7 +63,7 @@ export class SimpleExerciseLobsterOutlet {
     this.projectEditor = new ProjectEditor(element.find(".lobster-source-pane"), project);
     this.compilationOutlet = new CompilationOutlet(element.find(".lobster-compilation-pane"), project);
     this.compilationStatusOutlet = new CompilationStatusOutlet(element.find(".compilation-status-outlet"), project);
-    this.checkpointsOutlet = new CheckpointsOutlet(element.find(".lobster-ex-checkpoints"), project.exercise, completeMessage);
+    this.checkpointsOutlet = new CheckpointsOutlet(element.find(".lobster-ex-checkpoints"), project.exercise);
     let IMDOElem = element.find(".lobster-instant-memory-diagram");
     this.instantMemoryDiagramOutlet = new InstantMemoryDiagramOutlet(IMDOElem, project, false);
     this.isInstantMemoryDiagramActive = false;
