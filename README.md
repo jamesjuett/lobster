@@ -135,6 +135,12 @@ int main() {
 
 ## Completion Criteria
 
+An exercise may specify completion criteria. Two predefined criteria are available:
+ - `COMPLETION_ALL_CHECKPOINTS`
+ - `COMPLETION_LAST_CHECKPOINT`
+
+You can also provide a custom predicate that takes an `Exercise` as an argument and returns true/false.
+
 ## Checkpoints
 
 An exercise specification may includes a list of checkpoints. There are several different kinds of checkpoints. Here are a few characteristic examples:
