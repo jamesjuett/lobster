@@ -57,7 +57,7 @@ export const DEFAULT_EXERCISE : ExerciseSpecification = {
 };
 
 export function getExerciseSpecification(exercise_key: string) : ExerciseSpecification | undefined {
-    let spec = EXERCISE_CHECKPOINTS[exercise_key];
+    let spec = EXERCISE_SPECIFICATIONS[exercise_key];
     return spec && makeExerciseSpecification(spec);
 }
 
@@ -65,7 +65,7 @@ export function makeExerciseSpecification(spec: Partial<ExerciseSpecification>) 
     return Object.assign({}, DEFAULT_EXERCISE, spec);
 }
 
-export const EXERCISE_CHECKPOINTS: { [index: string]: Partial<ExerciseSpecification> | undefined; } = {
+export const EXERCISE_SPECIFICATIONS: { [index: string]: Partial<ExerciseSpecification> | undefined; } = {
     "test_exercise_1": {
         checkpoints: [
             new StaticAnalysisCheckpoint("Declare x", (program: Program) => {

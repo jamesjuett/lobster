@@ -1,6 +1,6 @@
 import Cookies from "js-cookie";
 import { OutputCheckpoint, outputComparator } from "../analysis/checkpoints";
-import { DEFAULT_EXERCISE, EXERCISE_CHECKPOINTS, getExerciseSpecification, makeExerciseSpecification } from "../exercises";
+import { DEFAULT_EXERCISE, EXERCISE_SPECIFICATIONS, getExerciseSpecification, makeExerciseSpecification } from "../exercises";
 import { Exercise, FileData, Project } from "../core/Project";
 import { SimpleExerciseLobsterOutlet } from "../view/SimpleExerciseLobsterOutlet";
 import { listenTo, Message, messageResponse, MessageResponses, stopListeningTo } from "../util/observe";
@@ -119,7 +119,7 @@ export class LobsterApplication {
         });
 
         // Edit Exercise Modal
-        Object.keys(EXERCISE_CHECKPOINTS).forEach(
+        Object.keys(EXERCISE_SPECIFICATIONS).forEach(
             (key) => $("#lobster-exercise-key-choices").append(`<option value="${key}">`)
         );
         $("#lobster-edit-exercise-modal").on('show.bs.modal', () => {

@@ -80915,8 +80915,6 @@ const simulationRunners_1 = __webpack_require__(9108);
 const entities_1 = __webpack_require__(8397);
 const codeOutlets_1 = __webpack_require__(3004);
 const functions_1 = __webpack_require__(2367);
-const Project_1 = __webpack_require__(8367);
-const exercises_1 = __webpack_require__(7880);
 const FADE_DURATION = 300;
 const SLIDE_DURATION = 400;
 const VALUE_TRANSFER_DURATION = 500;
@@ -81293,7 +81291,7 @@ __decorate([
 ], SimulationOutlet.prototype, "atEnded", null);
 exports.SimulationOutlet = SimulationOutlet;
 class DefaultLobsterOutlet {
-    constructor(element, project = new Project_1.Project("unnammed project", undefined, [], new Project_1.Exercise(exercises_1.DEFAULT_EXERCISE))) {
+    constructor(element, project) {
         this.element = element;
         this.project = project;
         // Set up simulation and source tabs
