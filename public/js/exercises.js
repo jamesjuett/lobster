@@ -58033,34 +58033,22 @@ exports.builtInTypes = {
 /***/ }),
 
 /***/ 7880:
-/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 "use strict";
 
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.SimpleExerciseLobsterOutlet = void 0;
-const simOutlets_1 = __webpack_require__(9357);
-const editors_1 = __webpack_require__(7364);
-const Simulation_1 = __webpack_require__(2295);
-const observe_1 = __webpack_require__(5114);
 const he_1 = __webpack_require__(6492);
-const simple_exercise_outlet_1 = __webpack_require__(9782);
+const embeddedExerciseOutlet_1 = __webpack_require__(3984);
 const Project_1 = __webpack_require__(8367);
 const checkpoints_1 = __webpack_require__(2979);
 __webpack_require__(826);
-const checkpointOutlets_1 = __webpack_require__(8283);
-const InstantMemoryDiagramOutlet_1 = __webpack_require__(3927);
+const SimpleExerciseLobsterOutlet_1 = __webpack_require__(4229);
 $(() => {
     let exID = 1;
     $(".lobster-ex").each(function () {
         var _a, _b, _c, _d, _e, _f, _g, _h, _j;
-        $(this).append(simple_exercise_outlet_1.createSimpleExerciseOutlet("" + exID));
+        $(this).append(embeddedExerciseOutlet_1.createRunestoneExerciseOutlet("" + exID));
         let filename = (_b = (_a = $(this).find(".lobster-ex-file-name").html()) === null || _a === void 0 ? void 0 : _a.trim()) !== null && _b !== void 0 ? _b : "file.cpp";
         let projectName = (_d = (_c = $(this).find(".lobster-ex-project-name").html()) === null || _c === void 0 ? void 0 : _c.trim()) !== null && _d !== void 0 ? _d : "UnnamedProject";
         let completeMessage = (_f = (_e = $(this).find(".lobster-ex-complete-message").html()) === null || _e === void 0 ? void 0 : _e.trim()) !== null && _f !== void 0 ? _f : "Well done! Exercise complete!";
@@ -58070,117 +58058,10 @@ $(() => {
         }
         let project = new Project_1.Project(projectName, undefined, [{ name: filename, code: initCode, isTranslationUnit: true }], new Project_1.Exercise(checkpoints_1.getExerciseCheckpoints(projectName)));
         project.turnOnAutoCompile(500);
-        let exOutlet = new SimpleExerciseLobsterOutlet($(this), project, completeMessage);
+        let exOutlet = new SimpleExerciseLobsterOutlet_1.SimpleExerciseLobsterOutlet($(this), project, completeMessage);
         ++exID;
     });
 });
-class SimpleExerciseLobsterOutlet {
-    constructor(element, project, completeMessage) {
-        this.element = element;
-        this.completeMessage = completeMessage;
-        // Set up simulation and source tabs
-        // var sourceTab = element.find(".sourceTab");
-        // var simTab = element.find(".simTab");
-        this.tabsElem = element.find(".lobster-simulation-outlet-tabs");
-        // TODO: HACK to make codeMirror refresh correctly when sourcePane becomes visible
-        this.tabsElem.find('a.lobster-source-tab').on("shown.bs.tab", () => {
-            this.projectEditor.refreshEditorView();
-        });
-        this.simulationOutlet = new simOutlets_1.SimulationOutlet(element.find(".lobster-sim-pane"));
-        this.simulateTabElem = element.find(".lobster-simulate-tab");
-        this.setSimulationTabEnabled(false);
-        let runButtonElem = element.find(".runButton")
-            .click(() => {
-            let program = this.project.program;
-            if (program.isRunnable()) {
-                let sim = new Simulation_1.Simulation(program);
-                while (!sim.globalAllocator.isDone) {
-                    sim.stepForward(); // TODO: put this loop in simulation runners in function to skip stuff before main
-                }
-                this.setSimulation(sim);
-            }
-            this.simulateTabElem.tab("show");
-        });
-        this.projectEditor = new editors_1.ProjectEditor(element.find(".lobster-source-pane"), project);
-        this.compilationOutlet = new editors_1.CompilationOutlet(element.find(".lobster-compilation-pane"), project);
-        this.compilationStatusOutlet = new editors_1.CompilationStatusOutlet(element.find(".compilation-status-outlet"), project);
-        this.checkpointsOutlet = new checkpointOutlets_1.CheckpointsOutlet(element.find(".lobster-ex-checkpoints"), project.exercise, completeMessage);
-        let IMDOElem = element.find(".lobster-instant-memory-diagram");
-        this.instantMemoryDiagramOutlet = new InstantMemoryDiagramOutlet_1.InstantMemoryDiagramOutlet(IMDOElem, project, false);
-        this.isInstantMemoryDiagramActive = false;
-        element.find(".lobster-instant-memory-diagram-buttons button").on("click", () => {
-            ["active", "btn-default", "btn-primary"].forEach(c => element.find(".lobster-instant-memory-diagram-buttons button").toggleClass(c));
-            this.isInstantMemoryDiagramActive = !this.isInstantMemoryDiagramActive;
-            this.instantMemoryDiagramOutlet.setActive(this.isInstantMemoryDiagramActive);
-            if (this.isInstantMemoryDiagramActive) {
-                IMDOElem.show();
-            }
-            else {
-                IMDOElem.hide();
-            }
-        });
-        this.project = project;
-    }
-    setProject(project) {
-        this.project = project;
-        this.projectEditor.setProject(project);
-        this.compilationOutlet.setProject(project);
-        this.compilationStatusOutlet.setProject(project);
-        this.checkpointsOutlet.setExercise(project.exercise);
-        this.instantMemoryDiagramOutlet.setProject(project);
-        return this.project;
-    }
-    setSimulation(sim) {
-        this.clearSimulation();
-        this.sim = sim;
-        observe_1.listenTo(this, sim);
-        this.simulationOutlet.setSimulation(sim);
-        this.setSimulationTabEnabled(true);
-    }
-    clearSimulation() {
-        this.setSimulationTabEnabled(false);
-        this.simulationOutlet.clearSimulation();
-        if (this.sim) {
-            observe_1.stopListeningTo(this, this.sim);
-        }
-        delete this.sim;
-    }
-    // private hideAnnotationMessage() {
-    //     this.annotationMessagesElem.css("top", "125px");
-    //     if (this.afterAnnotation.length > 0) {
-    //         this.afterAnnotation.forEach(fn => fn());
-    //         this.afterAnnotation.length = 0;
-    //     }
-    // }
-    requestFocus(msg) {
-        if (msg.source === this.projectEditor) {
-            this.tabsElem.find('a.lobster-source-tab').tab("show");
-        }
-    }
-    beforeStepForward(msg) {
-        var oldGets = $(".code-memoryObject .get");
-        var oldSets = $(".code-memoryObject .set");
-        setTimeout(() => {
-            oldGets.removeClass("get");
-            oldSets.removeClass("set");
-        }, 300);
-    }
-    setSimulationTabEnabled(isEnabled) {
-        if (isEnabled) {
-            this.simulateTabElem.parent().removeClass("disabled");
-        }
-        else {
-            this.simulateTabElem.parent().addClass("disabled");
-        }
-    }
-}
-__decorate([
-    observe_1.messageResponse("requestFocus")
-], SimpleExerciseLobsterOutlet.prototype, "requestFocus", null);
-__decorate([
-    observe_1.messageResponse("beforeStepForward")
-], SimpleExerciseLobsterOutlet.prototype, "beforeStepForward", null);
-exports.SimpleExerciseLobsterOutlet = SimpleExerciseLobsterOutlet;
 const EXERCISE_STARTER_CODE = {
     "ch12_01_ex": `#include <iostream>
 using namespace std;
@@ -58618,146 +58499,6 @@ int main() {
 }
 `
 };
-
-
-/***/ }),
-
-/***/ 9782:
-/***/ ((__unused_webpack_module, exports) => {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.createSimpleExerciseOutlet = void 0;
-function createSimpleExerciseOutlet(id) {
-    return $(`
-        <div class="lobster-ex-checkpoints panel panel-default" style="margin-top: 0.5em;">
-            <div class="panel-heading"></div>
-            <div class="panel-body">
-                
-            </div>
-        </div>
-        <ul style="position: relative;" class="lobster-simulation-outlet-tabs nav nav-tabs">
-            <div style="position: relative; float: right; margin-top: 5px; z-index: 10;">
-                <button id="lobster-edit-project-modal-button" class="btn btn-primary-muted" data-toggle="modal" data-target="#lobster-edit-project-modal" >
-                    <i class="bi bi-pencil-square"></i> <span id="lobster-project-name"></span>
-                </button>
-                <button id="lobster-edit-exercise-modal-button" class="btn btn-primary-muted" data-toggle="modal" data-target="#lobster-edit-exercise-modal" >
-                    <i class="bi bi-pencil-square"></i> Exercise</span>
-                </button>
-                <button id="lobster-personal-copy-button" class="btn btn-primary-muted" >
-                    <i class="bi bi-files"></i> Make A Personal Copy</span>
-                </button>
-                <div style="display: inline-block" class = "lobster-project-save-outlet"></div>
-            </div>
-            <li><a data-toggle="tab" href="#lobster-ex-${id}-compilation-pane">Compilation</a></li>
-            <li class="active"><a data-toggle="tab" href="#lobster-ex-${id}-source-pane">Source Code</a></li>
-            <li><a class="lobster-simulate-tab" data-toggle="tab" href="#lobster-ex-${id}-sim-pane">Simulation</a></li>
-
-        </ul>
-
-        <div class="tab-content" style="height: calc(100vh - 250px); overflow: hidden;">
-            <div id="lobster-ex-${id}-compilation-pane" class="lobster-compilation-pane tab-pane fade" style="height: 100%; overflow-y: scroll;">
-                
-            </div>
-
-            <div id="lobster-ex-${id}-source-pane" class="lobster-source-pane tab-pane fade active in" style="height: 100%; overflow-y: hidden;">
-                <div style="height: 100%; overflow-y: hidden; display: flex; flex-direction: column;">
-                    <div style="padding-top:5px; padding-bottom: 5px;">
-                        <ul style="display:inline-block; vertical-align: middle;" class="project-files nav nav-pills"></ul>
-                        <div style="float: right;">
-                            <div class = "compilation-status-outlet" style="display: inline-block;"></div>
-                            <div style="display: inline-block; text-align: center;">
-                                Memory Diagram<br />
-                                <div class="btn-group btn-toggle lobster-instant-memory-diagram-buttons"> 
-                                    <button class="btn btn-xs btn-default">ON</button>
-                                    <button class="btn btn-xs btn-primary active">OFF</button>
-                                </div>
-                            </div>
-                            <button class = "btn btn-primary-muted runButton" style="display: inline-block; margin-left: 1em"><span class="glyphicon glyphicon-play-circle"></span> Simulate</span></button>
-                        </div>
-                    </div>
-                    <div style="height: 100%; display: flex; flex-direction: row; overflow: hidden;">
-                        <div class="codeMirrorEditor" style = "flex-grow: 1; position: relative; overflow-y: hidden; height: 100%; background-color: #272822"></div>
-                        <div class="lobster-instant-memory-diagram" style="display: none; height: 100%; flex: 0 1 300px;"></div>
-                    </div>
-                    <div class="annotationMessagesContainer" style="position: absolute; bottom: 0; left: 0px; right: 0px; overflow: hidden; text-align: center; pointer-events: none">
-                        <div class="annotationMessages">
-                            <div style="height: 100px; margin-left: 5px; float: right;">
-                                <img src="img/lobster_teaching.jpg" class="lobsterRecursionImage" style="height: 90px; margin-left: 5px;"/>
-                                <img src="img/lobster_recursion.jpg" class="lobsterTeachingImage" style="display:none; height: 90px; margin-left: 5px;"/>
-                                <div style="padding-right: 5px; text-align: center"><button>Thanks!</button></div>
-                            </div>
-                            <div style="height: 100%; overflow-y: auto"><table style="height: 110px; margin-left: auto; margin-right: auto"><tr><td><div class="annotation-message"></div></td></tr></table></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div id="lobster-ex-${id}-sim-pane" class="lobster-sim-pane tab-pane fade" style="height: 100%">
-                <div style="position: relative">
-                    <div class="runningProgress" style="position: absolute; right: 0; top: 0; margin: 5px; margin-right: 20px; padding: 5px; background-color: rgba(255,255,255,0.7);">
-                        Thinking...
-                        <!--<progress style="display: inline-block; vertical-align: top"></progress>-->
-                    </div>
-                    <div class="alerts-container">
-                        <div class="alerts">
-                            <div style="display:inline-block; padding: 5px">
-                                <div style="height: 100px; margin-left: 5px; float: right;">
-                                    <img src="img/lobster.png" style="height: 80px; margin-left: 5px;"/>
-                                    <div style="padding-right: 5px; text-align: right"><button>Dismiss</button></div>
-                                </div>
-                                <table style="height: 110px"><tr><td><div class="alerts-message"></div></td></tr></table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <!-- <p style = "width: 394px; padding: 5px;" class = "_outlet readOnly memory">memory</p> -->
-                <table style="width: 100%; height: 100%; margin-top: 5px; ">
-                    <tr>
-                        <td style="min-width: 260px; width: 260px; max-width: 260px; vertical-align: top; height: 100%">
-                            <div style="position: relative; display: flex; flex-direction: column;">
-                                <div style="margin-bottom: 5px;">
-                                    <button class = "restart btn btn-warning-muted" style="font-size: 12px; padding: 6px 6px"><span class="glyphicon glyphicon-fast-backward"></span> Restart</button>
-                                    <!--<span style = "display: inline-block; width: 4ch"></span>-->
-                                    <!-- <button class = "stepOver">Step Over</button> -->
-                                    <!-- <button class = "stepOut">Step Out</button> -->
-                                    <button class = "runToEnd btn btn-success-muted" style="font-size: 12px; padding: 6px 6px">Run <span class="glyphicon glyphicon-fast-forward"></button>
-                                    <button class = "pause btn btn-warning-muted" style="font-size: 12px; padding: 6px 6px"><span class="glyphicon glyphicon-pause"></button>
-                                    <!-- <button class = "skipToEnd"><span class="glyphicon glyphicon-fast-forward"></button> -->
-
-                                    <!--Show Functions<input type="checkbox" class="stepInto"/>-->
-                                    <button class = "stepBackward btn btn-success-muted" style="font-size: 12px; padding: 6px 6px"><span class="glyphicon glyphicon-arrow-left"></span></button>
-                                    <input type="hidden" style="width: 4ch" class="stepBackwardNum" value="1" />
-
-                                    
-                                    <input type="hidden" style="display: none; width: 4ch" class="stepForwardNum" value="1" />
-                                    <button class = "stepForward btn btn-success-muted" style="font-size: 12px; padding: 6px 6px">Step <span class="glyphicon glyphicon-arrow-right"></span></button>
-                                    <!--<input type="checkbox" id="tcoCheckbox" checked="false" />-->
-                                </div>
-                                <div class="console">
-                                    <span style = "position: absolute; top: 5px; right: 5px; pointer-events: none;">Console</span>
-                                    <span class="lobster-console-contents"></span>
-                                    <input type="text" class="lobster-console-user-input-entry"></span>
-                                </div>
-                                <div class="lobster-cin-buffer" style = "margin-top: 5px;"></div>
-                                <div style = "margin-top: 5px; text-align: center;">Memory</div>
-                                <div style="overflow-y: auto; overflow-x: hidden; flex-grow: 1;"><div style="height: 300px;" class="lobster-memory readOnly"></div></div>
-
-                            </div>
-                        </td>
-                        <td style="position: relative; vertical-align: top;">
-                            <div class = "codeStack readOnly" style="display: block; margin-left: 5px; overflow-y: auto; position: absolute; width: 100%; height: 100%; white-space: nowrap;"> </div>
-                        </td>
-                    </tr>
-                </table>
-
-            </div>
-        </div>
-        
-
-    `);
-}
-exports.createSimpleExerciseOutlet = createSimpleExerciseOutlet;
 
 
 /***/ }),
@@ -75540,6 +75281,136 @@ exports.InstantMemoryDiagramOutlet = InstantMemoryDiagramOutlet;
 
 /***/ }),
 
+/***/ 4229:
+/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
+
+"use strict";
+
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.SimpleExerciseLobsterOutlet = void 0;
+const simOutlets_1 = __webpack_require__(9357);
+const editors_1 = __webpack_require__(7364);
+const Simulation_1 = __webpack_require__(2295);
+const observe_1 = __webpack_require__(5114);
+const checkpointOutlets_1 = __webpack_require__(8283);
+const InstantMemoryDiagramOutlet_1 = __webpack_require__(3927);
+class SimpleExerciseLobsterOutlet {
+    constructor(element, project, completeMessage) {
+        this.element = element;
+        this.completeMessage = completeMessage;
+        // Set up simulation and source tabs
+        // var sourceTab = element.find(".sourceTab");
+        // var simTab = element.find(".simTab");
+        this.tabsElem = element.find(".lobster-simulation-outlet-tabs");
+        // TODO: HACK to make codeMirror refresh correctly when sourcePane becomes visible
+        this.tabsElem.find('a.lobster-source-tab').on("shown.bs.tab", () => {
+            this.projectEditor.refreshEditorView();
+        });
+        this.simulationOutlet = new simOutlets_1.SimulationOutlet(element.find(".lobster-sim-pane"));
+        this.simulateTabElem = element.find(".lobster-simulate-tab");
+        this.setSimulationTabEnabled(false);
+        let runButtonElem = element.find(".runButton")
+            .click(() => {
+            let program = this.project.program;
+            if (program.isRunnable()) {
+                let sim = new Simulation_1.Simulation(program);
+                while (!sim.globalAllocator.isDone) {
+                    sim.stepForward(); // TODO: put this loop in simulation runners in function to skip stuff before main
+                }
+                this.setSimulation(sim);
+            }
+            this.simulateTabElem.tab("show");
+        });
+        this.projectEditor = new editors_1.ProjectEditor(element.find(".lobster-source-pane"), project);
+        this.compilationOutlet = new editors_1.CompilationOutlet(element.find(".lobster-compilation-pane"), project);
+        this.compilationStatusOutlet = new editors_1.CompilationStatusOutlet(element.find(".compilation-status-outlet"), project);
+        this.checkpointsOutlet = new checkpointOutlets_1.CheckpointsOutlet(element.find(".lobster-ex-checkpoints"), project.exercise, completeMessage);
+        let IMDOElem = element.find(".lobster-instant-memory-diagram");
+        this.instantMemoryDiagramOutlet = new InstantMemoryDiagramOutlet_1.InstantMemoryDiagramOutlet(IMDOElem, project, false);
+        this.isInstantMemoryDiagramActive = false;
+        element.find(".lobster-instant-memory-diagram-buttons button").on("click", () => {
+            ["active", "btn-default", "btn-primary"].forEach(c => element.find(".lobster-instant-memory-diagram-buttons button").toggleClass(c));
+            this.isInstantMemoryDiagramActive = !this.isInstantMemoryDiagramActive;
+            this.instantMemoryDiagramOutlet.setActive(this.isInstantMemoryDiagramActive);
+            if (this.isInstantMemoryDiagramActive) {
+                IMDOElem.show();
+            }
+            else {
+                IMDOElem.hide();
+            }
+        });
+        this.project = project;
+    }
+    setProject(project) {
+        this.project = project;
+        this.projectEditor.setProject(project);
+        this.compilationOutlet.setProject(project);
+        this.compilationStatusOutlet.setProject(project);
+        this.checkpointsOutlet.setExercise(project.exercise);
+        this.instantMemoryDiagramOutlet.setProject(project);
+        return this.project;
+    }
+    setSimulation(sim) {
+        this.clearSimulation();
+        this.sim = sim;
+        observe_1.listenTo(this, sim);
+        this.simulationOutlet.setSimulation(sim);
+        this.setSimulationTabEnabled(true);
+    }
+    clearSimulation() {
+        this.setSimulationTabEnabled(false);
+        this.simulationOutlet.clearSimulation();
+        if (this.sim) {
+            observe_1.stopListeningTo(this, this.sim);
+        }
+        delete this.sim;
+    }
+    // private hideAnnotationMessage() {
+    //     this.annotationMessagesElem.css("top", "125px");
+    //     if (this.afterAnnotation.length > 0) {
+    //         this.afterAnnotation.forEach(fn => fn());
+    //         this.afterAnnotation.length = 0;
+    //     }
+    // }
+    requestFocus(msg) {
+        if (msg.source === this.projectEditor) {
+            this.tabsElem.find('a.lobster-source-tab').tab("show");
+        }
+    }
+    beforeStepForward(msg) {
+        var oldGets = $(".code-memoryObject .get");
+        var oldSets = $(".code-memoryObject .set");
+        setTimeout(() => {
+            oldGets.removeClass("get");
+            oldSets.removeClass("set");
+        }, 300);
+    }
+    setSimulationTabEnabled(isEnabled) {
+        if (isEnabled) {
+            this.simulateTabElem.parent().removeClass("disabled");
+        }
+        else {
+            this.simulateTabElem.parent().addClass("disabled");
+        }
+    }
+}
+__decorate([
+    observe_1.messageResponse("requestFocus")
+], SimpleExerciseLobsterOutlet.prototype, "requestFocus", null);
+__decorate([
+    observe_1.messageResponse("beforeStepForward")
+], SimpleExerciseLobsterOutlet.prototype, "beforeStepForward", null);
+exports.SimpleExerciseLobsterOutlet = SimpleExerciseLobsterOutlet;
+
+
+/***/ }),
+
 /***/ 8283:
 /***/ (function(__unused_webpack_module, exports, __webpack_require__) {
 
@@ -77841,6 +77712,134 @@ class FileEditor {
 }
 exports.FileEditor = FileEditor;
 FileEditor.instances = [];
+
+
+/***/ }),
+
+/***/ 3984:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.createRunestoneExerciseOutlet = void 0;
+function createRunestoneExerciseOutlet(id) {
+    return $(`
+        <ul style="position: relative;" class="lobster-simulation-outlet-tabs nav nav-tabs">
+            <li><a data-toggle="tab" href="#lobster-ex-${id}-compilation-pane">Compilation</a></li>
+            <li class="active"><a data-toggle="tab" href="#lobster-ex-${id}-source-pane">Source Code</a></li>
+            <li><a class="lobster-simulate-tab" data-toggle="tab" href="#lobster-ex-${id}-sim-pane">Simulation</a></li>
+
+        </ul>
+
+        <div class="tab-content" style="height: calc(100vh - 250px); overflow: hidden;">
+            <div id="lobster-ex-${id}-compilation-pane" class="lobster-compilation-pane tab-pane fade" style="height: 100%; overflow-y: scroll;">
+                
+            </div>
+
+            <div id="lobster-ex-${id}-source-pane" class="lobster-source-pane tab-pane fade active in" style="height: 100%; overflow-y: hidden;">
+                <div style="height: 100%; overflow-y: hidden; display: flex; flex-direction: column;">
+                    <div style="padding-top:5px; padding-bottom: 5px;">
+                        <ul style="display:inline-block; vertical-align: middle;" class="project-files nav nav-pills"></ul>
+                        <div style="float: right;">
+                            <div class = "compilation-status-outlet" style="display: inline-block;"></div>
+                            <div style="display: inline-block; text-align: center;">
+                                Memory Diagram<br />
+                                <div class="btn-group btn-toggle lobster-instant-memory-diagram-buttons"> 
+                                    <button class="btn btn-xs btn-default">ON</button>
+                                    <button class="btn btn-xs btn-primary active">OFF</button>
+                                </div>
+                            </div>
+                            <button class = "btn btn-primary-muted runButton" style="display: inline-block; margin-left: 1em"><span class="glyphicon glyphicon-play-circle"></span> Simulate</span></button>
+                        </div>
+                    </div>
+                    <div style="height: 100%; display: flex; flex-direction: row; overflow: hidden;">
+                        <div class="codeMirrorEditor" style = "flex-grow: 1; position: relative; overflow-y: hidden; height: 100%; background-color: #272822"></div>
+                        <div class="lobster-instant-memory-diagram" style="display: none; height: 100%; flex: 0 1 300px;"></div>
+                    </div>
+                    <div class="annotationMessagesContainer" style="position: absolute; bottom: 0; left: 0px; right: 0px; overflow: hidden; text-align: center; pointer-events: none">
+                        <div class="annotationMessages">
+                            <div style="height: 100px; margin-left: 5px; float: right;">
+                                <img src="img/lobster_teaching.jpg" class="lobsterRecursionImage" style="height: 90px; margin-left: 5px;"/>
+                                <img src="img/lobster_recursion.jpg" class="lobsterTeachingImage" style="display:none; height: 90px; margin-left: 5px;"/>
+                                <div style="padding-right: 5px; text-align: center"><button>Thanks!</button></div>
+                            </div>
+                            <div style="height: 100%; overflow-y: auto"><table style="height: 110px; margin-left: auto; margin-right: auto"><tr><td><div class="annotation-message"></div></td></tr></table></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="lobster-ex-${id}-sim-pane" class="lobster-sim-pane tab-pane fade" style="height: 100%">
+                <div style="position: relative">
+                    <div class="runningProgress" style="position: absolute; right: 0; top: 0; margin: 5px; margin-right: 20px; padding: 5px; background-color: rgba(255,255,255,0.7);">
+                        Thinking...
+                        <!--<progress style="display: inline-block; vertical-align: top"></progress>-->
+                    </div>
+                    <div class="alerts-container">
+                        <div class="alerts">
+                            <div style="display:inline-block; padding: 5px">
+                                <div style="height: 100px; margin-left: 5px; float: right;">
+                                    <img src="img/lobster.png" style="height: 80px; margin-left: 5px;"/>
+                                    <div style="padding-right: 5px; text-align: right"><button>Dismiss</button></div>
+                                </div>
+                                <table style="height: 110px"><tr><td><div class="alerts-message"></div></td></tr></table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- <p style = "width: 394px; padding: 5px;" class = "_outlet readOnly memory">memory</p> -->
+                <table style="width: 100%; height: 100%; margin-top: 5px; ">
+                    <tr>
+                        <td style="min-width: 260px; width: 260px; max-width: 260px; vertical-align: top; height: 100%">
+                            <div style="position: relative; display: flex; flex-direction: column;">
+                                <div style="margin-bottom: 5px;">
+                                    <button class = "restart btn btn-warning-muted" style="font-size: 12px; padding: 6px 6px"><span class="glyphicon glyphicon-fast-backward"></span> Restart</button>
+                                    <!--<span style = "display: inline-block; width: 4ch"></span>-->
+                                    <!-- <button class = "stepOver">Step Over</button> -->
+                                    <!-- <button class = "stepOut">Step Out</button> -->
+                                    <button class = "runToEnd btn btn-success-muted" style="font-size: 12px; padding: 6px 6px">Run <span class="glyphicon glyphicon-fast-forward"></button>
+                                    <button class = "pause btn btn-warning-muted" style="font-size: 12px; padding: 6px 6px"><span class="glyphicon glyphicon-pause"></button>
+                                    <!-- <button class = "skipToEnd"><span class="glyphicon glyphicon-fast-forward"></button> -->
+
+                                    <!--Show Functions<input type="checkbox" class="stepInto"/>-->
+                                    <button class = "stepBackward btn btn-success-muted" style="font-size: 12px; padding: 6px 6px"><span class="glyphicon glyphicon-arrow-left"></span></button>
+                                    <input type="hidden" style="width: 4ch" class="stepBackwardNum" value="1" />
+
+                                    
+                                    <input type="hidden" style="display: none; width: 4ch" class="stepForwardNum" value="1" />
+                                    <button class = "stepForward btn btn-success-muted" style="font-size: 12px; padding: 6px 6px">Step <span class="glyphicon glyphicon-arrow-right"></span></button>
+                                    <!--<input type="checkbox" id="tcoCheckbox" checked="false" />-->
+                                </div>
+                                <div class="console">
+                                    <span style = "position: absolute; top: 5px; right: 5px; pointer-events: none;">Console</span>
+                                    <span class="lobster-console-contents"></span>
+                                    <input type="text" class="lobster-console-user-input-entry"></span>
+                                </div>
+                                <div class="lobster-cin-buffer" style = "margin-top: 5px;"></div>
+                                <div style = "margin-top: 5px; text-align: center;">Memory</div>
+                                <div style="overflow-y: auto; overflow-x: hidden; flex-grow: 1;"><div style="height: 300px;" class="lobster-memory readOnly"></div></div>
+
+                            </div>
+                        </td>
+                        <td style="position: relative; vertical-align: top;">
+                            <div class = "codeStack readOnly" style="display: block; margin-left: 5px; overflow-y: auto; position: absolute; width: 100%; height: 100%; white-space: nowrap;"> </div>
+                        </td>
+                    </tr>
+                </table>
+
+            </div>
+        </div>
+        <div class="lobster-ex-checkpoints panel panel-default" style="margin-top: 0.5em;">
+            <div class="panel-heading"></div>
+            <div class="panel-body">
+                
+            </div>
+        </div>
+        
+
+    `);
+}
+exports.createRunestoneExerciseOutlet = createRunestoneExerciseOutlet;
 
 
 /***/ }),
