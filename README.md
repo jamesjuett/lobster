@@ -145,12 +145,14 @@ You can also provide a custom predicate that takes an `Exercise` as an argument 
 
 An exercise specification may includes a list of checkpoints. There are several different kinds of checkpoints. Here are a few characteristic examples:
 
-**A checkpoint for compiling without errors:**
+
+A checkpoint for compiling without errors:
 ```typescript
 new IsCompiledCheckpoint("Compiles"),
 ```
 
-**Checkpoints based on static analysis of a student's program:**
+
+Checkpoints based on static analysis of a student's program:
 ```typescript
 new StaticAnalysisCheckpoint("Use ++", (program: Program) => {
     return !!findConstructs(program, Predicates.byKinds(["prefix_increment_expression", "postfix_increment_expression"])).find(
@@ -160,8 +162,7 @@ new StaticAnalysisCheckpoint("Use ++", (program: Program) => {
 ```
 
 
-
-**Checkpoints to run the program and check its output to `cout`:**
+Checkpoints to run the program and check its output to `cout`:
 ```typescript
 new OutputCheckpoint("Correct Output", (output: string) => {
     // Output must match exactly, including whitespace
@@ -176,7 +177,8 @@ new OutputCheckpoint("Output Correct Result", (output: string) => {
 })
 ```
 
-**A checkpoint to check the program state (e.g. values of variables) at the end of the `main()` function**
+
+A checkpoint to check the program state (e.g. values of variables) at the end of the `main()` function
 ```typescript
 // Verifies that the array variable arr contains the values [16, 25, 4]
 new EndOfMainStateCheckpoint("arr modified to {16, 25, 4}", (sim: Simulation) => {
