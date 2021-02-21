@@ -1440,6 +1440,7 @@ export class FunctionEntity<T extends FunctionType = FunctionType> extends Decla
     public readonly overriders: {
         [index: string]: FunctionEntity;
     } = {};
+    public readonly overrideTarget?: FunctionEntity;
 
     // storage: "static",
     constructor(type: T, decl: FunctionDeclaration) {
@@ -1475,8 +1476,15 @@ export class FunctionEntity<T extends FunctionType = FunctionType> extends Decla
         return this.name;
     }
 
-    public registerOverrider(containingClass: CompleteClassEntity, overrider: FunctionEntity) {
+    public registerOverrider(containingClass: ClassEntity, overrider: FunctionEntity) {
         this.overriders[containingClass.qualifiedName] = overrider;
+        this.overrideTarget?.registerOverrider(containingClass, overrider);
+    }
+
+    public setOverrideTarget(target: FunctionEntity) {
+        assert(!this.overrideTarget, "A single FunctionEntity may not have multiple override targets.")
+        asMutable(this).overrideTarget = target;
+
     }
 
     // private checkForOverride(baseClass: ClassDefinition) {

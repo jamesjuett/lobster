@@ -42717,7 +42717,7 @@ class FunctionCall extends PotentialFullExpression {
         // Note - destructors are allowed to ignore const semantics.
         // That is, even though a destructor is a non-const member function,
         // it is allowed to be called on const objects and suspends their constness
-        if (this.func.isMemberFunction() && !this.func.firstDeclaration.isDestructor
+        if (this.func.isMemberFunction && !this.func.isDestructor
             && (receiverType === null || receiverType === void 0 ? void 0 : receiverType.isConst) && !((_a = this.func.type.receiverType) === null || _a === void 0 ? void 0 : _a.isConst)) {
             this.addNote(errors_1.CPPError.param.thisConst(this, receiverType));
         }
@@ -42839,7 +42839,9 @@ class RuntimeFunctionCall extends RuntimePotentialFullExpression {
         // Basically, the assumption depends on a RuntimeFunctionCall only being created
         // if the program was successfully linked (which also implies the FunctionDefinition was compiled)
         // It also assumes the function definition has the correct return type.
-        let functionDef = this.model.func.definition;
+        // Note that the cast to a CompiledFunctionDefinition with return type T is fine w.r.t.
+        // covariant return types because T can't ever be more specific than just "a class type".
+        let functionDef = this.model.func.getDynamicallyBoundFunction(receiver);
         // Create argument initializer instances
         this.argInitializers = this.model.argInitializers.map((aInit) => aInit.createRuntimeInitializer(this));
         // TODO: TCO? would reuse this.containingRuntimeFunction instead of creating new
@@ -42948,6 +42950,9 @@ class Program {
         // Note that the definition provided might not match at all or might
         // be undefined if there was no match for the qualified name. The entities
         // will take care of adding the appropriate linker errors in these cases.
+        // Note that "multiple definition" errors are handled when the definitions
+        // are registered with the program, so we don't have to take care of them
+        // here and thus don't even call "link" if there was a previous definition.
         this.linkedObjectEntities.forEach(le => { var _a; return (_a = le.definition) !== null && _a !== void 0 ? _a : le.link(this.linkedObjectDefinitions[le.qualifiedName]); });
         this.linkedFunctionEntities.forEach(le => { var _a; return (_a = le.definition) !== null && _a !== void 0 ? _a : le.link(this.linkedFunctionDefinitions[le.qualifiedName]); });
         this.linkedClassEntities.forEach(le => { var _a; return (_a = le.definition) !== null && _a !== void 0 ? _a : le.link(this.linkedClassDefinitions[le.qualifiedName]); });
@@ -44084,6 +44089,7 @@ function createClassContext(parentContext, classEntity, baseClass, templateType)
     var _a;
     return Object.assign({}, parentContext, {
         contextualScope: new entities_1.ClassScope(parentContext.translationUnit, classEntity.name, parentContext.contextualScope, (_a = baseClass === null || baseClass === void 0 ? void 0 : baseClass.definition) === null || _a === void 0 ? void 0 : _a.context.contextualScope),
+        baseClass: baseClass,
         containingClass: classEntity,
         templateType: templateType
     });
@@ -44817,6 +44823,7 @@ function test() {
 }
 class SimpleDeclaration extends constructs_1.BasicCPPConstruct {
     constructor(context, ast, typeSpec, storageSpec, declarator, otherSpecs) {
+        var _a;
         super(context, ast);
         this.attach(this.typeSpecifier = typeSpec);
         this.attach(this.storageSpecifier = storageSpec);
@@ -44826,10 +44833,13 @@ class SimpleDeclaration extends constructs_1.BasicCPPConstruct {
         if (!declarator.name) {
             return util_1.assertFalse("Simple declarations must have a name.");
         }
-        // None of the simple declarations are member function declarations
-        // and thus none support the virtual keyword
         if (otherSpecs.virtual) {
-            this.addNote(errors_1.CPPError.declaration.virtual_prohibited(this));
+            if (((_a = declarator.type) === null || _a === void 0 ? void 0 : _a.isFunctionType()) && constructs_1.isClassContext(context)) {
+                // ok, it's a member function
+            }
+            else {
+                this.addNote(errors_1.CPPError.declaration.virtual_prohibited(this));
+            }
         }
     }
 }
@@ -44894,12 +44904,40 @@ class UnknownBoundArrayDeclaration extends SimpleDeclaration {
 exports.UnknownBoundArrayDeclaration = UnknownBoundArrayDeclaration;
 class FunctionDeclaration extends SimpleDeclaration {
     constructor(context, ast, typeSpec, storageSpec, declarator, otherSpecs, type) {
-        var _a;
+        var _a, _b;
         super(context, ast, typeSpec, storageSpec, declarator, otherSpecs);
         this.construct_type = "function_declaration";
+        this.isMemberFunction = false;
+        this.isVirtual = false;
+        this.isConstructor = false;
+        this.isDestructor = false;
         this.type = type;
-        this.isConstructor = this.declarator.hasConstructorName;
-        this.isDestructor = this.declarator.hasDestructorName;
+        let overrideTarget;
+        let containingClass;
+        if (constructs_1.isClassContext(context)) {
+            containingClass = context.containingClass;
+            this.isMemberFunction = true;
+            this.isVirtual = !!otherSpecs.virtual;
+            this.isConstructor = this.declarator.hasConstructorName;
+            this.isDestructor = this.declarator.hasDestructorName;
+            // Check to see if virtual is inherited
+            let base = (_a = context.baseClass) === null || _a === void 0 ? void 0 : _a.type;
+            while (base) {
+                let matchInBase = base.classDefinition.memberFunctionEntities.find(baseFunc => this.name === baseFunc.name && this.type.isPotentialOverriderOf(baseFunc.type));
+                if (matchInBase === null || matchInBase === void 0 ? void 0 : matchInBase.isVirtual) {
+                    this.isVirtual = true;
+                    // Check to make sure that the return types are covariant
+                    if (types_1.covariantType(this.type.returnType, matchInBase.type.returnType)) {
+                        overrideTarget = matchInBase;
+                        break;
+                    }
+                    else {
+                        this.addNote(errors_1.CPPError.declaration.func.nonCovariantReturnType(this, this.type.returnType, matchInBase.type.returnType));
+                    }
+                }
+                base = base.classDefinition.baseClass;
+            }
+        }
         this.declaredEntity = new entities_1.FunctionEntity(type, this);
         util_1.assert(!!this.declarator.parameters, "The declarator for a function declaration must contain declarators for its parameters as well.");
         this.parameterDeclarations = this.declarator.parameters;
@@ -44911,17 +44949,29 @@ class FunctionDeclaration extends SimpleDeclaration {
         if (this.isConstructor) {
             // constructors are not added to their scope. they technically "have no name"
             // and can't be found through name lookup
-            if ((_a = this.type.receiverType) === null || _a === void 0 ? void 0 : _a.isConst) {
+            if ((_b = this.type.receiverType) === null || _b === void 0 ? void 0 : _b.isConst) {
                 this.addNote(errors_1.CPPError.declaration.ctor.const_prohibited(this));
             }
             if (this.declarator.baseType) {
                 this.addNote(errors_1.CPPError.declaration.ctor.return_type_prohibited(this));
             }
+            if (otherSpecs.virtual) { // use otherSpecs here since this.isVirtual depends on being a member fn
+                this.addNote(errors_1.CPPError.declaration.ctor.virtual_prohibited(this));
+            }
         }
         else {
             let entityOrError = this.context.contextualScope.declareFunctionEntity(this.declaredEntity);
             if (entityOrError instanceof entities_1.FunctionEntity) {
-                this.declaredEntity = entityOrError;
+                let actualDeclaredEntity = entityOrError;
+                if (actualDeclaredEntity === this.declaredEntity) {
+                    // if our newly declared entity actually got added to the scope
+                    // (and we didn't get returned a different one that was already there)
+                    if (overrideTarget) {
+                        overrideTarget.registerOverrider(containingClass, actualDeclaredEntity);
+                        actualDeclaredEntity.setOverrideTarget(overrideTarget);
+                    }
+                }
+                this.declaredEntity = actualDeclaredEntity;
             }
             else {
                 this.addNote(entityOrError);
@@ -45374,7 +45424,12 @@ class FunctionDefinition extends constructs_1.BasicCPPConstruct {
             declaration = decl;
         }
         // Create implementation and body block (before params and body statements added yet)
-        let functionContext = constructs_1.createFunctionContext(context, declaration.declaredEntity, (_a = context.containingClass) === null || _a === void 0 ? void 0 : _a.type);
+        let receiverType;
+        if (declaration.isMemberFunction) {
+            util_1.assert((_a = context.containingClass) === null || _a === void 0 ? void 0 : _a.isComplete(), "Member function definitions may not be compiled until their containing class definition has been completed.");
+            receiverType = context.containingClass.type;
+        }
+        let functionContext = constructs_1.createFunctionContext(context, declaration.declaredEntity, receiverType);
         let bodyContext = constructs_1.createBlockContext(functionContext);
         // Add declared entities from the parameters to the body block's context.
         // As the context refers back to the implementation, local objects/references will be registerd there.
@@ -45472,10 +45527,11 @@ class ClassDefinition extends constructs_1.BasicCPPConstruct {
         this.construct_type = "class_definition";
         this.memberDeclarationsByName = {};
         this.constructorDeclarations = [];
+        this.memberFunctionEntities = [];
         this.memberVariableEntities = [];
         this.memberObjectEntities = [];
         this.memberReferenceEntities = [];
-        this.memberEntitiesByName = {};
+        this.memberVariableEntitiesByName = {};
         this.inlineMemberFunctionDefinitions = [];
         this.name = declaration.name;
         this.implicitPublicContext = constructs_1.createImplicitContext(constructs_1.createMemberSpecificationContext(context, "public"));
@@ -45489,7 +45545,7 @@ class ClassDefinition extends constructs_1.BasicCPPConstruct {
         }
         this.attachAll(this.memberDeclarations = memberDeclarations);
         // Identify member objects and member references
-        this.memberDeclarations.forEach(decl => {
+        memberDeclarations.forEach(decl => {
             if (decl.construct_type === "member_variable_declaration") {
                 util_1.asMutable(this.memberVariableEntities).push(decl.declaredEntity);
                 if (decl.declaredEntity instanceof entities_1.MemberObjectEntity) {
@@ -45503,8 +45559,13 @@ class ClassDefinition extends constructs_1.BasicCPPConstruct {
                 // Here we only record the first one we find.
                 if (!this.memberDeclarationsByName[decl.name]) {
                     this.memberDeclarationsByName[decl.name] = decl;
-                    this.memberEntitiesByName[decl.name] = decl.declaredEntity;
+                    this.memberVariableEntitiesByName[decl.name] = decl.declaredEntity;
                 }
+            }
+            else if (decl.construct_type === "function_declaration") {
+                // Note that only identifying function declarations and NOT definitions
+                // in here is intentional
+                util_1.asMutable(this.memberFunctionEntities).push(decl.declaredEntity);
             }
         });
         // CONSTRUCTORS and DESTRUCTOR
@@ -45581,7 +45642,15 @@ class ClassDefinition extends constructs_1.BasicCPPConstruct {
         // entity it refers to is looked up without regard to what follows in the class.
         // (And if it were dependent on the class scope, which is dependent on the base
         // class scope, etc. there's circular problems.)
-        let bases = ast.head.bases.map(baseAST => BaseSpecifier.createFromAST(baseAST, tuContext, defaultAccessLevel));
+        let bases = ast.head.bases.map(baseAST => {
+            let base = BaseSpecifier.createFromAST(baseAST, tuContext, defaultAccessLevel);
+            if (base.isSuccessfullyCompiled()) {
+                return base;
+            }
+            else {
+                return undefined;
+            }
+        }).filter(base => base);
         let declaration = new ClassDeclaration(tuContext, ast.head.name.identifier, classKey);
         if (declaration.declaredEntity.isComplete()) {
             return declaration.declaredEntity.definition;
@@ -46365,6 +46434,7 @@ const types_1 = __webpack_require__(8716);
 const util_1 = __webpack_require__(6560);
 const observe_1 = __webpack_require__(5114);
 const constructs_1 = __webpack_require__(4293);
+const objects_1 = __webpack_require__(697);
 const errors_1 = __webpack_require__(5244);
 class Scope {
     constructor(translationUnit, parent) {
@@ -47250,7 +47320,7 @@ class MemberObjectEntity extends MemberVariableEntityBase {
     }
     runtimeLookup(rtConstruct) {
         // Cast below should be <CPPObject<T>>, NOT MemberSubobject<T>.
-        // See return type and documentation for getMemberSubobject()
+        // See return type and documentation for getMemberObject()
         return rtConstruct.contextualReceiver.getMemberObject(this.name);
     }
     isTyped(predicate) {
@@ -47310,18 +47380,29 @@ class TemporaryObjectEntity extends CPPEntity {
 }
 exports.TemporaryObjectEntity = TemporaryObjectEntity;
 TemporaryObjectEntity._name = "TemporaryObjectEntity";
+let FE_overrideID = 0;
 class FunctionEntity extends DeclaredEntityBase {
     // storage: "static",
     constructor(type, decl) {
         super(type, decl.name);
         this.declarationKind = "function";
         this.isOdrUsed = false;
+        this.overriders = {};
         this.firstDeclaration = decl;
         this.declarations = [decl];
+        this.isMemberFunction = decl.isMemberFunction;
+        this.isVirtual = decl.isVirtual;
+        this.isPureVirtual = false;
         this.isConstructor = decl.isConstructor;
+        this.isDestructor = decl.isDestructor;
         this.qualifiedName = "::" + this.name;
         this.isImplicit = !!decl.context.implicit;
         this.isUserDefined = !decl.context.implicit;
+        this.overrideID = FE_overrideID++;
+        if (this.isMemberFunction) {
+            util_1.assert(constructs_1.isClassContext(decl.context));
+            this.overriders[decl.context.containingClass.qualifiedName] = this;
+        }
     }
     addDeclaration(decl) {
         util_1.asMutable(this.declarations).push(decl);
@@ -47329,15 +47410,39 @@ class FunctionEntity extends DeclaredEntityBase {
     addDeclarations(decls) {
         decls.forEach((decl) => util_1.asMutable(this.declarations).push(decl));
     }
-    isStaticallyBound() {
-        return true;
-    }
-    get isVirtual() {
-        return false;
-    }
     toString() {
         return this.name;
     }
+    registerOverrider(containingClass, overrider) {
+        var _a;
+        this.overriders[containingClass.qualifiedName] = overrider;
+        (_a = this.overrideTarget) === null || _a === void 0 ? void 0 : _a.registerOverrider(containingClass, overrider);
+    }
+    setOverrideTarget(target) {
+        util_1.assert(!this.overrideTarget, "A single FunctionEntity may not have multiple override targets.");
+        util_1.asMutable(this).overrideTarget = target;
+    }
+    // private checkForOverride(baseClass: ClassDefinition) {
+    //     baseClass.memberFunctionEntities.forEach(func => {
+    //         if (func.type.sameSignature(this.type)) {
+    //             func.registerOverrider(this);
+    //         }
+    //     })
+    //     // Find the nearest overrider of a hypothetical virtual function.
+    //     // If any are virtual, this one would have already been set to be
+    //     // also virtual by this same procedure, so checking this one is sufficient.
+    //     // If we override any virtual function, this one is too.
+    //     var overridden = this.containingClass.getBaseClass().classScope.singleLookup(this.name, {
+    //         paramTypes: this.type.paramTypes, isThisConst: this.type.isThisConst,
+    //         exactMatch:true, own:true, noNameHiding:true});
+    //     if (overridden && overridden instanceof FunctionEntity && overridden.isVirtual){
+    //         (<boolean>this.isVirtual) = true;
+    //         // Check to make sure that the return types are covariant
+    //         if (!covariantType(this.type.returnType, overridden.type.returnType)){
+    //             throw SemanticExceptions.NonCovariantReturnTypes.instance(this, overridden);
+    //         }
+    //     }
+    // }
     mergeInto(overloadGroup) {
         var _a;
         //check each other function found
@@ -47390,16 +47495,38 @@ class FunctionEntity extends DeclaredEntityBase {
             this.definition = overload;
         }
         else {
-            if (this.isOdrUsed) {
+            if (this.isMemberFunction && this.isVirtual && !this.isPureVirtual) {
+                // All (non-pure) virtual functions must have a definition
                 this.declarations.forEach((decl) => decl.addNote(errors_1.CPPError.link.func.def_not_found(decl, this)));
             }
+            else if (this.isOdrUsed) {
+                // Functions that are ODR-used must have a definition
+                this.declarations.forEach((decl) => decl.addNote(errors_1.CPPError.link.func.def_not_found(decl, this)));
+            }
+            // Otherwise, it's ok for the function to not have a definition because it is never used
         }
     }
     isMain() {
         return this.qualifiedName === "::main";
     }
-    isMemberFunction() {
-        return constructs_1.isClassContext(this.firstDeclaration.context);
+    getDynamicallyBoundFunction(receiver) {
+        if (!this.isVirtual) {
+            util_1.assert(this.definition, "non virtual function must have a definition!");
+            return this.definition;
+        }
+        else {
+            util_1.assert(receiver, "virtual function dynamic binding requires a receiver");
+            while (receiver instanceof objects_1.BaseSubobject) {
+                receiver = receiver.containingObject;
+            }
+            let dynamicType = receiver.type;
+            let finalOverrider;
+            while (!finalOverrider && dynamicType) {
+                finalOverrider = this.overriders[dynamicType.qualifiedName];
+                dynamicType = dynamicType.classDefinition.baseClass;
+            }
+            return (finalOverrider === null || finalOverrider === void 0 ? void 0 : finalOverrider.definition) || this.definition;
+        }
     }
     registerCall(call) {
         this.isOdrUsed = true;
@@ -47428,7 +47555,7 @@ class ClassEntity extends DeclaredEntityBase {
         // classes with external linkage, it is sufficient to use the fully qualified
         // class name to distinguish types from each other. But, because Lobster does
         // not support namespaces, the unqualified name is also sufficient.
-        super(types_1.createClassType(decl.name), decl.name);
+        super(types_1.createClassType(decl.name, "::" + decl.name), decl.name);
         this.declarationKind = "class";
         this.firstDeclaration = decl;
         this.declarations = [decl];
@@ -47517,25 +47644,6 @@ exports.ClassEntity = ClassEntity;
 //         // May also be set to virtual later if it's discovered to be an overrider
 //         // for a virtual function in a base class
 //         this.checkForOverride();
-//     }
-//     private checkForOverride() {
-//         if (!this.containingClass.getBaseClass()) {
-//             return;
-//         }
-//         // Find the nearest overrider of a hypothetical virtual function.
-//         // If any are virtual, this one would have already been set to be
-//         // also virtual by this same procedure, so checking this one is sufficient.
-//         // If we override any virtual function, this one is too.
-//         var overridden = this.containingClass.getBaseClass().classScope.singleLookup(this.name, {
-//             paramTypes: this.type.paramTypes, isThisConst: this.type.isThisConst,
-//             exactMatch:true, own:true, noNameHiding:true});
-//         if (overridden && overridden instanceof FunctionEntity && overridden.isVirtual){
-//             (<boolean>this.isVirtual) = true;
-//             // Check to make sure that the return types are covariant
-//             if (!covariantType(this.type.returnType, overridden.type.returnType)){
-//                 throw SemanticExceptions.NonCovariantReturnTypes.instance(this, overridden);
-//             }
-//         }
 //     }
 //     public isStaticallyBound() {
 //         return !this.isVirtual;
@@ -47872,6 +47980,9 @@ exports.CPPError = {
             },
             const_prohibited: function (construct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.const_prohibited", "A constructor is not allowed to have a const specification.");
+            },
+            virtual_prohibited: function (construct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.virtual_prohibited", "A constructor may not be declared as virtual.");
             },
             previous_declaration: function (construct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.previous_declaration", `Re-declaration of a constructor is not allowed (a previous declaration of a constructor with the same parameter types exists).`);
@@ -48538,6 +48649,9 @@ exports.CPPError = {
             return new LinkerNote([newDef, prevDef], NoteKind.ERROR, "link.class_same_tokens", "Multiple class definitions are ok if they are EXACTLY the same in the source code. However, the multiple definitions found for " + newDef.name + " do not match exactly.");
         },
         func: {
+            virtual_def_required: function (construct, func) {
+                return new LinkerNote(construct, NoteKind.ERROR, "link.func.virtual_def_required", "Cannot find definition (i.e. the implementation code) for function " + func.name + ". Virtual functions must always have a definition.");
+            },
             def_not_found: function (construct, func) {
                 return new LinkerNote(construct, NoteKind.ERROR, "link.func.def_not_found", "Cannot find definition for function " + func.name + ". That is, the function is declared and I know what it is, but I can't find the actual code that implements it.");
             },
@@ -51267,7 +51381,7 @@ function overloadResolution(candidates, argTypes, receiverType) {
             notes.push(errors_1.CPPError.param.numParams(candidate.firstDeclaration));
         }
         // TODO: add back in with member functions
-        else if (candidate.isMemberFunction() && (receiverType === null || receiverType === void 0 ? void 0 : receiverType.isConst) && !((_a = candidate.type.receiverType) === null || _a === void 0 ? void 0 : _a.isConst)) {
+        else if (candidate.isMemberFunction && (receiverType === null || receiverType === void 0 ? void 0 : receiverType.isConst) && !((_a = candidate.type.receiverType) === null || _a === void 0 ? void 0 : _a.isConst)) {
             notes.push(errors_1.CPPError.param.thisConst(candidate.firstDeclaration, receiverType));
         }
         else {
@@ -51887,7 +52001,7 @@ function selectOperatorOverload(context, ast, operator, originalArgs) {
     util_1.assert(lookupResult.declarationKind !== "class");
     let selected = overloadResolution(lookupResult.overloads, adjustedArgs.map(arg => arg.type), receiverType).selected;
     if (selected) {
-        if (selected.isMemberFunction()) {
+        if (selected.isMemberFunction) {
             return new MemberOperatorOverloadExpression(context, ast, operator, leftmost, adjustedArgs, selected);
         }
         else {
@@ -52890,7 +53004,7 @@ class CtorInitializer extends constructs_1.BasicCPPConstruct {
             }
             else {
                 let memName = comp.name;
-                let memEntity = receiverType.classDefinition.memberEntitiesByName[memName];
+                let memEntity = receiverType.classDefinition.memberVariableEntitiesByName[memName];
                 if (memEntity) {
                     let memInit = comp.args.length === 0
                         ? DefaultInitializer.create(context, memEntity)
@@ -56677,13 +56791,13 @@ class ArrayOfUnknownBoundType extends TypeBase {
 }
 exports.ArrayOfUnknownBoundType = ArrayOfUnknownBoundType;
 class ClassTypeBase extends TypeBase {
-    constructor(classId, className, shared, isConst = false, isVolatile = false) {
+    constructor(classId, className, qualifiedName, shared, isConst = false, isVolatile = false) {
         super(isConst, isVolatile);
         this.precedence = 0;
-        this.className = "";
         this.templateParameters = [];
         this.classId = classId;
         this.className = className;
+        this.qualifiedName = qualifiedName;
         this.shared = shared;
     }
     get classDefinition() {
@@ -56752,7 +56866,7 @@ class ClassTypeBase extends TypeBase {
     //         return JSON.stringify(value, null, 2);
     //     },
     _cvQualifiedImpl(isConst, isVolatile) {
-        return new ClassTypeBase(this.classId, this.className, this.shared, isConst, isVolatile);
+        return new ClassTypeBase(this.classId, this.className, this.qualifiedName, this.shared, isConst, isVolatile);
     }
     isDefaultConstructible(userDefinedOnly = false) {
         let defaultCtor = this.classDefinition.defaultConstructor;
@@ -56795,8 +56909,8 @@ function sameClassType(thisClass, otherClass) {
         || (!!thisClass.shared.classDefinition && thisClass.shared.classDefinition === otherClass.shared.classDefinition);
 }
 let nextClassId = 0;
-function createClassType(className) {
-    return new ClassTypeBase(nextClassId++, className, {});
+function createClassType(className, qualifiedName) {
+    return new ClassTypeBase(nextClassId++, className, qualifiedName, {});
 }
 exports.createClassType = createClassType;
 // export class ClassType extends ObjectTypeBase {
