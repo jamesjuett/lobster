@@ -233,7 +233,7 @@ export class FunctionCall extends PotentialFullExpression {
         // Note - destructors are allowed to ignore const semantics.
         // That is, even though a destructor is a non-const member function,
         // it is allowed to be called on const objects and suspends their constness
-        if (this.func.isMemberFunction() && !this.func.firstDeclaration.isDestructor
+        if (this.func.isMemberFunction && !this.func.isDestructor
             && receiverType?.isConst && !this.func.type.receiverType?.isConst) {
             this.addNote(CPPError.param.thisConst(this, receiverType));
         }
@@ -404,7 +404,9 @@ export class RuntimeFunctionCall<T extends FunctionType<CompleteReturnType> = Fu
         // Basically, the assumption depends on a RuntimeFunctionCall only being created
         // if the program was successfully linked (which also implies the FunctionDefinition was compiled)
         // It also assumes the function definition has the correct return type.
-        let functionDef = <CompiledFunctionDefinition<T>>this.model.func.definition!;
+        // Note that the cast to a CompiledFunctionDefinition with return type T is fine w.r.t.
+        // covariant return types because T can't ever be more specific than just "a class type".
+        let functionDef = <CompiledFunctionDefinition<T>>this.model.func.getDynamicallyBoundFunction(receiver)!;
 
         // Create argument initializer instances
         this.argInitializers = this.model.argInitializers.map((aInit) => aInit.createRuntimeInitializer(this));

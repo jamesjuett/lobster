@@ -80,6 +80,9 @@ export class Program {
         // Note that the definition provided might not match at all or might
         // be undefined if there was no match for the qualified name. The entities
         // will take care of adding the appropriate linker errors in these cases.
+        // Note that "multiple definition" errors are handled when the definitions
+        // are registered with the program, so we don't have to take care of them
+        // here and thus don't even call "link" if there was a previous definition.
         this.linkedObjectEntities.forEach(le =>
             le.definition ?? le.link(this.linkedObjectDefinitions[le.qualifiedName])
         );
