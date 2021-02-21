@@ -1117,18 +1117,5 @@ int main() {
             //     // return isEqual(elts, [])
             // })
         ]
-    },
-    "someCoolExercise" : {
-        completionMessage : "yay you did it",
-        checkpoints : [
-            new StaticAnalysisCheckpoint("Declare a variable called x", (program: Program, project: Project) => {
-                // declare a variable
-                let varx = findFirstConstruct(program, Predicates.byVariableName("x"));
-                if (varx && varx.type.isPointerType()) {
-                    
-                }
-                return false;
-            })
-        ]
     }
 };

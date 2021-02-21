@@ -3,7 +3,7 @@ import { CPPError, Note, CompilerNote, NoteHandler } from "./errors";
 import { asMutable, assertFalse, assert, Mutable, Constructor, assertNever, DiscriminateUnion } from "../util/util";
 import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, CompleteObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, PotentialReturnType, PeelReference, AtomicType, ArithmeticType, IntegralType, FloatingPointType, CompleteClassType, PotentiallyCompleteClassType, IncompleteClassType, PotentiallyCompleteObjectType, ReferredType, CompleteParameterType, IncompleteObjectType, CompleteReturnType, isAtomicType, isCompleteClassType, isBoundedArrayType, covariantType } from "./types";
 import { Initializer, DefaultInitializer, DirectInitializer, InitializerASTNode, CompiledInitializer, DirectInitializerASTNode, CopyInitializerASTNode, CtorInitializer, CompiledCtorInitializer, ListInitializer, ListInitializerASTNode } from "./initializers";
-import { LocalObjectEntity, LocalReferenceEntity, GlobalObjectEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity, BlockScope, ClassEntity, MemberObjectEntity, MemberReferenceEntity, MemberVariableEntity, ObjectEntityType } from "./entities";
+import { LocalObjectEntity, LocalReferenceEntity, GlobalObjectEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity, BlockScope, ClassEntity, MemberObjectEntity, MemberReferenceEntity, MemberVariableEntity, ObjectEntityType, CompleteClassEntity } from "./entities";
 import { ExpressionASTNode, NumericLiteralASTNode, createExpressionFromAST, parseNumericLiteralValueFromAST, isConvertible } from "./expressions";
 import { BlockASTNode, Block, createStatementFromAST, CompiledBlock } from "./statements";
 import { UnqualifiedIdentifierASTNode, checkIdentifier, QualifiedIdentifierASTNode, IdentifierASTNode, LexicalIdentifier, astToIdentifier, stringifyIdentifier } from "./lexical";
@@ -698,10 +698,10 @@ export class FunctionDeclaration extends SimpleDeclaration {
 
     public readonly parameterDeclarations: readonly ParameterDeclaration[];
 
-    public readonly isMemberFunction: boolean;
-    public readonly isVirtual: boolean;
-    public readonly isConstructor: boolean;
-    public readonly isDestructor: boolean;
+    public readonly isMemberFunction: boolean = false;
+    public readonly isVirtual: boolean = false;
+    public readonly isConstructor: boolean = false;
+    public readonly isDestructor: boolean = false;
 
     public constructor(context: TranslationUnitContext, ast: SimpleDeclarationASTNode | undefined, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: FunctionType) {
@@ -709,10 +709,39 @@ export class FunctionDeclaration extends SimpleDeclaration {
         super(context, ast, typeSpec, storageSpec, declarator, otherSpecs);
 
         this.type = type;
-        this.isMemberFunction = isClassContext(context);
-        this.isVirtual = this.isMemberFunction && !!otherSpecs.virtual;
-        this.isConstructor = this.declarator.hasConstructorName;
-        this.isDestructor = this.declarator.hasDestructorName;
+
+        let overrideTarget: FunctionEntity | undefined;
+        let containingClass: ClassEntity | undefined;
+        if (isClassContext(context)) {
+            containingClass = context.containingClass;
+            this.isMemberFunction = true;
+            this.isVirtual = !!otherSpecs.virtual;
+            this.isConstructor = this.declarator.hasConstructorName;
+            this.isDestructor = this.declarator.hasDestructorName;
+
+            // Check to see if virtual is inherited
+            let base = context.baseClass?.type;
+            while(base) {
+                let matchInBase = base.classDefinition.memberFunctionEntities.find(
+                    baseFunc => this.name === baseFunc.name && this.type.isPotentialOverriderOf(baseFunc.type)
+                );
+                
+                if (matchInBase?.isVirtual) {
+                    this.isVirtual = true;
+                    // Check to make sure that the return types are covariant
+                    if (covariantType(this.type.returnType, matchInBase.type.returnType)){
+                        overrideTarget = matchInBase;
+                        break;
+                    }
+                    else {
+                        this.addNote(CPPError.declaration.func.nonCovariantReturnType(this, this.type.returnType, matchInBase.type.returnType));
+                    }
+                }
+                base = base.classDefinition.baseClass;
+            }
+        }
+
+
         this.declaredEntity = new FunctionEntity(type, this);
 
         assert(!!this.declarator.parameters, "The declarator for a function declaration must contain declarators for its parameters as well.");
@@ -750,29 +779,12 @@ export class FunctionDeclaration extends SimpleDeclaration {
                 if (actualDeclaredEntity === this.declaredEntity) {
                     // if our newly declared entity actually got added to the scope
                     // (and we didn't get returned a different one that was already there)
-                    if (this.isMemberFunction && this.isVirtual) {
-                        assert(isClassContext(context));
-                        let containingClass = context.containingClass;
-                        let base = containingClass.definition.baseClass;
-                        while(base) {
-                            let matchInBase = base.classDefinition.memberFunctionEntities.find(
-                                func => func.type.sameSignature(this.type)
-                            );
-                            
-                            if (matchInBase) {
-                                // Check to make sure that the return types are covariant
-                                if (covariantType(this.type.returnType, matchInBase.type.returnType)){
-                                    matchInBase.registerOverrider(containingClass, actualDeclaredEntity);
-                                }
-                                else {
-                                    this.addNote(CPPError.declaration.func.nonCovariantReturnType(this, this.type.returnType, matchInBase.type.returnType));
-                                }
-                            }
-                            base = base.classDefinition.baseClass;
-                        }
+                    if (overrideTarget) {
+                        overrideTarget.registerOverrider(containingClass!, actualDeclaredEntity);
+                        actualDeclaredEntity.setOverrideTarget(overrideTarget);
                     }
                 }
-                this.declaredEntity = entityOrError;
+                this.declaredEntity = actualDeclaredEntity;
             }
             else {
                 this.addNote(entityOrError);
@@ -1573,7 +1585,13 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, Funct
         }
 
         // Create implementation and body block (before params and body statements added yet)
-        let functionContext = createFunctionContext(context, declaration.declaredEntity, context.containingClass?.type);
+        let receiverType: CompleteClassType | undefined;
+        if (declaration.isMemberFunction) {
+            assert(context.containingClass?.isComplete(), "Member function definitions may not be compiled until their containing class definition has been completed.");
+            receiverType = context.containingClass.type;
+        }
+        
+        let functionContext = createFunctionContext(context, declaration.declaredEntity, receiverType);
         let bodyContext = createBlockContext(functionContext);
 
         // Add declared entities from the parameters to the body block's context.
@@ -2052,8 +2070,15 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         // entity it refers to is looked up without regard to what follows in the class.
         // (And if it were dependent on the class scope, which is dependent on the base
         // class scope, etc. there's circular problems.)
-        let bases = ast.head.bases.map(
-            baseAST => BaseSpecifier.createFromAST(baseAST, tuContext, defaultAccessLevel));
+        let bases = <CompiledBaseSpecifier[]>ast.head.bases.map(baseAST => {
+            let base = BaseSpecifier.createFromAST(baseAST, tuContext, defaultAccessLevel);
+            if (base.isSuccessfullyCompiled()) {
+                return <CompiledBaseSpecifier>base;
+            }
+            else {
+                return undefined;
+            }
+        }).filter(base => base);
 
         let declaration = new ClassDeclaration(tuContext, ast.head.name.identifier, classKey);
         if (declaration.declaredEntity.isComplete()) {
@@ -2687,7 +2712,7 @@ export class BaseSpecifier extends BasicCPPConstruct<TranslationUnitContext, Bas
 }
 
 export interface CompiledBaseSpecifier extends BaseSpecifier, SuccessfullyCompiled {
-    readonly baseEntity: ClassEntity;
+    readonly baseEntity: CompleteClassEntity;
 }
 
 export class MemberVariableDeclaration extends VariableDefinitionBase<MemberSpecificationContext> {

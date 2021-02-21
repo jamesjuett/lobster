@@ -54,7 +54,7 @@ export function createImplicitContext<ContextType extends ProgramContext>(contex
 export interface TranslationUnitContext extends ProgramContext {
     readonly translationUnit: TranslationUnit;
     readonly contextualScope: Scope;
-    readonly containingClass?: CompleteClassEntity;
+    readonly containingClass?: ClassEntity;
     readonly isLibrary: boolean;
 }
 
@@ -164,15 +164,17 @@ export function isClassContext(context: TranslationUnitContext) : context is Cla
 
 export interface ClassContext extends TranslationUnitContext {
     readonly contextualScope: ClassScope;
-    readonly containingClass: CompleteClassEntity;
+    readonly baseClass?: CompleteClassEntity;
+    readonly containingClass: ClassEntity;
     readonly templateType?: AtomicType;
 }
 
 export function createClassContext(
     parentContext: TranslationUnitContext, classEntity: ClassEntity,
-    baseClass?: ClassEntity, templateType?: AtomicType): ClassContext {
+    baseClass?: CompleteClassEntity, templateType?: AtomicType): ClassContext {
     return Object.assign({}, parentContext, {
         contextualScope: new ClassScope(parentContext.translationUnit, classEntity.name, parentContext.contextualScope, baseClass?.definition?.context.contextualScope),
+        baseClass: baseClass,
         containingClass: classEntity,
         templateType: templateType
     });
