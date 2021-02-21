@@ -1,7 +1,7 @@
 import { BasicCPPConstruct, ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, BlockContext, createClassContext, ClassContext, isClassContext, createMemberSpecificationContext, MemberSpecificationContext, isMemberSpecificationContext, createImplicitContext, isMemberFunctionContext, EMPTY_SOURCE, createBlockContext, isMemberBlockContext } from "./constructs";
 import { CPPError, Note, CompilerNote, NoteHandler } from "./errors";
 import { asMutable, assertFalse, assert, Mutable, Constructor, assertNever, DiscriminateUnion } from "../util/util";
-import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, CompleteObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, PotentialReturnType, PeelReference, AtomicType, ArithmeticType, IntegralType, FloatingPointType, CompleteClassType, PotentiallyCompleteClassType, IncompleteClassType, PotentiallyCompleteObjectType, ReferredType, CompleteParameterType, IncompleteObjectType, CompleteReturnType, isAtomicType, isCompleteClassType, isBoundedArrayType } from "./types";
+import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, CompleteObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, PotentialReturnType, PeelReference, AtomicType, ArithmeticType, IntegralType, FloatingPointType, CompleteClassType, PotentiallyCompleteClassType, IncompleteClassType, PotentiallyCompleteObjectType, ReferredType, CompleteParameterType, IncompleteObjectType, CompleteReturnType, isAtomicType, isCompleteClassType, isBoundedArrayType, covariantType } from "./types";
 import { Initializer, DefaultInitializer, DirectInitializer, InitializerASTNode, CompiledInitializer, DirectInitializerASTNode, CopyInitializerASTNode, CtorInitializer, CompiledCtorInitializer, ListInitializer, ListInitializerASTNode } from "./initializers";
 import { LocalObjectEntity, LocalReferenceEntity, GlobalObjectEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity, BlockScope, ClassEntity, MemberObjectEntity, MemberReferenceEntity, MemberVariableEntity, ObjectEntityType } from "./entities";
 import { ExpressionASTNode, NumericLiteralASTNode, createExpressionFromAST, parseNumericLiteralValueFromAST, isConvertible } from "./expressions";
@@ -562,10 +562,13 @@ export abstract class SimpleDeclaration<ContextType extends TranslationUnitConte
             return assertFalse("Simple declarations must have a name.");
         }
 
-        // None of the simple declarations are member function declarations
-        // and thus none support the virtual keyword
         if (otherSpecs.virtual) {
-            this.addNote(CPPError.declaration.virtual_prohibited(this));
+            if (declarator.type?.isFunctionType() && isClassContext(context)) {
+                // ok, it's a member function
+            }
+            else {
+                this.addNote(CPPError.declaration.virtual_prohibited(this));
+            }
         }
     }
 
@@ -695,6 +698,8 @@ export class FunctionDeclaration extends SimpleDeclaration {
 
     public readonly parameterDeclarations: readonly ParameterDeclaration[];
 
+    public readonly isMemberFunction: boolean;
+    public readonly isVirtual: boolean;
     public readonly isConstructor: boolean;
     public readonly isDestructor: boolean;
 
@@ -704,6 +709,8 @@ export class FunctionDeclaration extends SimpleDeclaration {
         super(context, ast, typeSpec, storageSpec, declarator, otherSpecs);
 
         this.type = type;
+        this.isMemberFunction = isClassContext(context);
+        this.isVirtual = this.isMemberFunction && !!otherSpecs.virtual;
         this.isConstructor = this.declarator.hasConstructorName;
         this.isDestructor = this.declarator.hasDestructorName;
         this.declaredEntity = new FunctionEntity(type, this);
@@ -730,12 +737,41 @@ export class FunctionDeclaration extends SimpleDeclaration {
                 this.addNote(CPPError.declaration.ctor.return_type_prohibited(this));
             }
 
+            if (otherSpecs.virtual) { // use otherSpecs here since this.isVirtual depends on being a member fn
+                this.addNote(CPPError.declaration.ctor.virtual_prohibited(this));
+            }
 
         }
         else {
             let entityOrError = this.context.contextualScope.declareFunctionEntity(this.declaredEntity);
 
             if (entityOrError instanceof FunctionEntity) {
+                let actualDeclaredEntity = entityOrError;
+                if (actualDeclaredEntity === this.declaredEntity) {
+                    // if our newly declared entity actually got added to the scope
+                    // (and we didn't get returned a different one that was already there)
+                    if (this.isMemberFunction && this.isVirtual) {
+                        assert(isClassContext(context));
+                        let containingClass = context.containingClass;
+                        let base = containingClass.definition.baseClass;
+                        while(base) {
+                            let matchInBase = base.classDefinition.memberFunctionEntities.find(
+                                func => func.type.sameSignature(this.type)
+                            );
+                            
+                            if (matchInBase) {
+                                // Check to make sure that the return types are covariant
+                                if (covariantType(this.type.returnType, matchInBase.type.returnType)){
+                                    matchInBase.registerOverrider(containingClass, actualDeclaredEntity);
+                                }
+                                else {
+                                    this.addNote(CPPError.declaration.func.nonCovariantReturnType(this, this.type.returnType, matchInBase.type.returnType));
+                                }
+                            }
+                            base = base.classDefinition.baseClass;
+                        }
+                    }
+                }
                 this.declaredEntity = entityOrError;
             }
             else {
@@ -1977,10 +2013,11 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
     
     public readonly baseClass?: CompleteClassType;
     
+    public readonly memberFunctionEntities: readonly FunctionEntity[] = [];
     public readonly memberVariableEntities: readonly MemberVariableEntity[] = [];
     public readonly memberObjectEntities: readonly MemberObjectEntity[] = [];
     public readonly memberReferenceEntities: readonly MemberReferenceEntity[] = [];
-    public readonly memberEntitiesByName: { [index: string] : MemberVariableEntity | undefined } = {};
+    public readonly memberVariableEntitiesByName: { [index: string] : MemberVariableEntity | undefined } = {};
     
     public readonly defaultConstructor?: FunctionEntity<FunctionType<VoidType>>;
     public readonly constCopyConstructor?: FunctionEntity<FunctionType<VoidType>>;
@@ -2107,7 +2144,7 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         this.attachAll(this.memberDeclarations = memberDeclarations);
 
         // Identify member objects and member references
-        this.memberDeclarations.forEach(decl => {
+        memberDeclarations.forEach(decl => {
             if (decl.construct_type === "member_variable_declaration") {
 
                 asMutable(this.memberVariableEntities).push(decl.declaredEntity);
@@ -2124,8 +2161,13 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
                 // Here we only record the first one we find.
                 if (!this.memberDeclarationsByName[decl.name]) {
                     this.memberDeclarationsByName[decl.name] = decl;
-                    this.memberEntitiesByName[decl.name] = decl.declaredEntity;
+                    this.memberVariableEntitiesByName[decl.name] = decl.declaredEntity;
                 }
+            }
+            else if (decl.construct_type === "function_declaration") {
+                // Note that only identifying function declarations and NOT definitions
+                // in here is intentional
+                asMutable(this.memberFunctionEntities).push(decl.declaredEntity);
             }
         });
 
