@@ -44909,6 +44909,8 @@ class FunctionDeclaration extends SimpleDeclaration {
         this.construct_type = "function_declaration";
         this.isMemberFunction = false;
         this.isVirtual = false;
+        this.isPureVirtual = false;
+        this.isOverride = false;
         this.isConstructor = false;
         this.isDestructor = false;
         this.type = type;
@@ -44918,6 +44920,8 @@ class FunctionDeclaration extends SimpleDeclaration {
             containingClass = context.containingClass;
             this.isMemberFunction = true;
             this.isVirtual = !!otherSpecs.virtual;
+            this.isPureVirtual = !!declarator.isPureVirtual;
+            this.isOverride = !!declarator.isOverride;
             this.isConstructor = this.declarator.hasConstructorName;
             this.isDestructor = this.declarator.hasDestructorName;
             // Check to see if virtual is inherited
@@ -44937,6 +44941,9 @@ class FunctionDeclaration extends SimpleDeclaration {
                 }
                 base = base.classDefinition.baseClass;
             }
+        }
+        if (this.isOverride && !overrideTarget) {
+            this.addNote(errors_1.CPPError.declaration.func.noOverrideTarget(this));
         }
         this.declaredEntity = new entities_1.FunctionEntity(type, this);
         util_1.assert(!!this.declarator.parameters, "The declarator for a function declaration must contain declarators for its parameters as well.");
@@ -45172,6 +45179,9 @@ class Declarator extends constructs_1.BasicCPPConstruct {
         // let isMember = isA(this.parent, Declarations.Member);
         if (ast.pureVirtual) {
             this.isPureVirtual = true;
+        }
+        if (ast.override) {
+            this.isOverride = true;
         }
         this.determineNameAndType(ast);
     }
@@ -47497,7 +47507,7 @@ class FunctionEntity extends DeclaredEntityBase {
         else {
             if (this.isMemberFunction && this.isVirtual && !this.isPureVirtual) {
                 // All (non-pure) virtual functions must have a definition
-                this.declarations.forEach((decl) => decl.addNote(errors_1.CPPError.link.func.def_not_found(decl, this)));
+                this.declarations.forEach((decl) => decl.addNote(errors_1.CPPError.link.func.virtual_def_required(decl, this)));
             }
             else if (this.isOdrUsed) {
                 // Functions that are ODR-used must have a definition
@@ -48060,6 +48070,9 @@ exports.CPPError = {
             },
             nonCovariantReturnType: function (construct, derived, base) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.nonCovariantReturnType", "Return types in overridden virtual functions must either be the same or covariant (i.e. follow the Liskov Substitution Principle). Both return types must be pointers/references to class types, and the class type in the overriding function must be the same or a derived type. There are also restrictions on the cv-qualifications of the return types. In this case, returning a " + derived + " in place of a " + base + " violates covariance.");
+            },
+            noOverrideTarget: function (construct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.noOverrideTarget", "This function is declared as an override, but there is no matching function in its base class(es) with a matching signature to override.");
             },
             definition_non_function_type: function (construct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.definition_non_function_type", "This appears to be a function definition, but the declarator does not indicate a function type. Maybe you forgot the parentheses?");
@@ -57176,7 +57189,10 @@ class FunctionType extends TypeBase {
         return this.sameReceiverType(other) && this.sameParamTypes(other);
     }
     isPotentialOverriderOf(other) {
-        return this.sameParamTypes(other) && this.isConst === other.isConst && this.isVolatile == other.isVolatile;
+        var _a, _b, _c, _d;
+        return this.sameParamTypes(other)
+            && ((_a = this.receiverType) === null || _a === void 0 ? void 0 : _a.isConst) === ((_b = other.receiverType) === null || _b === void 0 ? void 0 : _b.isConst)
+            && ((_c = this.receiverType) === null || _c === void 0 ? void 0 : _c.isVolatile) == ((_d = other.receiverType) === null || _d === void 0 ? void 0 : _d.isVolatile);
     }
     typeString(excludeBase, varname, decorated = false) {
         return this.returnType.typeString(excludeBase, varname + this.paramStrType, decorated);
@@ -60314,19 +60330,28 @@ function peg$parse(input, options) {
     const peg$c475 = function (d) { d.pureVirtual = true; return d; };
     const peg$c476 = function (d) { d.library_unsupported = true; return d; };
     const peg$c477 = function (d, i) { d.initializer = i; return d; };
-    const peg$c478 = function (b) { return b; };
-    const peg$c479 = function (first, b) { return b; };
-    const peg$c480 = function (a) { return a; };
-    const peg$c481 = function (a, c) {
+    const peg$c478 = function (d, v) { return v; };
+    const peg$c479 = function (d, v, i) {
+        d[v] = true;
+        d.initializer = i;
+        return d;
+    };
+    const peg$c480 = function (d, v) { d[v] = true; return d; };
+    const peg$c481 = "override";
+    const peg$c482 = peg$literalExpectation("override", false);
+    const peg$c483 = function (b) { return b; };
+    const peg$c484 = function (first, b) { return b; };
+    const peg$c485 = function (a) { return a; };
+    const peg$c486 = function (a, c) {
         return track({ construct_type: "base_specifier", name: c, virtual: true, access: a }, location(), text());
     };
-    const peg$c482 = function (a, c) {
+    const peg$c487 = function (a, c) {
         return track({ construct_type: "base_specifier", name: c, access: a }, location(), text());
     };
-    const peg$c483 = function (c) {
+    const peg$c488 = function (c) {
         return track({ construct_type: "base_specifier", name: c }, location(), text());
     };
-    const peg$c484 = function (n, c) {
+    const peg$c489 = function (n, c) {
         n.push(c);
         return { construct_type: "qualified_identifier", components: n };
     };
@@ -62473,6 +62498,81 @@ function peg$parse(input, options) {
                 else {
                     peg$currPos = s0;
                     s0 = peg$FAILED;
+                }
+                if (s0 === peg$FAILED) {
+                    s0 = peg$currPos;
+                    s1 = peg$parsedecl_specifiers();
+                    if (s1 !== peg$FAILED) {
+                        s2 = peg$currPos;
+                        peg$silentFails++;
+                        s3 = peg$parseidentifier();
+                        peg$silentFails--;
+                        if (s3 === peg$FAILED) {
+                            s2 = undefined;
+                        }
+                        else {
+                            peg$currPos = s2;
+                            s2 = peg$FAILED;
+                        }
+                        if (s2 !== peg$FAILED) {
+                            s3 = peg$parsews();
+                            if (s3 !== peg$FAILED) {
+                                s4 = peg$parsemember_declarator();
+                                if (s4 !== peg$FAILED) {
+                                    s5 = peg$parsews();
+                                    if (s5 !== peg$FAILED) {
+                                        s6 = peg$parsector_initializer();
+                                        if (s6 === peg$FAILED) {
+                                            s6 = null;
+                                        }
+                                        if (s6 !== peg$FAILED) {
+                                            s7 = peg$parsews();
+                                            if (s7 !== peg$FAILED) {
+                                                s8 = peg$parseblock();
+                                                if (s8 !== peg$FAILED) {
+                                                    peg$savedPos = s0;
+                                                    s1 = peg$c72(s1, s4, s6, s8);
+                                                    s0 = s1;
+                                                }
+                                                else {
+                                                    peg$currPos = s0;
+                                                    s0 = peg$FAILED;
+                                                }
+                                            }
+                                            else {
+                                                peg$currPos = s0;
+                                                s0 = peg$FAILED;
+                                            }
+                                        }
+                                        else {
+                                            peg$currPos = s0;
+                                            s0 = peg$FAILED;
+                                        }
+                                    }
+                                    else {
+                                        peg$currPos = s0;
+                                        s0 = peg$FAILED;
+                                    }
+                                }
+                                else {
+                                    peg$currPos = s0;
+                                    s0 = peg$FAILED;
+                                }
+                            }
+                            else {
+                                peg$currPos = s0;
+                                s0 = peg$FAILED;
+                            }
+                        }
+                        else {
+                            peg$currPos = s0;
+                            s0 = peg$FAILED;
+                        }
+                    }
+                    else {
+                        peg$currPos = s0;
+                        s0 = peg$FAILED;
+                    }
                 }
             }
         }
@@ -73093,8 +73193,100 @@ function peg$parse(input, options) {
                     s0 = peg$FAILED;
                 }
                 if (s0 === peg$FAILED) {
-                    s0 = peg$parsedeclarator();
+                    s0 = peg$currPos;
+                    s1 = peg$parsedeclarator();
+                    if (s1 !== peg$FAILED) {
+                        s2 = peg$parsews();
+                        if (s2 !== peg$FAILED) {
+                            s3 = peg$currPos;
+                            s4 = peg$parsevirt_specifier();
+                            if (s4 !== peg$FAILED) {
+                                s5 = peg$parsews();
+                                if (s5 !== peg$FAILED) {
+                                    peg$savedPos = s3;
+                                    s4 = peg$c478(s1, s4);
+                                    s3 = s4;
+                                }
+                                else {
+                                    peg$currPos = s3;
+                                    s3 = peg$FAILED;
+                                }
+                            }
+                            else {
+                                peg$currPos = s3;
+                                s3 = peg$FAILED;
+                            }
+                            if (s3 !== peg$FAILED) {
+                                s4 = peg$parsebrace_or_equal_initializer();
+                                if (s4 !== peg$FAILED) {
+                                    peg$savedPos = s0;
+                                    s1 = peg$c479(s1, s3, s4);
+                                    s0 = s1;
+                                }
+                                else {
+                                    peg$currPos = s0;
+                                    s0 = peg$FAILED;
+                                }
+                            }
+                            else {
+                                peg$currPos = s0;
+                                s0 = peg$FAILED;
+                            }
+                        }
+                        else {
+                            peg$currPos = s0;
+                            s0 = peg$FAILED;
+                        }
+                    }
+                    else {
+                        peg$currPos = s0;
+                        s0 = peg$FAILED;
+                    }
+                    if (s0 === peg$FAILED) {
+                        s0 = peg$currPos;
+                        s1 = peg$parsedeclarator();
+                        if (s1 !== peg$FAILED) {
+                            s2 = peg$parsews();
+                            if (s2 !== peg$FAILED) {
+                                s3 = peg$parsevirt_specifier();
+                                if (s3 !== peg$FAILED) {
+                                    peg$savedPos = s0;
+                                    s1 = peg$c480(s1, s3);
+                                    s0 = s1;
+                                }
+                                else {
+                                    peg$currPos = s0;
+                                    s0 = peg$FAILED;
+                                }
+                            }
+                            else {
+                                peg$currPos = s0;
+                                s0 = peg$FAILED;
+                            }
+                        }
+                        else {
+                            peg$currPos = s0;
+                            s0 = peg$FAILED;
+                        }
+                        if (s0 === peg$FAILED) {
+                            s0 = peg$parsedeclarator();
+                        }
+                    }
                 }
+            }
+        }
+        return s0;
+    }
+    function peg$parsevirt_specifier() {
+        let s0;
+        if (input.substr(peg$currPos, 8) === peg$c481) {
+            s0 = peg$c481;
+            peg$currPos += 8;
+        }
+        else {
+            s0 = peg$FAILED;
+            if (peg$silentFails === 0) {
+                peg$fail(peg$c482);
             }
         }
         return s0;
@@ -73118,7 +73310,7 @@ function peg$parse(input, options) {
                 s3 = peg$parsebase_specifier_list();
                 if (s3 !== peg$FAILED) {
                     peg$savedPos = s0;
-                    s1 = peg$c478(s3);
+                    s1 = peg$c483(s3);
                     s0 = s1;
                 }
                 else {
@@ -73162,7 +73354,7 @@ function peg$parse(input, options) {
                         s7 = peg$parsebase_specifier();
                         if (s7 !== peg$FAILED) {
                             peg$savedPos = s3;
-                            s4 = peg$c479(s1, s7);
+                            s4 = peg$c484(s1, s7);
                             s3 = s4;
                         }
                         else {
@@ -73205,7 +73397,7 @@ function peg$parse(input, options) {
                             s7 = peg$parsebase_specifier();
                             if (s7 !== peg$FAILED) {
                                 peg$savedPos = s3;
-                                s4 = peg$c479(s1, s7);
+                                s4 = peg$c484(s1, s7);
                                 s3 = s4;
                             }
                             else {
@@ -73266,7 +73458,7 @@ function peg$parse(input, options) {
                     s5 = peg$parseWS();
                     if (s5 !== peg$FAILED) {
                         peg$savedPos = s3;
-                        s4 = peg$c480(s4);
+                        s4 = peg$c485(s4);
                         s3 = s4;
                     }
                     else {
@@ -73282,7 +73474,7 @@ function peg$parse(input, options) {
                     s4 = peg$parsequalified_class_name();
                     if (s4 !== peg$FAILED) {
                         peg$savedPos = s0;
-                        s1 = peg$c481(s3, s4);
+                        s1 = peg$c486(s3, s4);
                         s0 = s1;
                     }
                     else {
@@ -73312,7 +73504,7 @@ function peg$parse(input, options) {
                 s3 = peg$parseWS();
                 if (s3 !== peg$FAILED) {
                     peg$savedPos = s1;
-                    s2 = peg$c480(s2);
+                    s2 = peg$c485(s2);
                     s1 = s2;
                 }
                 else {
@@ -73341,7 +73533,7 @@ function peg$parse(input, options) {
                         s4 = peg$parsequalified_class_name();
                         if (s4 !== peg$FAILED) {
                             peg$savedPos = s0;
-                            s1 = peg$c481(s1, s4);
+                            s1 = peg$c486(s1, s4);
                             s0 = s1;
                         }
                         else {
@@ -73372,7 +73564,7 @@ function peg$parse(input, options) {
                         s3 = peg$parsequalified_class_name();
                         if (s3 !== peg$FAILED) {
                             peg$savedPos = s0;
-                            s1 = peg$c482(s1, s3);
+                            s1 = peg$c487(s1, s3);
                             s0 = s1;
                         }
                         else {
@@ -73394,7 +73586,7 @@ function peg$parse(input, options) {
                     s1 = peg$parsequalified_class_name();
                     if (s1 !== peg$FAILED) {
                         peg$savedPos = s0;
-                        s1 = peg$c483(s1);
+                        s1 = peg$c488(s1);
                     }
                     s0 = s1;
                 }
@@ -73412,7 +73604,7 @@ function peg$parse(input, options) {
                 s3 = peg$parseclass_name();
                 if (s3 !== peg$FAILED) {
                     peg$savedPos = s0;
-                    s1 = peg$c484(s1, s3);
+                    s1 = peg$c489(s1, s3);
                     s0 = s1;
                 }
                 else {
@@ -74528,6 +74720,56 @@ int main() {
   assert((f) + (((g)) + 2) * (2 == 25) == 5);
 }`, [
         new verifiers_1.BasicSynchronousRunnerTest()
+    ]);
+    // ---------- Basic Virtual Function Test ----------
+    new verifiers_1.SingleTranslationUnitTest("Basic Virtual Function Test", `#include <iostream>
+using namespace std;
+
+class Fruit {
+public: 
+  int f1() { return 1; }
+  virtual int f2() { return 2; } 
+};  
+  
+class Citrus : public Fruit {  
+public:  
+  int f1() { return 3; } 
+  int f2() override { return 4; }
+}; 
+
+class Lemon : public Citrus {
+public:
+  int f1() { return 5; }
+  int f2() override { return 6; }
+};
+
+int main() { 
+  Fruit fruit;
+  Citrus citrus;
+  Lemon lemon;  
+  Fruit *fPtr = &lemon;
+  Citrus *cPtr = &citrus; 
+
+  int result = 0;
+  cout << fruit.f2() << endl;
+  cout << citrus.f1() << endl;
+  cout << fPtr->f1() << endl;
+  cout << fPtr->f2() << endl;
+  cout << cPtr->f2() << endl;
+  cPtr = &lemon;
+  cout << cPtr->f1() << endl;
+  cout << cPtr->f2() << endl;
+}`, [
+        new verifiers_1.NoErrorsNoWarningsVerifier(),
+        new verifiers_1.NoBadRuntimeEventsVerifier(true),
+        new verifiers_1.OutputVerifier(`2
+3
+1
+6
+4
+3
+6
+`)
     ]);
     // string test
     new verifiers_1.SingleTranslationUnitTest("Basic String Test", `#include <iostream>

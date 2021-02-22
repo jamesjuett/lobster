@@ -1911,7 +1911,9 @@ export class FunctionType<ReturnType extends PotentialReturnType = PotentialRetu
     }
 
     public isPotentialOverriderOf(other: FunctionType) {
-        return this.sameParamTypes(other) && this.isConst === other.isConst && this.isVolatile == other.isVolatile;
+        return this.sameParamTypes(other)
+            && this.receiverType?.isConst === other.receiverType?.isConst
+            && this.receiverType?.isVolatile == other.receiverType?.isVolatile;
     }
 
     public typeString(excludeBase: boolean, varname: string, decorated: boolean = false) {
