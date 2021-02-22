@@ -1086,6 +1086,62 @@ new SingleTranslationUnitTest(
             new BasicSynchronousRunnerTest()
         ]
     );
+    
+      // ---------- Basic Virtual Function Test ----------
+
+      new SingleTranslationUnitTest(
+        "Basic Virtual Function Test",
+        `#include <iostream>
+using namespace std;
+
+class Fruit {
+public: 
+  int f1() { return 1; }
+  virtual int f2() { return 2; } 
+};  
+  
+class Citrus : public Fruit {  
+public:  
+  int f1() { return 3; } 
+  int f2() override { return 4; }
+}; 
+
+class Lemon : public Citrus {
+public:
+  int f1() { return 5; }
+  int f2() override { return 6; }
+};
+
+int main() { 
+  Fruit fruit;
+  Citrus citrus;
+  Lemon lemon;  
+  Fruit *fPtr = &lemon;
+  Citrus *cPtr = &citrus; 
+
+  int result = 0;
+  cout << fruit.f2() << endl;
+  cout << citrus.f1() << endl;
+  cout << fPtr->f1() << endl;
+  cout << fPtr->f2() << endl;
+  cout << cPtr->f2() << endl;
+  cPtr = &lemon;
+  cout << cPtr->f1() << endl;
+  cout << cPtr->f2() << endl;
+}`,
+        [
+            new NoErrorsNoWarningsVerifier(),
+            new NoBadRuntimeEventsVerifier(true),
+            new OutputVerifier(`2
+3
+1
+6
+4
+3
+6
+`)
+        ]
+    );
 
     // string test
     

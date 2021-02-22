@@ -1576,7 +1576,7 @@ export class FunctionEntity<T extends FunctionType = FunctionType> extends Decla
         else {
             if (this.isMemberFunction && this.isVirtual && !this.isPureVirtual) {
                 // All (non-pure) virtual functions must have a definition
-                this.declarations.forEach((decl) => decl.addNote(CPPError.link.func.def_not_found(decl, this)));
+                this.declarations.forEach((decl) => decl.addNote(CPPError.link.func.virtual_def_required(decl, this)));
             }
             else if (this.isOdrUsed) {
                 // Functions that are ODR-used must have a definition

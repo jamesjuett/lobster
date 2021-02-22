@@ -700,6 +700,8 @@ export class FunctionDeclaration extends SimpleDeclaration {
 
     public readonly isMemberFunction: boolean = false;
     public readonly isVirtual: boolean = false;
+    public readonly isPureVirtual: boolean = false;
+    public readonly isOverride: boolean = false;
     public readonly isConstructor: boolean = false;
     public readonly isDestructor: boolean = false;
 
@@ -716,6 +718,8 @@ export class FunctionDeclaration extends SimpleDeclaration {
             containingClass = context.containingClass;
             this.isMemberFunction = true;
             this.isVirtual = !!otherSpecs.virtual;
+            this.isPureVirtual = !!declarator.isPureVirtual;
+            this.isOverride = !!declarator.isOverride;
             this.isConstructor = this.declarator.hasConstructorName;
             this.isDestructor = this.declarator.hasDestructorName;
 
@@ -739,6 +743,10 @@ export class FunctionDeclaration extends SimpleDeclaration {
                 }
                 base = base.classDefinition.baseClass;
             }
+        }
+
+        if (this.isOverride && !overrideTarget) {
+            this.addNote(CPPError.declaration.func.noOverrideTarget(this));
         }
 
 
@@ -1238,6 +1246,7 @@ interface FunctionPostfixDeclaratorASTNode {
 
 export interface DeclaratorASTNode extends ASTNode {
     readonly pureVirtual?: boolean;
+    readonly override?: boolean;
     readonly sub?: DeclaratorASTNode; // parentheses
     readonly pointer?: DeclaratorASTNode;
     readonly reference?: DeclaratorASTNode;
@@ -1259,7 +1268,9 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
     public readonly type?: Type;
 
     public readonly baseType?: Type;
+
     public readonly isPureVirtual?: true;
+    public readonly isOverride?: true;
 
     public readonly hasConstructorName : boolean = false;
     public readonly hasDestructorName : boolean = false;
@@ -1283,6 +1294,7 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
         // let isMember = isA(this.parent, Declarations.Member);
 
         if (ast.pureVirtual) { this.isPureVirtual = true; }
+        if (ast.override) { this.isOverride = true; }
 
         this.determineNameAndType(ast);
     }
