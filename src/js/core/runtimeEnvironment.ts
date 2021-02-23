@@ -566,6 +566,8 @@ class MemoryHeap {
 
     public readonly objectMap: { [index: number]: DynamicObject };
 
+    // public readonly mostRecentlyAllocatedObject?: DynamicObject;
+
     public constructor(memory: Memory, end: number) {
         this.memory = memory;
         this.end = end;
@@ -583,6 +585,7 @@ class MemoryHeap {
         this.memory.allocateObject(obj);
         this.objectMap[obj.address] = obj;
         this.memory.observable.send("heapObjectAllocated", obj);
+        // (<Mutable<this>>this).mostRecentlyAllocatedObject = obj;
         return obj;
     }
 

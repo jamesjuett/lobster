@@ -16,6 +16,8 @@ import { lookupTypeInContext, OpaqueExpression } from "./opaqueExpression";
 
 export type InitializerASTNode = DirectInitializerASTNode | CopyInitializerASTNode | ListInitializerASTNode;
 
+export type NewInitializerASTNode = DirectInitializerASTNode | ListInitializerASTNode;
+
 export type InitializerKind = "default" | DirectInitializerKind | "list";
 
 export abstract class Initializer extends PotentialFullExpression {
