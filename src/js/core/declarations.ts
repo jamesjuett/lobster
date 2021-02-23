@@ -1226,7 +1226,7 @@ export interface TypedIncompleteTypeVariableDefinition<T extends IncompleteObjec
 
 
 
-interface ArrayPostfixDeclaratorASTNode {
+export interface ArrayPostfixDeclaratorASTNode {
     readonly kind: "array";
     readonly size?: ExpressionASTNode;
 }
@@ -1237,7 +1237,7 @@ export interface ParameterDeclarationASTNode extends ASTNode {
     readonly initializer?: InitializerASTNode;
 }
 
-interface FunctionPostfixDeclaratorASTNode {
+export interface FunctionPostfixDeclaratorASTNode {
     readonly kind: "function";
     readonly size: ExpressionASTNode;
     readonly args: readonly ParameterDeclarationASTNode[];
@@ -1256,7 +1256,7 @@ export interface DeclaratorASTNode extends ASTNode {
     readonly postfixes?: readonly (ArrayPostfixDeclaratorASTNode | FunctionPostfixDeclaratorASTNode)[];
 }
 
-interface DeclaratorInitASTNode extends DeclaratorASTNode {
+export interface DeclaratorInitASTNode extends DeclaratorASTNode {
     readonly initializer?: InitializerASTNode;
 }
 
@@ -1277,7 +1277,7 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
 
     public readonly parameters?: readonly ParameterDeclaration[]; // defined if this is a declarator of function type
 
-    public static createFromAST(ast: DeclaratorASTNode, context: TranslationUnitContext, baseType: Type | undefined) {
+    public static createFromAST(ast: DeclaratorASTNode | undefined, context: TranslationUnitContext, baseType: Type | undefined) {
         return new Declarator(context, ast, baseType);
     }
 
@@ -1287,9 +1287,14 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
      * Since declarators are largely about processing an AST, it doesn't make much sense to create
      * one without an AST.
      */
-    private constructor(context: TranslationUnitContext, ast: DeclaratorASTNode, baseType: Type | undefined) {
+    private constructor(context: TranslationUnitContext, ast: DeclaratorASTNode | undefined, baseType: Type | undefined) {
         super(context, ast);
         this.baseType = baseType;
+
+        if (!ast) {
+            this.type = this.baseType;
+            return;
+        }
 
         // let isMember = isA(this.parent, Declarations.Member);
 

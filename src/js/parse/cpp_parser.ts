@@ -12375,6 +12375,11 @@ function peg$parse(input: string, options?: IParseOptions) {
     }
 
     function track(obj: any, location: any, text: string) {
+      for(let key in obj) {
+        if (obj[key] === null) {
+          obj[key] = undefined;
+        }
+      }
       obj.source = {
         location : location,
         start : location.start.offset,
