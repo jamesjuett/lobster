@@ -42717,7 +42717,7 @@ class FunctionCall extends PotentialFullExpression {
         // Note - destructors are allowed to ignore const semantics.
         // That is, even though a destructor is a non-const member function,
         // it is allowed to be called on const objects and suspends their constness
-        if (this.func.isMemberFunction() && !this.func.firstDeclaration.isDestructor
+        if (this.func.isMemberFunction && !this.func.isDestructor
             && (receiverType === null || receiverType === void 0 ? void 0 : receiverType.isConst) && !((_a = this.func.type.receiverType) === null || _a === void 0 ? void 0 : _a.isConst)) {
             this.addNote(errors_1.CPPError.param.thisConst(this, receiverType));
         }
@@ -42839,7 +42839,9 @@ class RuntimeFunctionCall extends RuntimePotentialFullExpression {
         // Basically, the assumption depends on a RuntimeFunctionCall only being created
         // if the program was successfully linked (which also implies the FunctionDefinition was compiled)
         // It also assumes the function definition has the correct return type.
-        let functionDef = this.model.func.definition;
+        // Note that the cast to a CompiledFunctionDefinition with return type T is fine w.r.t.
+        // covariant return types because T can't ever be more specific than just "a class type".
+        let functionDef = this.model.func.getDynamicallyBoundFunction(receiver);
         // Create argument initializer instances
         this.argInitializers = this.model.argInitializers.map((aInit) => aInit.createRuntimeInitializer(this));
         // TODO: TCO? would reuse this.containingRuntimeFunction instead of creating new
@@ -42948,6 +42950,9 @@ class Program {
         // Note that the definition provided might not match at all or might
         // be undefined if there was no match for the qualified name. The entities
         // will take care of adding the appropriate linker errors in these cases.
+        // Note that "multiple definition" errors are handled when the definitions
+        // are registered with the program, so we don't have to take care of them
+        // here and thus don't even call "link" if there was a previous definition.
         this.linkedObjectEntities.forEach(le => { var _a; return (_a = le.definition) !== null && _a !== void 0 ? _a : le.link(this.linkedObjectDefinitions[le.qualifiedName]); });
         this.linkedFunctionEntities.forEach(le => { var _a; return (_a = le.definition) !== null && _a !== void 0 ? _a : le.link(this.linkedFunctionDefinitions[le.qualifiedName]); });
         this.linkedClassEntities.forEach(le => { var _a; return (_a = le.definition) !== null && _a !== void 0 ? _a : le.link(this.linkedClassDefinitions[le.qualifiedName]); });
@@ -44084,6 +44089,7 @@ function createClassContext(parentContext, classEntity, baseClass, templateType)
     var _a;
     return Object.assign({}, parentContext, {
         contextualScope: new entities_1.ClassScope(parentContext.translationUnit, classEntity.name, parentContext.contextualScope, (_a = baseClass === null || baseClass === void 0 ? void 0 : baseClass.definition) === null || _a === void 0 ? void 0 : _a.context.contextualScope),
+        baseClass: baseClass,
         containingClass: classEntity,
         templateType: templateType
     });
@@ -44817,6 +44823,7 @@ function test() {
 }
 class SimpleDeclaration extends constructs_1.BasicCPPConstruct {
     constructor(context, ast, typeSpec, storageSpec, declarator, otherSpecs) {
+        var _a;
         super(context, ast);
         this.attach(this.typeSpecifier = typeSpec);
         this.attach(this.storageSpecifier = storageSpec);
@@ -44826,10 +44833,13 @@ class SimpleDeclaration extends constructs_1.BasicCPPConstruct {
         if (!declarator.name) {
             return util_1.assertFalse("Simple declarations must have a name.");
         }
-        // None of the simple declarations are member function declarations
-        // and thus none support the virtual keyword
         if (otherSpecs.virtual) {
-            this.addNote(errors_1.CPPError.declaration.virtual_prohibited(this));
+            if (((_a = declarator.type) === null || _a === void 0 ? void 0 : _a.isFunctionType()) && constructs_1.isClassContext(context)) {
+                // ok, it's a member function
+            }
+            else {
+                this.addNote(errors_1.CPPError.declaration.virtual_prohibited(this));
+            }
         }
     }
 }
@@ -44894,12 +44904,47 @@ class UnknownBoundArrayDeclaration extends SimpleDeclaration {
 exports.UnknownBoundArrayDeclaration = UnknownBoundArrayDeclaration;
 class FunctionDeclaration extends SimpleDeclaration {
     constructor(context, ast, typeSpec, storageSpec, declarator, otherSpecs, type) {
-        var _a;
+        var _a, _b;
         super(context, ast, typeSpec, storageSpec, declarator, otherSpecs);
         this.construct_type = "function_declaration";
+        this.isMemberFunction = false;
+        this.isVirtual = false;
+        this.isPureVirtual = false;
+        this.isOverride = false;
+        this.isConstructor = false;
+        this.isDestructor = false;
         this.type = type;
-        this.isConstructor = this.declarator.hasConstructorName;
-        this.isDestructor = this.declarator.hasDestructorName;
+        let overrideTarget;
+        let containingClass;
+        if (constructs_1.isClassContext(context)) {
+            containingClass = context.containingClass;
+            this.isMemberFunction = true;
+            this.isVirtual = !!otherSpecs.virtual;
+            this.isPureVirtual = !!declarator.isPureVirtual;
+            this.isOverride = !!declarator.isOverride;
+            this.isConstructor = this.declarator.hasConstructorName;
+            this.isDestructor = this.declarator.hasDestructorName;
+            // Check to see if virtual is inherited
+            let base = (_a = context.baseClass) === null || _a === void 0 ? void 0 : _a.type;
+            while (base) {
+                let matchInBase = base.classDefinition.memberFunctionEntities.find(baseFunc => this.name === baseFunc.name && this.type.isPotentialOverriderOf(baseFunc.type));
+                if (matchInBase === null || matchInBase === void 0 ? void 0 : matchInBase.isVirtual) {
+                    this.isVirtual = true;
+                    // Check to make sure that the return types are covariant
+                    if (types_1.covariantType(this.type.returnType, matchInBase.type.returnType)) {
+                        overrideTarget = matchInBase;
+                        break;
+                    }
+                    else {
+                        this.addNote(errors_1.CPPError.declaration.func.nonCovariantReturnType(this, this.type.returnType, matchInBase.type.returnType));
+                    }
+                }
+                base = base.classDefinition.baseClass;
+            }
+        }
+        if (this.isOverride && !overrideTarget) {
+            this.addNote(errors_1.CPPError.declaration.func.noOverrideTarget(this));
+        }
         this.declaredEntity = new entities_1.FunctionEntity(type, this);
         util_1.assert(!!this.declarator.parameters, "The declarator for a function declaration must contain declarators for its parameters as well.");
         this.parameterDeclarations = this.declarator.parameters;
@@ -44911,17 +44956,29 @@ class FunctionDeclaration extends SimpleDeclaration {
         if (this.isConstructor) {
             // constructors are not added to their scope. they technically "have no name"
             // and can't be found through name lookup
-            if ((_a = this.type.receiverType) === null || _a === void 0 ? void 0 : _a.isConst) {
+            if ((_b = this.type.receiverType) === null || _b === void 0 ? void 0 : _b.isConst) {
                 this.addNote(errors_1.CPPError.declaration.ctor.const_prohibited(this));
             }
             if (this.declarator.baseType) {
                 this.addNote(errors_1.CPPError.declaration.ctor.return_type_prohibited(this));
             }
+            if (otherSpecs.virtual) { // use otherSpecs here since this.isVirtual depends on being a member fn
+                this.addNote(errors_1.CPPError.declaration.ctor.virtual_prohibited(this));
+            }
         }
         else {
             let entityOrError = this.context.contextualScope.declareFunctionEntity(this.declaredEntity);
             if (entityOrError instanceof entities_1.FunctionEntity) {
-                this.declaredEntity = entityOrError;
+                let actualDeclaredEntity = entityOrError;
+                if (actualDeclaredEntity === this.declaredEntity) {
+                    // if our newly declared entity actually got added to the scope
+                    // (and we didn't get returned a different one that was already there)
+                    if (overrideTarget) {
+                        overrideTarget.registerOverrider(containingClass, actualDeclaredEntity);
+                        actualDeclaredEntity.setOverrideTarget(overrideTarget);
+                    }
+                }
+                this.declaredEntity = actualDeclaredEntity;
             }
             else {
                 this.addNote(entityOrError);
@@ -45122,6 +45179,9 @@ class Declarator extends constructs_1.BasicCPPConstruct {
         // let isMember = isA(this.parent, Declarations.Member);
         if (ast.pureVirtual) {
             this.isPureVirtual = true;
+        }
+        if (ast.override) {
+            this.isOverride = true;
         }
         this.determineNameAndType(ast);
     }
@@ -45374,7 +45434,12 @@ class FunctionDefinition extends constructs_1.BasicCPPConstruct {
             declaration = decl;
         }
         // Create implementation and body block (before params and body statements added yet)
-        let functionContext = constructs_1.createFunctionContext(context, declaration.declaredEntity, (_a = context.containingClass) === null || _a === void 0 ? void 0 : _a.type);
+        let receiverType;
+        if (declaration.isMemberFunction) {
+            util_1.assert((_a = context.containingClass) === null || _a === void 0 ? void 0 : _a.isComplete(), "Member function definitions may not be compiled until their containing class definition has been completed.");
+            receiverType = context.containingClass.type;
+        }
+        let functionContext = constructs_1.createFunctionContext(context, declaration.declaredEntity, receiverType);
         let bodyContext = constructs_1.createBlockContext(functionContext);
         // Add declared entities from the parameters to the body block's context.
         // As the context refers back to the implementation, local objects/references will be registerd there.
@@ -45472,10 +45537,11 @@ class ClassDefinition extends constructs_1.BasicCPPConstruct {
         this.construct_type = "class_definition";
         this.memberDeclarationsByName = {};
         this.constructorDeclarations = [];
+        this.memberFunctionEntities = [];
         this.memberVariableEntities = [];
         this.memberObjectEntities = [];
         this.memberReferenceEntities = [];
-        this.memberEntitiesByName = {};
+        this.memberVariableEntitiesByName = {};
         this.inlineMemberFunctionDefinitions = [];
         this.name = declaration.name;
         this.implicitPublicContext = constructs_1.createImplicitContext(constructs_1.createMemberSpecificationContext(context, "public"));
@@ -45489,7 +45555,7 @@ class ClassDefinition extends constructs_1.BasicCPPConstruct {
         }
         this.attachAll(this.memberDeclarations = memberDeclarations);
         // Identify member objects and member references
-        this.memberDeclarations.forEach(decl => {
+        memberDeclarations.forEach(decl => {
             if (decl.construct_type === "member_variable_declaration") {
                 util_1.asMutable(this.memberVariableEntities).push(decl.declaredEntity);
                 if (decl.declaredEntity instanceof entities_1.MemberObjectEntity) {
@@ -45503,8 +45569,13 @@ class ClassDefinition extends constructs_1.BasicCPPConstruct {
                 // Here we only record the first one we find.
                 if (!this.memberDeclarationsByName[decl.name]) {
                     this.memberDeclarationsByName[decl.name] = decl;
-                    this.memberEntitiesByName[decl.name] = decl.declaredEntity;
+                    this.memberVariableEntitiesByName[decl.name] = decl.declaredEntity;
                 }
+            }
+            else if (decl.construct_type === "function_declaration") {
+                // Note that only identifying function declarations and NOT definitions
+                // in here is intentional
+                util_1.asMutable(this.memberFunctionEntities).push(decl.declaredEntity);
             }
         });
         // CONSTRUCTORS and DESTRUCTOR
@@ -45581,7 +45652,15 @@ class ClassDefinition extends constructs_1.BasicCPPConstruct {
         // entity it refers to is looked up without regard to what follows in the class.
         // (And if it were dependent on the class scope, which is dependent on the base
         // class scope, etc. there's circular problems.)
-        let bases = ast.head.bases.map(baseAST => BaseSpecifier.createFromAST(baseAST, tuContext, defaultAccessLevel));
+        let bases = ast.head.bases.map(baseAST => {
+            let base = BaseSpecifier.createFromAST(baseAST, tuContext, defaultAccessLevel);
+            if (base.isSuccessfullyCompiled()) {
+                return base;
+            }
+            else {
+                return undefined;
+            }
+        }).filter(base => base);
         let declaration = new ClassDeclaration(tuContext, ast.head.name.identifier, classKey);
         if (declaration.declaredEntity.isComplete()) {
             return declaration.declaredEntity.definition;
@@ -46365,6 +46444,7 @@ const types_1 = __webpack_require__(8716);
 const util_1 = __webpack_require__(6560);
 const observe_1 = __webpack_require__(5114);
 const constructs_1 = __webpack_require__(4293);
+const objects_1 = __webpack_require__(697);
 const errors_1 = __webpack_require__(5244);
 class Scope {
     constructor(translationUnit, parent) {
@@ -47250,7 +47330,7 @@ class MemberObjectEntity extends MemberVariableEntityBase {
     }
     runtimeLookup(rtConstruct) {
         // Cast below should be <CPPObject<T>>, NOT MemberSubobject<T>.
-        // See return type and documentation for getMemberSubobject()
+        // See return type and documentation for getMemberObject()
         return rtConstruct.contextualReceiver.getMemberObject(this.name);
     }
     isTyped(predicate) {
@@ -47310,18 +47390,29 @@ class TemporaryObjectEntity extends CPPEntity {
 }
 exports.TemporaryObjectEntity = TemporaryObjectEntity;
 TemporaryObjectEntity._name = "TemporaryObjectEntity";
+let FE_overrideID = 0;
 class FunctionEntity extends DeclaredEntityBase {
     // storage: "static",
     constructor(type, decl) {
         super(type, decl.name);
         this.declarationKind = "function";
         this.isOdrUsed = false;
+        this.overriders = {};
         this.firstDeclaration = decl;
         this.declarations = [decl];
+        this.isMemberFunction = decl.isMemberFunction;
+        this.isVirtual = decl.isVirtual;
+        this.isPureVirtual = false;
         this.isConstructor = decl.isConstructor;
+        this.isDestructor = decl.isDestructor;
         this.qualifiedName = "::" + this.name;
         this.isImplicit = !!decl.context.implicit;
         this.isUserDefined = !decl.context.implicit;
+        this.overrideID = FE_overrideID++;
+        if (this.isMemberFunction) {
+            util_1.assert(constructs_1.isClassContext(decl.context));
+            this.overriders[decl.context.containingClass.qualifiedName] = this;
+        }
     }
     addDeclaration(decl) {
         util_1.asMutable(this.declarations).push(decl);
@@ -47329,15 +47420,39 @@ class FunctionEntity extends DeclaredEntityBase {
     addDeclarations(decls) {
         decls.forEach((decl) => util_1.asMutable(this.declarations).push(decl));
     }
-    isStaticallyBound() {
-        return true;
-    }
-    get isVirtual() {
-        return false;
-    }
     toString() {
         return this.name;
     }
+    registerOverrider(containingClass, overrider) {
+        var _a;
+        this.overriders[containingClass.qualifiedName] = overrider;
+        (_a = this.overrideTarget) === null || _a === void 0 ? void 0 : _a.registerOverrider(containingClass, overrider);
+    }
+    setOverrideTarget(target) {
+        util_1.assert(!this.overrideTarget, "A single FunctionEntity may not have multiple override targets.");
+        util_1.asMutable(this).overrideTarget = target;
+    }
+    // private checkForOverride(baseClass: ClassDefinition) {
+    //     baseClass.memberFunctionEntities.forEach(func => {
+    //         if (func.type.sameSignature(this.type)) {
+    //             func.registerOverrider(this);
+    //         }
+    //     })
+    //     // Find the nearest overrider of a hypothetical virtual function.
+    //     // If any are virtual, this one would have already been set to be
+    //     // also virtual by this same procedure, so checking this one is sufficient.
+    //     // If we override any virtual function, this one is too.
+    //     var overridden = this.containingClass.getBaseClass().classScope.singleLookup(this.name, {
+    //         paramTypes: this.type.paramTypes, isThisConst: this.type.isThisConst,
+    //         exactMatch:true, own:true, noNameHiding:true});
+    //     if (overridden && overridden instanceof FunctionEntity && overridden.isVirtual){
+    //         (<boolean>this.isVirtual) = true;
+    //         // Check to make sure that the return types are covariant
+    //         if (!covariantType(this.type.returnType, overridden.type.returnType)){
+    //             throw SemanticExceptions.NonCovariantReturnTypes.instance(this, overridden);
+    //         }
+    //     }
+    // }
     mergeInto(overloadGroup) {
         var _a;
         //check each other function found
@@ -47390,16 +47505,38 @@ class FunctionEntity extends DeclaredEntityBase {
             this.definition = overload;
         }
         else {
-            if (this.isOdrUsed) {
+            if (this.isMemberFunction && this.isVirtual && !this.isPureVirtual) {
+                // All (non-pure) virtual functions must have a definition
+                this.declarations.forEach((decl) => decl.addNote(errors_1.CPPError.link.func.virtual_def_required(decl, this)));
+            }
+            else if (this.isOdrUsed) {
+                // Functions that are ODR-used must have a definition
                 this.declarations.forEach((decl) => decl.addNote(errors_1.CPPError.link.func.def_not_found(decl, this)));
             }
+            // Otherwise, it's ok for the function to not have a definition because it is never used
         }
     }
     isMain() {
         return this.qualifiedName === "::main";
     }
-    isMemberFunction() {
-        return constructs_1.isClassContext(this.firstDeclaration.context);
+    getDynamicallyBoundFunction(receiver) {
+        if (!this.isVirtual) {
+            util_1.assert(this.definition, "non virtual function must have a definition!");
+            return this.definition;
+        }
+        else {
+            util_1.assert(receiver, "virtual function dynamic binding requires a receiver");
+            while (receiver instanceof objects_1.BaseSubobject) {
+                receiver = receiver.containingObject;
+            }
+            let dynamicType = receiver.type;
+            let finalOverrider;
+            while (!finalOverrider && dynamicType) {
+                finalOverrider = this.overriders[dynamicType.qualifiedName];
+                dynamicType = dynamicType.classDefinition.baseClass;
+            }
+            return (finalOverrider === null || finalOverrider === void 0 ? void 0 : finalOverrider.definition) || this.definition;
+        }
     }
     registerCall(call) {
         this.isOdrUsed = true;
@@ -47428,7 +47565,7 @@ class ClassEntity extends DeclaredEntityBase {
         // classes with external linkage, it is sufficient to use the fully qualified
         // class name to distinguish types from each other. But, because Lobster does
         // not support namespaces, the unqualified name is also sufficient.
-        super(types_1.createClassType(decl.name), decl.name);
+        super(types_1.createClassType(decl.name, "::" + decl.name), decl.name);
         this.declarationKind = "class";
         this.firstDeclaration = decl;
         this.declarations = [decl];
@@ -47517,25 +47654,6 @@ exports.ClassEntity = ClassEntity;
 //         // May also be set to virtual later if it's discovered to be an overrider
 //         // for a virtual function in a base class
 //         this.checkForOverride();
-//     }
-//     private checkForOverride() {
-//         if (!this.containingClass.getBaseClass()) {
-//             return;
-//         }
-//         // Find the nearest overrider of a hypothetical virtual function.
-//         // If any are virtual, this one would have already been set to be
-//         // also virtual by this same procedure, so checking this one is sufficient.
-//         // If we override any virtual function, this one is too.
-//         var overridden = this.containingClass.getBaseClass().classScope.singleLookup(this.name, {
-//             paramTypes: this.type.paramTypes, isThisConst: this.type.isThisConst,
-//             exactMatch:true, own:true, noNameHiding:true});
-//         if (overridden && overridden instanceof FunctionEntity && overridden.isVirtual){
-//             (<boolean>this.isVirtual) = true;
-//             // Check to make sure that the return types are covariant
-//             if (!covariantType(this.type.returnType, overridden.type.returnType)){
-//                 throw SemanticExceptions.NonCovariantReturnTypes.instance(this, overridden);
-//             }
-//         }
 //     }
 //     public isStaticallyBound() {
 //         return !this.isVirtual;
@@ -47873,6 +47991,9 @@ exports.CPPError = {
             const_prohibited: function (construct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.const_prohibited", "A constructor is not allowed to have a const specification.");
             },
+            virtual_prohibited: function (construct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.virtual_prohibited", "A constructor may not be declared as virtual.");
+            },
             previous_declaration: function (construct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.previous_declaration", `Re-declaration of a constructor is not allowed (a previous declaration of a constructor with the same parameter types exists).`);
             },
@@ -47949,6 +48070,9 @@ exports.CPPError = {
             },
             nonCovariantReturnType: function (construct, derived, base) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.nonCovariantReturnType", "Return types in overridden virtual functions must either be the same or covariant (i.e. follow the Liskov Substitution Principle). Both return types must be pointers/references to class types, and the class type in the overriding function must be the same or a derived type. There are also restrictions on the cv-qualifications of the return types. In this case, returning a " + derived + " in place of a " + base + " violates covariance.");
+            },
+            noOverrideTarget: function (construct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.noOverrideTarget", "This function is declared as an override, but there is no matching function in its base class(es) with a matching signature to override.");
             },
             definition_non_function_type: function (construct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.definition_non_function_type", "This appears to be a function definition, but the declarator does not indicate a function type. Maybe you forgot the parentheses?");
@@ -48538,6 +48662,9 @@ exports.CPPError = {
             return new LinkerNote([newDef, prevDef], NoteKind.ERROR, "link.class_same_tokens", "Multiple class definitions are ok if they are EXACTLY the same in the source code. However, the multiple definitions found for " + newDef.name + " do not match exactly.");
         },
         func: {
+            virtual_def_required: function (construct, func) {
+                return new LinkerNote(construct, NoteKind.ERROR, "link.func.virtual_def_required", "Cannot find definition (i.e. the implementation code) for function " + func.name + ". Virtual functions must always have a definition.");
+            },
             def_not_found: function (construct, func) {
                 return new LinkerNote(construct, NoteKind.ERROR, "link.func.def_not_found", "Cannot find definition for function " + func.name + ". That is, the function is declared and I know what it is, but I can't find the actual code that implements it.");
             },
@@ -51267,7 +51394,7 @@ function overloadResolution(candidates, argTypes, receiverType) {
             notes.push(errors_1.CPPError.param.numParams(candidate.firstDeclaration));
         }
         // TODO: add back in with member functions
-        else if (candidate.isMemberFunction() && (receiverType === null || receiverType === void 0 ? void 0 : receiverType.isConst) && !((_a = candidate.type.receiverType) === null || _a === void 0 ? void 0 : _a.isConst)) {
+        else if (candidate.isMemberFunction && (receiverType === null || receiverType === void 0 ? void 0 : receiverType.isConst) && !((_a = candidate.type.receiverType) === null || _a === void 0 ? void 0 : _a.isConst)) {
             notes.push(errors_1.CPPError.param.thisConst(candidate.firstDeclaration, receiverType));
         }
         else {
@@ -51887,7 +52014,7 @@ function selectOperatorOverload(context, ast, operator, originalArgs) {
     util_1.assert(lookupResult.declarationKind !== "class");
     let selected = overloadResolution(lookupResult.overloads, adjustedArgs.map(arg => arg.type), receiverType).selected;
     if (selected) {
-        if (selected.isMemberFunction()) {
+        if (selected.isMemberFunction) {
             return new MemberOperatorOverloadExpression(context, ast, operator, leftmost, adjustedArgs, selected);
         }
         else {
@@ -52890,7 +53017,7 @@ class CtorInitializer extends constructs_1.BasicCPPConstruct {
             }
             else {
                 let memName = comp.name;
-                let memEntity = receiverType.classDefinition.memberEntitiesByName[memName];
+                let memEntity = receiverType.classDefinition.memberVariableEntitiesByName[memName];
                 if (memEntity) {
                     let memInit = comp.args.length === 0
                         ? DefaultInitializer.create(context, memEntity)
@@ -56677,13 +56804,13 @@ class ArrayOfUnknownBoundType extends TypeBase {
 }
 exports.ArrayOfUnknownBoundType = ArrayOfUnknownBoundType;
 class ClassTypeBase extends TypeBase {
-    constructor(classId, className, shared, isConst = false, isVolatile = false) {
+    constructor(classId, className, qualifiedName, shared, isConst = false, isVolatile = false) {
         super(isConst, isVolatile);
         this.precedence = 0;
-        this.className = "";
         this.templateParameters = [];
         this.classId = classId;
         this.className = className;
+        this.qualifiedName = qualifiedName;
         this.shared = shared;
     }
     get classDefinition() {
@@ -56752,7 +56879,7 @@ class ClassTypeBase extends TypeBase {
     //         return JSON.stringify(value, null, 2);
     //     },
     _cvQualifiedImpl(isConst, isVolatile) {
-        return new ClassTypeBase(this.classId, this.className, this.shared, isConst, isVolatile);
+        return new ClassTypeBase(this.classId, this.className, this.qualifiedName, this.shared, isConst, isVolatile);
     }
     isDefaultConstructible(userDefinedOnly = false) {
         let defaultCtor = this.classDefinition.defaultConstructor;
@@ -56795,8 +56922,8 @@ function sameClassType(thisClass, otherClass) {
         || (!!thisClass.shared.classDefinition && thisClass.shared.classDefinition === otherClass.shared.classDefinition);
 }
 let nextClassId = 0;
-function createClassType(className) {
-    return new ClassTypeBase(nextClassId++, className, {});
+function createClassType(className, qualifiedName) {
+    return new ClassTypeBase(nextClassId++, className, qualifiedName, {});
 }
 exports.createClassType = createClassType;
 // export class ClassType extends ObjectTypeBase {
@@ -57062,7 +57189,10 @@ class FunctionType extends TypeBase {
         return this.sameReceiverType(other) && this.sameParamTypes(other);
     }
     isPotentialOverriderOf(other) {
-        return this.sameParamTypes(other) && this.isConst === other.isConst && this.isVolatile == other.isVolatile;
+        var _a, _b, _c, _d;
+        return this.sameParamTypes(other)
+            && ((_a = this.receiverType) === null || _a === void 0 ? void 0 : _a.isConst) === ((_b = other.receiverType) === null || _b === void 0 ? void 0 : _b.isConst)
+            && ((_c = this.receiverType) === null || _c === void 0 ? void 0 : _c.isVolatile) == ((_d = other.receiverType) === null || _d === void 0 ? void 0 : _d.isVolatile);
     }
     typeString(excludeBase, varname, decorated = false) {
         return this.returnType.typeString(excludeBase, varname + this.paramStrType, decorated);
@@ -60200,19 +60330,28 @@ function peg$parse(input, options) {
     const peg$c475 = function (d) { d.pureVirtual = true; return d; };
     const peg$c476 = function (d) { d.library_unsupported = true; return d; };
     const peg$c477 = function (d, i) { d.initializer = i; return d; };
-    const peg$c478 = function (b) { return b; };
-    const peg$c479 = function (first, b) { return b; };
-    const peg$c480 = function (a) { return a; };
-    const peg$c481 = function (a, c) {
+    const peg$c478 = function (d, v) { return v; };
+    const peg$c479 = function (d, v, i) {
+        d[v] = true;
+        d.initializer = i;
+        return d;
+    };
+    const peg$c480 = function (d, v) { d[v] = true; return d; };
+    const peg$c481 = "override";
+    const peg$c482 = peg$literalExpectation("override", false);
+    const peg$c483 = function (b) { return b; };
+    const peg$c484 = function (first, b) { return b; };
+    const peg$c485 = function (a) { return a; };
+    const peg$c486 = function (a, c) {
         return track({ construct_type: "base_specifier", name: c, virtual: true, access: a }, location(), text());
     };
-    const peg$c482 = function (a, c) {
+    const peg$c487 = function (a, c) {
         return track({ construct_type: "base_specifier", name: c, access: a }, location(), text());
     };
-    const peg$c483 = function (c) {
+    const peg$c488 = function (c) {
         return track({ construct_type: "base_specifier", name: c }, location(), text());
     };
-    const peg$c484 = function (n, c) {
+    const peg$c489 = function (n, c) {
         n.push(c);
         return { construct_type: "qualified_identifier", components: n };
     };
@@ -62359,6 +62498,81 @@ function peg$parse(input, options) {
                 else {
                     peg$currPos = s0;
                     s0 = peg$FAILED;
+                }
+                if (s0 === peg$FAILED) {
+                    s0 = peg$currPos;
+                    s1 = peg$parsedecl_specifiers();
+                    if (s1 !== peg$FAILED) {
+                        s2 = peg$currPos;
+                        peg$silentFails++;
+                        s3 = peg$parseidentifier();
+                        peg$silentFails--;
+                        if (s3 === peg$FAILED) {
+                            s2 = undefined;
+                        }
+                        else {
+                            peg$currPos = s2;
+                            s2 = peg$FAILED;
+                        }
+                        if (s2 !== peg$FAILED) {
+                            s3 = peg$parsews();
+                            if (s3 !== peg$FAILED) {
+                                s4 = peg$parsemember_declarator();
+                                if (s4 !== peg$FAILED) {
+                                    s5 = peg$parsews();
+                                    if (s5 !== peg$FAILED) {
+                                        s6 = peg$parsector_initializer();
+                                        if (s6 === peg$FAILED) {
+                                            s6 = null;
+                                        }
+                                        if (s6 !== peg$FAILED) {
+                                            s7 = peg$parsews();
+                                            if (s7 !== peg$FAILED) {
+                                                s8 = peg$parseblock();
+                                                if (s8 !== peg$FAILED) {
+                                                    peg$savedPos = s0;
+                                                    s1 = peg$c72(s1, s4, s6, s8);
+                                                    s0 = s1;
+                                                }
+                                                else {
+                                                    peg$currPos = s0;
+                                                    s0 = peg$FAILED;
+                                                }
+                                            }
+                                            else {
+                                                peg$currPos = s0;
+                                                s0 = peg$FAILED;
+                                            }
+                                        }
+                                        else {
+                                            peg$currPos = s0;
+                                            s0 = peg$FAILED;
+                                        }
+                                    }
+                                    else {
+                                        peg$currPos = s0;
+                                        s0 = peg$FAILED;
+                                    }
+                                }
+                                else {
+                                    peg$currPos = s0;
+                                    s0 = peg$FAILED;
+                                }
+                            }
+                            else {
+                                peg$currPos = s0;
+                                s0 = peg$FAILED;
+                            }
+                        }
+                        else {
+                            peg$currPos = s0;
+                            s0 = peg$FAILED;
+                        }
+                    }
+                    else {
+                        peg$currPos = s0;
+                        s0 = peg$FAILED;
+                    }
                 }
             }
         }
@@ -72979,8 +73193,100 @@ function peg$parse(input, options) {
                     s0 = peg$FAILED;
                 }
                 if (s0 === peg$FAILED) {
-                    s0 = peg$parsedeclarator();
+                    s0 = peg$currPos;
+                    s1 = peg$parsedeclarator();
+                    if (s1 !== peg$FAILED) {
+                        s2 = peg$parsews();
+                        if (s2 !== peg$FAILED) {
+                            s3 = peg$currPos;
+                            s4 = peg$parsevirt_specifier();
+                            if (s4 !== peg$FAILED) {
+                                s5 = peg$parsews();
+                                if (s5 !== peg$FAILED) {
+                                    peg$savedPos = s3;
+                                    s4 = peg$c478(s1, s4);
+                                    s3 = s4;
+                                }
+                                else {
+                                    peg$currPos = s3;
+                                    s3 = peg$FAILED;
+                                }
+                            }
+                            else {
+                                peg$currPos = s3;
+                                s3 = peg$FAILED;
+                            }
+                            if (s3 !== peg$FAILED) {
+                                s4 = peg$parsebrace_or_equal_initializer();
+                                if (s4 !== peg$FAILED) {
+                                    peg$savedPos = s0;
+                                    s1 = peg$c479(s1, s3, s4);
+                                    s0 = s1;
+                                }
+                                else {
+                                    peg$currPos = s0;
+                                    s0 = peg$FAILED;
+                                }
+                            }
+                            else {
+                                peg$currPos = s0;
+                                s0 = peg$FAILED;
+                            }
+                        }
+                        else {
+                            peg$currPos = s0;
+                            s0 = peg$FAILED;
+                        }
+                    }
+                    else {
+                        peg$currPos = s0;
+                        s0 = peg$FAILED;
+                    }
+                    if (s0 === peg$FAILED) {
+                        s0 = peg$currPos;
+                        s1 = peg$parsedeclarator();
+                        if (s1 !== peg$FAILED) {
+                            s2 = peg$parsews();
+                            if (s2 !== peg$FAILED) {
+                                s3 = peg$parsevirt_specifier();
+                                if (s3 !== peg$FAILED) {
+                                    peg$savedPos = s0;
+                                    s1 = peg$c480(s1, s3);
+                                    s0 = s1;
+                                }
+                                else {
+                                    peg$currPos = s0;
+                                    s0 = peg$FAILED;
+                                }
+                            }
+                            else {
+                                peg$currPos = s0;
+                                s0 = peg$FAILED;
+                            }
+                        }
+                        else {
+                            peg$currPos = s0;
+                            s0 = peg$FAILED;
+                        }
+                        if (s0 === peg$FAILED) {
+                            s0 = peg$parsedeclarator();
+                        }
+                    }
                 }
+            }
+        }
+        return s0;
+    }
+    function peg$parsevirt_specifier() {
+        let s0;
+        if (input.substr(peg$currPos, 8) === peg$c481) {
+            s0 = peg$c481;
+            peg$currPos += 8;
+        }
+        else {
+            s0 = peg$FAILED;
+            if (peg$silentFails === 0) {
+                peg$fail(peg$c482);
             }
         }
         return s0;
@@ -73004,7 +73310,7 @@ function peg$parse(input, options) {
                 s3 = peg$parsebase_specifier_list();
                 if (s3 !== peg$FAILED) {
                     peg$savedPos = s0;
-                    s1 = peg$c478(s3);
+                    s1 = peg$c483(s3);
                     s0 = s1;
                 }
                 else {
@@ -73048,7 +73354,7 @@ function peg$parse(input, options) {
                         s7 = peg$parsebase_specifier();
                         if (s7 !== peg$FAILED) {
                             peg$savedPos = s3;
-                            s4 = peg$c479(s1, s7);
+                            s4 = peg$c484(s1, s7);
                             s3 = s4;
                         }
                         else {
@@ -73091,7 +73397,7 @@ function peg$parse(input, options) {
                             s7 = peg$parsebase_specifier();
                             if (s7 !== peg$FAILED) {
                                 peg$savedPos = s3;
-                                s4 = peg$c479(s1, s7);
+                                s4 = peg$c484(s1, s7);
                                 s3 = s4;
                             }
                             else {
@@ -73152,7 +73458,7 @@ function peg$parse(input, options) {
                     s5 = peg$parseWS();
                     if (s5 !== peg$FAILED) {
                         peg$savedPos = s3;
-                        s4 = peg$c480(s4);
+                        s4 = peg$c485(s4);
                         s3 = s4;
                     }
                     else {
@@ -73168,7 +73474,7 @@ function peg$parse(input, options) {
                     s4 = peg$parsequalified_class_name();
                     if (s4 !== peg$FAILED) {
                         peg$savedPos = s0;
-                        s1 = peg$c481(s3, s4);
+                        s1 = peg$c486(s3, s4);
                         s0 = s1;
                     }
                     else {
@@ -73198,7 +73504,7 @@ function peg$parse(input, options) {
                 s3 = peg$parseWS();
                 if (s3 !== peg$FAILED) {
                     peg$savedPos = s1;
-                    s2 = peg$c480(s2);
+                    s2 = peg$c485(s2);
                     s1 = s2;
                 }
                 else {
@@ -73227,7 +73533,7 @@ function peg$parse(input, options) {
                         s4 = peg$parsequalified_class_name();
                         if (s4 !== peg$FAILED) {
                             peg$savedPos = s0;
-                            s1 = peg$c481(s1, s4);
+                            s1 = peg$c486(s1, s4);
                             s0 = s1;
                         }
                         else {
@@ -73258,7 +73564,7 @@ function peg$parse(input, options) {
                         s3 = peg$parsequalified_class_name();
                         if (s3 !== peg$FAILED) {
                             peg$savedPos = s0;
-                            s1 = peg$c482(s1, s3);
+                            s1 = peg$c487(s1, s3);
                             s0 = s1;
                         }
                         else {
@@ -73280,7 +73586,7 @@ function peg$parse(input, options) {
                     s1 = peg$parsequalified_class_name();
                     if (s1 !== peg$FAILED) {
                         peg$savedPos = s0;
-                        s1 = peg$c483(s1);
+                        s1 = peg$c488(s1);
                     }
                     s0 = s1;
                 }
@@ -73298,7 +73604,7 @@ function peg$parse(input, options) {
                 s3 = peg$parseclass_name();
                 if (s3 !== peg$FAILED) {
                     peg$savedPos = s0;
-                    s1 = peg$c484(s1, s3);
+                    s1 = peg$c489(s1, s3);
                     s0 = s1;
                 }
                 else {
@@ -74414,6 +74720,56 @@ int main() {
   assert((f) + (((g)) + 2) * (2 == 25) == 5);
 }`, [
         new verifiers_1.BasicSynchronousRunnerTest()
+    ]);
+    // ---------- Basic Virtual Function Test ----------
+    new verifiers_1.SingleTranslationUnitTest("Basic Virtual Function Test", `#include <iostream>
+using namespace std;
+
+class Fruit {
+public: 
+  int f1() { return 1; }
+  virtual int f2() { return 2; } 
+};  
+  
+class Citrus : public Fruit {  
+public:  
+  int f1() { return 3; } 
+  int f2() override { return 4; }
+}; 
+
+class Lemon : public Citrus {
+public:
+  int f1() { return 5; }
+  int f2() override { return 6; }
+};
+
+int main() { 
+  Fruit fruit;
+  Citrus citrus;
+  Lemon lemon;  
+  Fruit *fPtr = &lemon;
+  Citrus *cPtr = &citrus; 
+
+  int result = 0;
+  cout << fruit.f2() << endl;
+  cout << citrus.f1() << endl;
+  cout << fPtr->f1() << endl;
+  cout << fPtr->f2() << endl;
+  cout << cPtr->f2() << endl;
+  cPtr = &lemon;
+  cout << cPtr->f1() << endl;
+  cout << cPtr->f2() << endl;
+}`, [
+        new verifiers_1.NoErrorsNoWarningsVerifier(),
+        new verifiers_1.NoBadRuntimeEventsVerifier(true),
+        new verifiers_1.OutputVerifier(`2
+3
+1
+6
+4
+3
+6
+`)
     ]);
     // string test
     new verifiers_1.SingleTranslationUnitTest("Basic String Test", `#include <iostream>

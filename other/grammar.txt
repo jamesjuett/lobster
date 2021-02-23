@@ -231,6 +231,9 @@ function_definition
   /* regular functions */
   / specs:decl_specifiers ! identifier ws declarator:declarator ws init:ctor_initializer? ws body:function_body
     {return track({construct_type: "function_definition", specs:specs, declarator:declarator, ctor_initializer:init, body:body}, location(), text()); }
+  
+  / specs:decl_specifiers ! identifier ws declarator:member_declarator ws init:ctor_initializer? ws body:function_body
+    {return track({construct_type: "function_definition", specs:specs, declarator:declarator, ctor_initializer:init, body:body}, location(), text()); }
 
 
 /*constructor_definition
@@ -971,7 +974,15 @@ member_declarator
   = d:declarator ws "=" ws "0" {d.pureVirtual = true; return d;}
   / d:declarator ws "=" ws "@library_unsupported@" {d.library_unsupported = true; return d;}
   / d:declarator ws i:brace_or_equal_initializer {d.initializer = i; return d;}
+  / d:declarator ws v:(v:virt_specifier ws {return v;}) i:brace_or_equal_initializer {
+      d[v] = true;
+      d.initializer = i; return d;
+    }
+  / d:declarator ws v:virt_specifier {d[v] = true; return d;}
   / d:declarator
+
+virt_specifier
+  = "override"
 
 base_clause
   = ":" ws b:base_specifier_list {return b};

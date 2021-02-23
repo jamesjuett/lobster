@@ -1117,5 +1117,5 @@ int main() {
             //     // return isEqual(elts, [])
             // })
         ]
-    },
+    }
 };

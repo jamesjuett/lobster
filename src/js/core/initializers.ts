@@ -1161,7 +1161,7 @@ export class CtorInitializer extends BasicCPPConstruct<MemberBlockContext, CtorI
             }
             else {
                 let memName = comp.name;
-                let memEntity = receiverType.classDefinition.memberEntitiesByName[memName];
+                let memEntity = receiverType.classDefinition.memberVariableEntitiesByName[memName];
                 if (memEntity) {
                     let memInit = comp.args.length === 0
                         ? DefaultInitializer.create(context, memEntity)

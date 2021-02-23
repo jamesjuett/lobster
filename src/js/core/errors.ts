@@ -289,6 +289,9 @@ export const CPPError = {
             const_prohibited: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.const_prohibited", "A constructor is not allowed to have a const specification.");
             },
+            virtual_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.virtual_prohibited", "A constructor may not be declared as virtual.");
+            },
             previous_declaration: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.previous_declaration", `Re-declaration of a constructor is not allowed (a previous declaration of a constructor with the same parameter types exists).`);
             },
@@ -365,6 +368,9 @@ export const CPPError = {
             },
             nonCovariantReturnType: function (construct: TranslationUnitConstruct, derived: Type, base: Type) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.nonCovariantReturnType", "Return types in overridden virtual functions must either be the same or covariant (i.e. follow the Liskov Substitution Principle). Both return types must be pointers/references to class types, and the class type in the overriding function must be the same or a derived type. There are also restrictions on the cv-qualifications of the return types. In this case, returning a " + derived + " in place of a " + base + " violates covariance.");
+            },
+            noOverrideTarget: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.noOverrideTarget", "This function is declared as an override, but there is no matching function in its base class(es) with a matching signature to override.");
             },
             definition_non_function_type: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.definition_non_function_type", "This appears to be a function definition, but the declarator does not indicate a function type. Maybe you forgot the parentheses?");
@@ -972,6 +978,9 @@ export const CPPError = {
             return new LinkerNote([newDef, prevDef], NoteKind.ERROR, "link.class_same_tokens", "Multiple class definitions are ok if they are EXACTLY the same in the source code. However, the multiple definitions found for " + newDef.name + " do not match exactly.");
         },
         func: {
+            virtual_def_required: function (construct: FunctionDeclaration, func: FunctionEntity) {
+                return new LinkerNote(construct, NoteKind.ERROR, "link.func.virtual_def_required", "Cannot find definition (i.e. the implementation code) for function " + func.name + ". Virtual functions must always have a definition.");
+            },
             def_not_found: function (construct: FunctionDeclaration, func: FunctionEntity) {
                 return new LinkerNote(construct, NoteKind.ERROR, "link.func.def_not_found", "Cannot find definition for function " + func.name + ". That is, the function is declared and I know what it is, but I can't find the actual code that implements it.");
             },

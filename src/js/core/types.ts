@@ -1410,7 +1410,8 @@ interface ClassShared {
 class ClassTypeBase extends TypeBase implements Omit<ObjectTypeInterface, "size"> {
 
     public readonly precedence: number = 0;
-    public readonly className: string = "";
+    public readonly className: string;
+    public readonly qualifiedName: string;
 
     private readonly classId: number;
     private readonly shared: ClassShared;
@@ -1420,10 +1421,11 @@ class ClassTypeBase extends TypeBase implements Omit<ObjectTypeInterface, "size"
     /** DO NOT USE. Exists only to ensure CompleteClassType is not structurally assignable to CompleteClassType */
     public readonly t_isComplete!: boolean;
 
-    public constructor(classId: number, className: string, shared: ClassShared, isConst: boolean = false, isVolatile: boolean = false) {
+    public constructor(classId: number, className: string, qualifiedName: string, shared: ClassShared, isConst: boolean = false, isVolatile: boolean = false) {
         super(isConst, isVolatile);
         this.classId = classId;
         this.className = className;
+        this.qualifiedName = qualifiedName;
         this.shared = shared;
     }
     
@@ -1503,7 +1505,7 @@ class ClassTypeBase extends TypeBase implements Omit<ObjectTypeInterface, "size"
 //     },
 
     public _cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
-        return new ClassTypeBase(this.classId, this.className, this.shared, isConst, isVolatile);
+        return new ClassTypeBase(this.classId, this.className, this.qualifiedName, this.shared, isConst, isVolatile);
     }
     
     public isDefaultConstructible(this: CompleteClassType, userDefinedOnly = false) {
@@ -1580,8 +1582,8 @@ export type PotentiallyCompleteClassType = IncompleteClassType | CompleteClassTy
 
 let nextClassId = 0;
 
-export function createClassType(className: string) : IncompleteClassType {
-    return <IncompleteClassType>new ClassTypeBase(nextClassId++, className, {});
+export function createClassType(className: string, qualifiedName: string) : IncompleteClassType {
+    return <IncompleteClassType>new ClassTypeBase(nextClassId++, className, qualifiedName, {});
 }
 
 // export class ClassType extends ObjectTypeBase {
@@ -1909,7 +1911,9 @@ export class FunctionType<ReturnType extends PotentialReturnType = PotentialRetu
     }
 
     public isPotentialOverriderOf(other: FunctionType) {
-        return this.sameParamTypes(other) && this.isConst === other.isConst && this.isVolatile == other.isVolatile;
+        return this.sameParamTypes(other)
+            && this.receiverType?.isConst === other.receiverType?.isConst
+            && this.receiverType?.isVolatile == other.receiverType?.isVolatile;
     }
 
     public typeString(excludeBase: boolean, varname: string, decorated: boolean = false) {
