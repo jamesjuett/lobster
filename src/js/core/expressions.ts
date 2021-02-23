@@ -5128,7 +5128,7 @@ export function overloadResolution<T extends FunctionType>(candidates: readonly 
             notes.push(CPPError.param.numParams(candidate.firstDeclaration));
         }
         // TODO: add back in with member functions
-        else if (candidate.isMemberFunction() && receiverType?.isConst && !candidate.type.receiverType?.isConst){
+        else if (candidate.isMemberFunction && receiverType?.isConst && !candidate.type.receiverType?.isConst){
             notes.push(CPPError.param.thisConst(candidate.firstDeclaration, receiverType));
         }
         else {
@@ -6094,7 +6094,7 @@ export function selectOperatorOverload(context: ExpressionContext, ast: Expressi
     let selected = overloadResolution(lookupResult.overloads, adjustedArgs.map(arg => arg.type), receiverType).selected;
 
     if (selected) {
-        if (selected.isMemberFunction()) {
+        if (selected.isMemberFunction) {
             return new MemberOperatorOverloadExpression(context, ast, operator, <TypedExpression<CompleteClassType>>leftmost, adjustedArgs, selected);
         }
         else {
