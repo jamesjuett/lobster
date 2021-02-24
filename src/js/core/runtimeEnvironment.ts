@@ -1,6 +1,6 @@
 import { assert, assertFalse, Mutable, CPPRandom } from "../util/util";
 import { Observable } from "../util/observe";
-import { CPPObject, AutoObject, StringLiteralObject, StaticObject, TemporaryObject, DynamicObject, ThisObject, InvalidObject, ArraySubobject } from "./objects";
+import { CPPObject, AutoObject, StringLiteralObject, StaticObject, TemporaryObject, DynamicObject, InvalidObject, ArraySubobject } from "./objects";
 import { Bool, Char, ObjectPointerType, ArrayPointerType, similarType, subType, PointerType, sameType, AtomicType, IntegralType, Int, ArrayElemType, BoundedArrayType, ReferenceType, PointerToCompleteType, CompleteObjectType } from "./types";
 import last from "lodash/last";
 import { GlobalObjectEntity, LocalObjectEntity, LocalReferenceEntity, TemporaryObjectEntity } from "./entities";
@@ -589,13 +589,18 @@ class MemoryHeap {
         return obj;
     }
 
-    public deleteObject(addr: number, killer?: RuntimeConstruct) {
-        var obj = this.objectMap[addr];
+    public deleteObject(obj: DynamicObject, killer?: RuntimeConstruct) {
+        this.memory.killObject(obj, killer);
+        delete this.objectMap[obj.address];
+        this.memory.observable.send("heapObjectDeleted", obj);
+        // Note: responsibility for running destructor lies elsewhere
+        return obj;
+    }
+
+    public deleteByAddress(addr: number, killer?: RuntimeConstruct) {
+        let obj = this.objectMap[addr];
         if (obj) {
-            delete this.objectMap[addr];
-            this.memory.killObject(obj, killer);
-            this.memory.observable.send("heapObjectDeleted", obj);
-            // Note: responsibility for running destructor lies elsewhere
+            this.deleteObject(obj);
         }
         return obj;
     }
