@@ -4302,7 +4302,7 @@ export class RuntimeDeleteExpression extends RuntimeExpression<VoidType, "prvalu
             // delete on a null pointer does nothing
             this.startCleanup();
         }
-        else if (this.model.dtor) {
+        else if (this.model.dtor && !this.dtor) {
             let obj = this.sim.memory.dereference(this.operand.evalResult);
             
             if (obj.isAlive && obj instanceof DynamicObject && obj.isTyped(isCompleteClassType)) {
