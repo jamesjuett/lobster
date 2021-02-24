@@ -42,9 +42,9 @@ public:
         @vector::vector_copy;
     }
 
-    // ~vector() {
-    //     @vector::~vector;
-    // }
+    ~vector<${element_type}>() {
+        @vector::~vector;
+    }
 
     vector<${element_type}> &operator=(const vector<${element_type}> &rhs) {
         return @vector::operator=_vector;
@@ -228,6 +228,14 @@ registerOpaqueExpression("vector::vector_copy", <OpaqueExpressionImpl<VoidType, 
         }
         getSize(rec).writeValue(otherSize);
         
+    }
+});
+
+registerOpaqueExpression("vector::~vector", {
+    type: VoidType.VOID,
+    valueCategory: "prvalue",
+    operate: (rt: RuntimeOpaqueExpression) => {
+        rt.sim.memory.heap.deleteByAddress(getDataPtr(rt.contextualReceiver).getValue().rawValue);
     }
 });
 
