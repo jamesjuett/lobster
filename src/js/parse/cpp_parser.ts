@@ -568,7 +568,7 @@ function peg$parse(input: string, options?: IParseOptions) {
   const peg$c320 = function(postfixes: any): any { return {postfixes: postfixes}; };
   const peg$c321 = function(p: any): any {return p;};
   const peg$c322 = function(size: any): any { return {type:"array", size:size}; };
-  const peg$c323 = function(args: any): any {return {args:args || []};};
+  const peg$c323 = function(args: any): any {return {construct_type:"direct_initializer", args:args || []};};
   const peg$c324 = "delete";
   const peg$c325 = peg$literalExpectation("delete", false);
   const peg$c326 = function(t: any): any {

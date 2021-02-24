@@ -725,7 +725,7 @@ new_declarator_postfix
 
 
 new_initializer
-  = "(" ws args:exp_list? ws ")" {return {args:args || []};}
+  = "(" ws args:exp_list? ws ")" {return {construct_type:"direct_initializer", args:args || []};}
 
 
 exp_delete
