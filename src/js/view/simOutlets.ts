@@ -896,7 +896,7 @@ export class MemoryOutlet {
         
         (<Mutable<this>>this).temporaryObjectsOutlet = new TemporaryObjectsOutlet($("<div></div>").appendTo(this.element), memory, this);
         (<Mutable<this>>this).stackFramesOutlet = new StackFramesOutlet($("<div></div>").appendTo(this.element), memory, this);
-        // (<Mutable<this>>this).heapOutlet = new HeapOutlet($("<div></div>").appendTo(this.element), memory, this);
+        (<Mutable<this>>this).heapOutlet = new HeapOutlet($("<div></div>").appendTo(this.element), memory, this);
 
         // Since the simulation has already started, some objects will already be allocated
         memory.allLiveObjects().forEach(obj => this.onObjectAllocated(obj));
@@ -987,7 +987,7 @@ export class MemoryOutlet {
 
     @messageResponse("objectAllocated", "unwrap")
     private onObjectAllocated(object: CPPObject) {
-        if (object.type.isPointerToCompleteType()) {
+        if (object.type.isPointerToCompleteObjectType()) {
             this.addSVGOverlay(new SVGPointerArrowMemoryOverlay(
                 <CPPObject<PointerToCompleteType>>object, this))
         }
@@ -1308,6 +1308,12 @@ export class PointerMemoryObjectOutlet<T extends PointerType<CompleteObjectType>
     private readonly ptdArrayElem : JQuery;
     private arrow?: SVG.Polyline;
 
+    private pointedObjectListener = {
+        _act: {
+            "deallocated": () => this.updateObject()
+        }
+    }
+
     public constructor(element: JQuery, object: CPPObject<T>, memoryOutlet: MemoryOutlet) {
         super(element, object, memoryOutlet);
 
@@ -1319,22 +1325,22 @@ export class PointerMemoryObjectOutlet<T extends PointerType<CompleteObjectType>
 
     }
 
-    private updateArrow() {
-        if (!this.pointedObject || !this.pointedObject.isAlive) {
-            this.clearArrow();
-        }
-        else if (this.object.type.isArrayPointerType()) {
-            // this.makeArrayPointerArrow();
-        }
-        else if (this.object.type.isObjectPointerType()) {
-            // this.makeObjectPointerArrow();
-        }
-    }
+    // private updateArrow() {
+    //     if (!this.pointedObject || !this.pointedObject.isAlive) {
+    //         this.clearArrow();
+    //     }
+    //     else if (this.object.type.isArrayPointerType()) {
+    //         // this.makeArrayPointerArrow();
+    //     }
+    //     else if (this.object.type.isObjectPointerType()) {
+    //         // this.makeObjectPointerArrow();
+    //     }
+    // }
 
-    private clearArrow() {
-        if (this.arrow) { this.arrow.remove(); }
-        delete this.arrow;
-    }
+    // private clearArrow() {
+    //     if (this.arrow) { this.arrow.remove(); }
+    //     delete this.arrow;
+    // }
 
     protected updateObject() {
         var elem = this.objElem;
@@ -1348,11 +1354,15 @@ export class PointerMemoryObjectOutlet<T extends PointerType<CompleteObjectType>
         }
 
         if (this.pointedObject !== newPointedObject) {
-            // if (this.pointedObject) {
-            //     stopListeningTo(this, this.pointedObject);
-            // }
+            if (this.pointedObject) {
+                stopListeningTo(this.pointedObjectListener, this.pointedObject, "deallocated");
+            }
 
             (<Mutable<this>>this).pointedObject = newPointedObject;
+
+            if (newPointedObject) {
+                listenTo(this.pointedObjectListener, newPointedObject, "deallocated");
+            }
         }
 
         elem.html(this.object.getValue().valueString());

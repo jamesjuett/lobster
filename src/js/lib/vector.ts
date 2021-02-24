@@ -247,7 +247,7 @@ registerOpaqueExpression("vector::operator=_vector", <OpaqueExpressionImpl<Compl
             return rt.contextualReceiver;
         }
 
-        rt.sim.memory.heap.deleteObject(getDataPtr(rec).rawValue());
+        rt.sim.memory.heap.deleteByAddress(getDataPtr(rec).rawValue());
 
         let otherSize = getSize(rhs).getValue();
         let otherArr = getDataPtr(rhs).type.arrayObject;
@@ -310,7 +310,7 @@ registerOpaqueExpression("vector::operator=_vector", <OpaqueExpressionImpl<Compl
 //     type: VoidType.VOID,
 //     valueCategory: "prvalue",
 //     operate: (rt: RuntimeOpaqueExpression) => {
-//         rt.sim.memory.heap.deleteObject(getDataPtr(rt.contextualReceiver).getValue().rawValue);
+//         rt.sim.memory.heap.deleteByAddress(getDataPtr(rt.contextualReceiver).getValue().rawValue);
 //     }
 // });
 
@@ -364,7 +364,7 @@ registerOpaqueExpression("vector::push_back", <OpaqueExpressionImpl<VoidType, "p
             arr = allocateNewArray(rt, rec, cap.getValue().modify(x => 2*x));
             oldArr.getArrayElemSubobjects().forEach(
                 (elemObj, i) => arr.getArrayElemSubobject(i).writeValue(elemObj.getValue()));
-            rt.sim.memory.heap.deleteObject(oldArr.address, rt);
+            rt.sim.memory.heap.deleteByAddress(oldArr.address, rt);
         }
         
         // add new object to back
@@ -816,7 +816,7 @@ registerOpaqueExpression("vector::pop_back", <OpaqueExpressionImpl<VoidType, "pr
 
 //             let str = getLocal<CompleteClassType>(rt, "str");
 
-//             rt.sim.memory.heap.deleteObject(getDataPtr(str).getValue().rawValue);
+//             rt.sim.memory.heap.deleteByAddress(getDataPtr(str).getValue().rawValue);
 //             copyFromCString(rt, str, chars)
 //             return getLocal<CompleteClassType>(rt, "is");
 //         }
@@ -839,7 +839,7 @@ registerOpaqueExpression("vector::pop_back", <OpaqueExpressionImpl<VoidType, "pr
 
 //             let str = getLocal<CompleteClassType>(rt, "str");
 
-//             rt.sim.memory.heap.deleteObject(getDataPtr(str).getValue().rawValue);
+//             rt.sim.memory.heap.deleteByAddress(getDataPtr(str).getValue().rawValue);
 //             copyFromCString(rt, str, chars)
 //             return getLocal<CompleteClassType>(rt, "is");
 //         }
@@ -856,7 +856,7 @@ registerOpaqueExpression("vector::pop_back", <OpaqueExpressionImpl<VoidType, "pr
 //             let rec = rt.contextualReceiver;
 //             let rhs = getLocal<CompleteClassType>(rt, "rhs");
             
-//             rt.sim.memory.heap.deleteObject(getDataPtr(rec).getValue().rawValue);
+//             rt.sim.memory.heap.deleteByAddress(getDataPtr(rec).getValue().rawValue);
 //             let {charValues, validLength} = extractCharsFromCString(rt, getDataPtr(rhs).getValue());
 //             copyFromCString(rt, rt.contextualReceiver, charValues, validLength);
 //             return rt.contextualReceiver;
@@ -873,7 +873,7 @@ registerOpaqueExpression("vector::pop_back", <OpaqueExpressionImpl<VoidType, "pr
 //             let rec = rt.contextualReceiver;
 //             let cstr = getLocal<PointerType<Char>>(rt, "cstr");
             
-//             rt.sim.memory.heap.deleteObject(getDataPtr(rec).getValue().rawValue);
+//             rt.sim.memory.heap.deleteByAddress(getDataPtr(rec).getValue().rawValue);
 //             let {charValues, validLength} = extractCharsFromCString(rt, cstr.getValue());
 //             copyFromCString(rt, rt.contextualReceiver, charValues, validLength);
 //             return rt.contextualReceiver;
@@ -890,7 +890,7 @@ registerOpaqueExpression("vector::pop_back", <OpaqueExpressionImpl<VoidType, "pr
 //             let rec = rt.contextualReceiver;
 //             let c = getLocal<Char>(rt, "c");
             
-//             rt.sim.memory.heap.deleteObject(getDataPtr(rec).getValue().rawValue);
+//             rt.sim.memory.heap.deleteByAddress(getDataPtr(rec).getValue().rawValue);
 //             copyFromCString(rt, rt.contextualReceiver, [c.getValue(), Char.NULL_CHAR]);
 //             return rt.contextualReceiver;
 //         }
@@ -935,7 +935,7 @@ registerOpaqueExpression("vector::pop_back", <OpaqueExpressionImpl<VoidType, "pr
 //             let c = getLocal<Char>(rt, "c");
             
 //             let orig = extractCharsFromCString(rt, getDataPtr(rt.contextualReceiver).getValue());
-//             rt.sim.memory.heap.deleteObject(getDataPtr(rec).getValue().rawValue);
+//             rt.sim.memory.heap.deleteByAddress(getDataPtr(rec).getValue().rawValue);
 //             copyFromCString(rt, rt.contextualReceiver, [...orig.charValues, c.getValue(), Char.NULL_CHAR], orig.validLength);
 //             return rt.contextualReceiver;
 //         }
