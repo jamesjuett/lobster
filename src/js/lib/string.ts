@@ -604,7 +604,7 @@ registerOpaqueExpression("string::~string", {
     type: VoidType.VOID,
     valueCategory: "prvalue",
     operate: (rt: RuntimeOpaqueExpression) => {
-        rt.sim.memory.heap.deleteObject(getDataPtr(rt.contextualReceiver).getValue().rawValue);
+        rt.sim.memory.heap.deleteByAddress(getDataPtr(rt.contextualReceiver).getValue().rawValue);
     }
 });
 
@@ -796,7 +796,7 @@ function addFromCStrings(rt: RuntimeExpression, result: CPPObject<CompleteClassT
     getSize(result).writeValue(newSize);
 
     if (deleteOld) {
-        rt.sim.memory.heap.deleteObject(getDataPtr(result).getValue().rawValue);
+        rt.sim.memory.heap.deleteByAddress(getDataPtr(result).getValue().rawValue);
     }
     // allocate new array with enough space
     allocateNewArray(rt, result, newCapacity.rawValue, newChars);
@@ -1128,7 +1128,7 @@ registerOpaqueExpression(
 
             let str = getLocal<CompleteClassType>(rt, "str");
 
-            rt.sim.memory.heap.deleteObject(getDataPtr(str).getValue().rawValue);
+            rt.sim.memory.heap.deleteByAddress(getDataPtr(str).getValue().rawValue);
             copyFromCString(rt, str, chars)
             return getLocal<CompleteClassType>(rt, "is");
         }
@@ -1151,7 +1151,7 @@ registerOpaqueExpression(
 
             let str = getLocal<CompleteClassType>(rt, "str");
 
-            rt.sim.memory.heap.deleteObject(getDataPtr(str).getValue().rawValue);
+            rt.sim.memory.heap.deleteByAddress(getDataPtr(str).getValue().rawValue);
             copyFromCString(rt, str, chars)
             return getLocal<CompleteClassType>(rt, "is");
         }
@@ -1173,7 +1173,7 @@ registerOpaqueExpression(
                 return rec;
             }
 
-            rt.sim.memory.heap.deleteObject(getDataPtr(rec).getValue().rawValue);
+            rt.sim.memory.heap.deleteByAddress(getDataPtr(rec).getValue().rawValue);
             let {charValues, validLength} = extractCharsFromCString(rt, getDataPtr(rhs).getValue());
             copyFromCString(rt, rec, charValues, validLength);
             return rec;
@@ -1195,7 +1195,7 @@ registerOpaqueExpression(
             let {charValues, validLength} = extractCharsFromCString(rt, cstr.getValue());
             copyFromCString(rt, rt.contextualReceiver, charValues, validLength);
 
-            rt.sim.memory.heap.deleteObject(oldArrAddr);
+            rt.sim.memory.heap.deleteByAddress(oldArrAddr);
 
             return rt.contextualReceiver;
         }
@@ -1211,7 +1211,7 @@ registerOpaqueExpression(
             let rec = rt.contextualReceiver;
             let c = getLocal<Char>(rt, "c");
             
-            rt.sim.memory.heap.deleteObject(getDataPtr(rec).getValue().rawValue);
+            rt.sim.memory.heap.deleteByAddress(getDataPtr(rec).getValue().rawValue);
             copyFromCString(rt, rt.contextualReceiver, [c.getValue(), Char.NULL_CHAR]);
             return rt.contextualReceiver;
         }
@@ -1256,7 +1256,7 @@ registerOpaqueExpression(
             let c = getLocal<Char>(rt, "c");
             
             let orig = extractCharsFromCString(rt, getDataPtr(rt.contextualReceiver).getValue());
-            rt.sim.memory.heap.deleteObject(getDataPtr(rec).getValue().rawValue);
+            rt.sim.memory.heap.deleteByAddress(getDataPtr(rec).getValue().rawValue);
             copyFromCString(rt, rt.contextualReceiver, [...orig.charValues, c.getValue(), Char.NULL_CHAR], orig.validLength);
             return rt.contextualReceiver;
         }

@@ -197,7 +197,7 @@ abstract class TypeBase {
         return this instanceof PointerType;
     }
 
-    public isPointerToCompleteType(): this is PointerToCompleteType {
+    public isPointerToCompleteObjectType(): this is PointerToCompleteType {
         return this.isPointerType() && this.ptrTo.isCompleteObjectType();
     }
 
@@ -433,7 +433,7 @@ export function isPointerToType<T extends PotentiallyCompleteObjectType>(ctor: C
 }
 
 export function isPointerToCompleteType(type: Type): type is PointerToCompleteType {
-    return type.isPointerToCompleteType();
+    return type.isPointerToCompleteObjectType();
 }
 
 export function isArrayPointerType(type: Type): type is ArrayPointerType {
