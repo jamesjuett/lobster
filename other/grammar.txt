@@ -54,6 +54,11 @@
   }
 
   function track(obj: any, location: any, text: string) {
+    for(let key in obj) {
+      if (obj[key] === null) {
+        obj[key] = undefined;
+      }
+    }
     obj.source = {
       location : location,
       start : location.start.offset,
@@ -720,7 +725,7 @@ new_declarator_postfix
 
 
 new_initializer
-  = "(" ws args:exp_list? ws ")" {return {args:args || []};}
+  = "(" ws args:exp_list? ws ")" {return {construct_type:"direct_initializer", args:args || []};}
 
 
 exp_delete

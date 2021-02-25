@@ -685,6 +685,11 @@ export const CPPError = {
             //     return new CompilerNote(construct, NoteKind.ERROR, "expr.unary.overload_not_found", "An overloaded " + op + " operator for the type " + type + " cannot be found.");
             // }
         },
+        new: {
+            unsupported_type: function (construct: TranslationUnitConstruct, type: Type) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.input.unsupported_type", `The new operator cannot be used to create an object of type: ${type}`);
+            }
+        },
         delete: {
             no_destructor: function (construct: TranslationUnitConstruct, type: CompleteClassType) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.delete.no_destructor", "I can't find a destructor for the " + type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor.");
