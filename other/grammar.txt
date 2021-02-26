@@ -504,8 +504,7 @@ abs_declarator_simple
 
 
 dname
-  = n:name ! { return KEYWORDS.has(n.identifier); } { return n; }
-  / "~" ws n:class_name { return {identifier: "~"+n.identifier}; }
+  = id_expression
 
   /* / class_name
   / "~" ws class_name 
@@ -779,11 +778,12 @@ exp_primary
 
 id_expression
   = qualified_id
-  / unqualified_id
-
+  / n:unqualified_id ! { return KEYWORDS.has(n.identifier); } { return n; }
 
 unqualified_id
-  = name
+  = operator_function_id
+  / "~" ws n:class_name { return {construct_type: "unqualified_identifier", identifier: "~"+n.identifier}; }
+  / identifier
 
 qualified_id
   = n:nested_name_specifier ws u:unqualified_id {
@@ -807,7 +807,7 @@ name
 
 operator_function_id
   = "operator" ws op:overloadable_op
-{return track({identifier: "operator"+op, operator: op}, location(), text());}
+{return track({construct_type: "unqualified_identifier", identifier: "operator"+op, operator: op}, location(), text());}
 
 overloadable_op
   = "new[]"

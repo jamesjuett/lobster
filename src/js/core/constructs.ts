@@ -184,12 +184,18 @@ export function isMemberSpecificationContext(context: TranslationUnitContext) : 
     return isClassContext(context) && !!(context as MemberSpecificationContext).accessLevel;
 }
 
+export function createOutOfLineFunctionDefinitionContext(declarationContext: MemberSpecificationContext, newParent: TranslationUnitContext) {
+    return Object.assign({}, declarationContext, {
+        contextualScope: declarationContext.contextualScope.createAlternateParentProxy(newParent.contextualScope)
+    });
+}
+
 export interface MemberSpecificationContext extends ClassContext {
     readonly accessLevel: AccessSpecifier;
 }
 
-export function createMemberSpecificationContext(parentContext: ClassContext, accessLevel: AccessSpecifier): MemberSpecificationContext {
-    return Object.assign({}, parentContext, {
+export function createMemberSpecificationContext(classContext: ClassContext, accessLevel: AccessSpecifier): MemberSpecificationContext {
+    return Object.assign({}, classContext, {
         accessLevel: accessLevel
     });
 }

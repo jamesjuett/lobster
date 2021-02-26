@@ -458,11 +458,11 @@ export class Memory {
         var obj = new StaticObject(def, def.declaredEntity.type, this, this.staticTop);
         this.allocateObject(obj);
         this.staticTop += obj.size;
-        this.staticObjects[def.declaredEntity.qualifiedName] = obj;
+        this.staticObjects[def.declaredEntity.qualifiedName.str] = obj;
     }
 
     public staticLookup<T extends CompleteObjectType>(staticEntity: GlobalObjectEntity<T>) {
-        return <StaticObject<T>>this.staticObjects[staticEntity.qualifiedName];
+        return <StaticObject<T>>this.staticObjects[staticEntity.qualifiedName.str];
     }
 
     public allocateTemporaryObject<T extends CompleteObjectType>(tempEntity: TemporaryObjectEntity<T>) {
