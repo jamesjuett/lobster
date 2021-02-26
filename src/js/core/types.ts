@@ -7,6 +7,7 @@ import { ClassDefinition } from "./declarations";
 import { ClassScope } from "./entities";
 import { RuntimeExpression } from "./expressionBase";
 import { SimulationEvent } from "./Simulation";
+import { QualifiedName } from "./lexical";
 
 
 
@@ -1411,7 +1412,7 @@ class ClassTypeBase extends TypeBase implements Omit<ObjectTypeInterface, "size"
 
     public readonly precedence: number = 0;
     public readonly className: string;
-    public readonly qualifiedName: string;
+    public readonly qualifiedName: QualifiedName;
 
     private readonly classId: number;
     private readonly shared: ClassShared;
@@ -1421,7 +1422,7 @@ class ClassTypeBase extends TypeBase implements Omit<ObjectTypeInterface, "size"
     /** DO NOT USE. Exists only to ensure CompleteClassType is not structurally assignable to CompleteClassType */
     public readonly t_isComplete!: boolean;
 
-    public constructor(classId: number, className: string, qualifiedName: string, shared: ClassShared, isConst: boolean = false, isVolatile: boolean = false) {
+    public constructor(classId: number, className: string, qualifiedName: QualifiedName, shared: ClassShared, isConst: boolean = false, isVolatile: boolean = false) {
         super(isConst, isVolatile);
         this.classId = classId;
         this.className = className;
@@ -1555,6 +1556,7 @@ class ClassTypeBase extends TypeBase implements Omit<ObjectTypeInterface, "size"
 function sameClassType(thisClass: ClassTypeBase, otherClass: ClassTypeBase) {
     // Note the any casts are to grant "friend" access to private members of ClassTypeBase
     return (thisClass as any).classId === (otherClass as any).classId
+        || thisClass.qualifiedName === otherClass.qualifiedName
         || (!!(thisClass as any).shared.classDefinition && (thisClass as any).shared.classDefinition === (otherClass as any).shared.classDefinition);
 }
 
@@ -1582,7 +1584,7 @@ export type PotentiallyCompleteClassType = IncompleteClassType | CompleteClassTy
 
 let nextClassId = 0;
 
-export function createClassType(className: string, qualifiedName: string) : IncompleteClassType {
+export function createClassType(className: string, qualifiedName: QualifiedName) : IncompleteClassType {
     return <IncompleteClassType>new ClassTypeBase(nextClassId++, className, qualifiedName, {});
 }
 
