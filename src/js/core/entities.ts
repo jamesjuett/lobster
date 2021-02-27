@@ -59,7 +59,8 @@ export class Scope {
     public readonly children: { [index: string]: NamedScope | undefined } = {};
 
     public constructor(translationUnit: TranslationUnit, parent?: Scope) {
-        assert(!parent || translationUnit === parent.translationUnit);
+        // This assertion is no longer always true due to out-of-line function definitions
+        // assert(!parent || translationUnit === parent.translationUnit);
         this.translationUnit = translationUnit;
         this.parent = parent;
     }
