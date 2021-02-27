@@ -186,7 +186,8 @@ export function isMemberSpecificationContext(context: TranslationUnitContext) : 
 
 export function createOutOfLineFunctionDefinitionContext(declarationContext: MemberSpecificationContext, newParent: TranslationUnitContext) {
     return Object.assign({}, declarationContext, {
-        contextualScope: declarationContext.contextualScope.createAlternateParentProxy(newParent.contextualScope)
+        contextualScope: declarationContext.contextualScope.createAlternateParentProxy(newParent.contextualScope),
+        translationUnit: newParent.translationUnit
     });
 }
 

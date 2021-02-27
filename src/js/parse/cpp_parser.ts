@@ -2298,7 +2298,7 @@ function peg$parse(input: string, options?: IParseOptions) {
       if (s2 !== peg$FAILED) {
         s3 = peg$currPos;
         peg$silentFails++;
-        s4 = peg$parseidentifier();
+        s4 = peg$parseid_expression();
         peg$silentFails--;
         if (s4 === peg$FAILED) {
           s3 = undefined;
@@ -2493,7 +2493,7 @@ function peg$parse(input: string, options?: IParseOptions) {
     if (s1 !== peg$FAILED) {
       s2 = peg$currPos;
       peg$silentFails++;
-      s3 = peg$parseidentifier();
+      s3 = peg$parseid_expression();
       peg$silentFails--;
       if (s3 === peg$FAILED) {
         s2 = undefined;
@@ -2602,7 +2602,7 @@ function peg$parse(input: string, options?: IParseOptions) {
         if (s1 !== peg$FAILED) {
           s2 = peg$currPos;
           peg$silentFails++;
-          s3 = peg$parseidentifier();
+          s3 = peg$parseid_expression();
           peg$silentFails--;
           if (s3 === peg$FAILED) {
             s2 = undefined;
@@ -2667,7 +2667,7 @@ function peg$parse(input: string, options?: IParseOptions) {
           if (s1 !== peg$FAILED) {
             s2 = peg$currPos;
             peg$silentFails++;
-            s3 = peg$parseidentifier();
+            s3 = peg$parseid_expression();
             peg$silentFails--;
             if (s3 === peg$FAILED) {
               s2 = undefined;
@@ -3003,7 +3003,7 @@ function peg$parse(input: string, options?: IParseOptions) {
         if (s5 !== peg$FAILED) {
           s6 = peg$currPos;
           peg$silentFails++;
-          s7 = peg$parseidentifier();
+          s7 = peg$parseid_expression();
           peg$silentFails--;
           if (s7 === peg$FAILED) {
             s6 = undefined;
@@ -3036,7 +3036,7 @@ function peg$parse(input: string, options?: IParseOptions) {
           if (s5 !== peg$FAILED) {
             s6 = peg$currPos;
             peg$silentFails++;
-            s7 = peg$parseidentifier();
+            s7 = peg$parseid_expression();
             peg$silentFails--;
             if (s7 === peg$FAILED) {
               s6 = undefined;
@@ -3094,7 +3094,7 @@ function peg$parse(input: string, options?: IParseOptions) {
         if (s5 !== peg$FAILED) {
           s6 = peg$currPos;
           peg$silentFails++;
-          s7 = peg$parseidentifier();
+          s7 = peg$parseid_expression();
           peg$silentFails--;
           if (s7 === peg$FAILED) {
             s6 = undefined;
@@ -3127,7 +3127,7 @@ function peg$parse(input: string, options?: IParseOptions) {
           if (s5 !== peg$FAILED) {
             s6 = peg$currPos;
             peg$silentFails++;
-            s7 = peg$parseidentifier();
+            s7 = peg$parseid_expression();
             peg$silentFails--;
             if (s7 === peg$FAILED) {
               s6 = undefined;
@@ -5299,7 +5299,7 @@ function peg$parse(input: string, options?: IParseOptions) {
       if (s2 !== peg$FAILED) {
         s3 = peg$currPos;
         peg$silentFails++;
-        s4 = peg$parseidentifier();
+        s4 = peg$parseid_expression();
         peg$silentFails--;
         if (s4 === peg$FAILED) {
           s3 = undefined;
@@ -5379,7 +5379,7 @@ function peg$parse(input: string, options?: IParseOptions) {
         if (s2 !== peg$FAILED) {
           s3 = peg$currPos;
           peg$silentFails++;
-          s4 = peg$parseidentifier();
+          s4 = peg$parseid_expression();
           peg$silentFails--;
           if (s4 === peg$FAILED) {
             s3 = undefined;
@@ -5429,7 +5429,7 @@ function peg$parse(input: string, options?: IParseOptions) {
           if (s2 !== peg$FAILED) {
             s3 = peg$currPos;
             peg$silentFails++;
-            s4 = peg$parseidentifier();
+            s4 = peg$parseid_expression();
             peg$silentFails--;
             if (s4 === peg$FAILED) {
               s3 = undefined;
@@ -5509,7 +5509,7 @@ function peg$parse(input: string, options?: IParseOptions) {
             if (s2 !== peg$FAILED) {
               s3 = peg$currPos;
               peg$silentFails++;
-              s4 = peg$parseidentifier();
+              s4 = peg$parseid_expression();
               peg$silentFails--;
               if (s4 === peg$FAILED) {
                 s3 = undefined;
@@ -11524,7 +11524,7 @@ function peg$parse(input: string, options?: IParseOptions) {
     if (s1 !== peg$FAILED) {
       s2 = peg$currPos;
       peg$silentFails++;
-      s3 = peg$parseidentifier();
+      s3 = peg$parseid_expression();
       peg$silentFails--;
       if (s3 === peg$FAILED) {
         s2 = undefined;
@@ -11623,7 +11623,7 @@ function peg$parse(input: string, options?: IParseOptions) {
           if (s2 !== peg$FAILED) {
             s3 = peg$currPos;
             peg$silentFails++;
-            s4 = peg$parseidentifier();
+            s4 = peg$parseid_expression();
             peg$silentFails--;
             if (s4 === peg$FAILED) {
               s3 = undefined;
