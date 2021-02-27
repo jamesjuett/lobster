@@ -674,8 +674,8 @@ export class FileEditor {
     public addMark(sourceRef: SourceReference, cssClass: string){
         let from = {line: sourceRef.line-1, ch: sourceRef.column - 1};
         let to = {line: sourceRef.line-1, ch: sourceRef.column - 1 + sourceRef.end - sourceRef.start};
-        var from2 = this.doc.posFromIndex(sourceRef.start);
-        var to2 = this.doc.posFromIndex(sourceRef.end);
+        // var from = this.doc.posFromIndex(sourceRef.start);
+        // var to = this.doc.posFromIndex(sourceRef.end);
         return this.doc.markText(from, to, {startStyle: "begin", endStyle: "end", className: "codeMark " + cssClass});
     }
 
