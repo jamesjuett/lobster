@@ -210,10 +210,10 @@ using namespace std;
 
 int main() {
 
-// TODO: Put your code here!
+  // TODO: Put your code here!
 
 
-cout << "done!" << endl;
+  cout << "done!" << endl;
 }`,
         checkpoints: [
             new IsCompiledCheckpoint("Compiles"),
@@ -331,17 +331,17 @@ int main() {
 using namespace std;
 
 int main() {
-    int N = 5;
-  
-    // YOUR CODE HERE
-  
-  
-  
-  
-  
-  
-  
-  }`,
+  int N = 5;
+
+  // YOUR CODE HERE
+
+
+
+
+
+
+
+}`,
         checkpoints: [
             new StaticAnalysisCheckpoint("Nested Loops", (program: Program) => {
                 let outerLoop = findFirstConstruct(program, Predicates.byKinds(["for_statement", "while_statement"]));
@@ -405,6 +405,67 @@ int main() {
 }`,
         checkpoints: [
             // no checkpoints, just an example not an exercise
+        ]
+    },
+    "ch13_07_ex": {
+        starterCode: `#include <iostream>
+#include <string>
+using namespace std;
+
+int main() {
+  string dna = "AGACTGGGACT";
+  string pattern = "GAC";
+  string pattern2 = "ACT";
+  int PATTERN_LENGTH = 3;
+
+  // go through the dna string
+  for(int i=0; i < dna.length() - PATTERN_LENGTH + 1; ++i) { 
+
+    bool match = true;
+    for(int j=0; j < PATTERN_LENGTH; ++j) { 
+      // check if first pattern matches
+      if(dna[i+j] != pattern[j]) {
+        match = false;
+      }
+
+      // check if second pattern matches
+      // YOUR CODE HERE
+
+
+
+    }
+
+    // print out any matches for first pattern
+    if (match == true) {
+      cout << "Pattern 1: " << i << endl;
+    }
+
+    // print out any matches for second pattern
+    // YOUR CODE HERE
+
+
+
+  }
+}`,
+        checkpoints: [
+          new StaticAnalysisCheckpoint("Compare dna string to pattern2", (program: Program) => {
+            let outerLoop = findFirstConstruct(program, Predicates.byKinds(["for_statement"]));
+            if(outerLoop) {
+              let innerLoop = findFirstConstruct(outerLoop.body, Predicates.byKinds(["for_statement"]));
+              if(innerLoop) {
+                let ifStatements = findConstructs(innerLoop.body, Predicates.byKinds(["if_statement"]));
+                return ifStatements.length == 2;
+              }
+              return false;
+            }
+            return false;
+          }),
+          new OutputCheckpoint("Output \"Pattern Two\"", (output: string) => {
+            return output.includes("Pattern 2");
+          }, "", 5000),
+          new OutputCheckpoint("Correct Output", (output: string) => {
+            return output === "Pattern 1: 1\nPattern 2: 2\nPattern 1: 7\nPattern 2: 8\n";
+          }, "", 5000)
         ]
     },
     "ch14_02_ex": {
