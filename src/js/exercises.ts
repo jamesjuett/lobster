@@ -468,6 +468,35 @@ int main() {
           }, "", 5000)
         ]
     },
+    "ch14_01_ex": {
+      starterCode: `#include <iostream>
+using namespace std;
+      
+// Swap the values of a and b
+void swap(int a, int b) {
+  int oldA = a;
+  a = b;
+  b = oldA;
+}
+
+int main() {
+  int x = 2;
+  int y = 7;
+
+  // Swap the values of x and y
+  int oldX = x;
+  x = y;
+  y = oldX;
+  
+  swap(x, y);
+
+  cout << "x is now: " << x << endl;
+  cout << "y is now: " << y << endl;
+}`,
+      checkpoints: [
+          // no checkpoints, just an example not an exercise
+      ]
+  },
     "ch14_02_ex": {
         starterCode: `#include <iostream>
         using namespace std;
@@ -543,6 +572,63 @@ int main() {
   cout << "Circumference: " << circleCircumference(rad) << endl;
 }`
     },
+    "ch14_05_ex": {
+      starterCode: `#include <iostream>
+#include <string>
+using namespace std;
+
+// TODO: Write your function here
+
+
+
+
+
+int main() {
+
+  /* CODE FROM LAST CHAPTER - LOOKS FOR PATTERN IN DNA STRING
+
+  string dna = "AGACTGGGACT";
+  string pattern = "GAC";
+  int PATTERN_LENGTH = 3;
+
+  // go through the dna string
+  for(int i=0; i < dna.length() - PATTERN_LENGTH + 1; ++i) { 
+
+    //check if pattern matches
+    bool match = true;
+    for(int j=0; j < PATTERN_LENGTH; ++j) { 
+      if(dna[i+j] != pattern[j]) {
+        match = false;
+      }
+    }
+
+    // print out any matches for pattern
+    if (match == true) {
+      cout << "Pattern 1: " << i << endl;
+    }
+  }
+
+  END CODE FROM LAST CHAPTER */ 
+
+  // TODO: After you've created your function,
+  // uncomment the following lines to test your function
+
+  // cout << matchPattern("AGACTGGGACT", "GAC", 3) << endl; // should print out 1 (true)
+  // cout << matchPattern("AGACTGGGACT", "TTA", 3) << endl; // should print out 0 (false)
+  // cout << matchPattern("AGACTGGGACT", "GGGA", 4) << endl; // should print out 1 (true)
+
+}`,
+      checkpoints: [
+        new IsCompiledCheckpoint("Compiles"),
+        new StaticAnalysisCheckpoint("matchPattern Function", (program: Program) => {
+          let fn = findFirstConstruct(program, Predicates.byFunctionName("matchPattern"));
+          return !!fn;
+        }),
+        new OutputCheckpoint("Correct Output", (output: string) => {
+          return output === "1\n0\n1\n";
+        })
+      ]
+  },
     "ch15_ex_echo": {
         starterCode: `#include <iostream>
 #include <string>
