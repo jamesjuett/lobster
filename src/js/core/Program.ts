@@ -783,13 +783,6 @@ const LIBRARY_FILES : {[index:string]: SourceFile} = {
            : begin(other.begin), end(other.end) {}
         };
         
-    `, true),
-    iostream: new SourceFile("iostream.h", `
-        class ostream {};
-        ostream cout;
-        const char endl = '\\n';
-        class istream {};
-        istream cin;
     `, true)
 }
 

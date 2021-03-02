@@ -187,7 +187,10 @@ abstract class TypeBase {
     }
 
     public isIntegralType(): this is IntegralType {
-        return this instanceof IntegralType;
+        return this instanceof Char ||
+                this instanceof Int ||
+                this instanceof Size_t ||
+                this instanceof Bool;
     }
 
     public isFloatingPointType(): this is FloatingPointType {
@@ -833,16 +836,16 @@ export abstract class ArithmeticType extends SimpleType {
 
 }
 
-export type AnalyticArithmeticType = AnalyticIntegralType | AnalyticFloatingPointType;
+export type AnalyticArithmeticType = IntegralType | AnalyticFloatingPointType;
 
-export abstract class IntegralType extends ArithmeticType {
+abstract class IntegralTypeBase extends ArithmeticType {
 
 }
 
-export type AnalyticIntegralType = Char | Int | Size_t | Bool;
+export type IntegralType = Char | Int | Size_t | Bool;
 
 
-export class Char extends IntegralType {
+export class Char extends IntegralTypeBase {
     public static readonly CHAR = new Char();
 
     public readonly simpleType = "char";
@@ -884,7 +887,7 @@ export class Char extends IntegralType {
     }
 }
 
-export class Int extends IntegralType {
+export class Int extends IntegralTypeBase {
     public static readonly INT = new Int();
     public static readonly ZERO = new Value(0, Int.INT);
 
@@ -906,7 +909,7 @@ export class Int extends IntegralType {
     }
 };
 
-export class Size_t extends IntegralType {
+export class Size_t extends IntegralTypeBase {
     public readonly simpleType = "size_t";
     public readonly size = 8;
 
@@ -925,7 +928,7 @@ export class Size_t extends IntegralType {
     }
 }
 
-export class Bool extends IntegralType {
+export class Bool extends IntegralTypeBase {
     public static readonly BOOL = new Bool();
 
     public readonly simpleType = "bool";

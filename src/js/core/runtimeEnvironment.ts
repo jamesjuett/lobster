@@ -623,6 +623,7 @@ export class MemoryFrame {
     public readonly size: number;
 
     public readonly localObjects: readonly AutoObject[];
+    public readonly localObjectsByName: { [index: string]: AutoObject | undefined } = {};
 
     private readonly localObjectsByEntityId: { [index: number]: AutoObject } = {};
     private readonly localReferencesByEntityId: { [index: number]: CPPObject | undefined } = {};
@@ -656,6 +657,7 @@ export class MemoryFrame {
             let obj = new AutoObject(objEntity.definition, objEntity.type, memory, addr);
             this.memory.allocateObject(obj);
             this.localObjectsByEntityId[objEntity.entityId] = obj;
+            this.localObjectsByName[obj.name] = obj;
 
             // Move on to next address afterward
             addr += obj.size;

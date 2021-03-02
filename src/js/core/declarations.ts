@@ -52,10 +52,6 @@ export class StorageSpecifier extends BasicCPPConstruct<TranslationUnitContext, 
             this.addNote(CPPError.lobster.unsupported_feature(this, "static"));
         }
 
-        if (this.extern) {
-            this.addNote(CPPError.lobster.unsupported_feature(this, "extern"));
-        }
-
         if (this.thread_local) {
             this.addNote(CPPError.lobster.unsupported_feature(this, "thread_local"));
         }
@@ -548,6 +544,8 @@ export abstract class SimpleDeclaration<ContextType extends TranslationUnitConte
     public readonly initializer?: Initializer;
     public abstract readonly declaredEntity?: CPPEntity;
 
+    protected readonly allowsExtern: boolean = false;
+
     protected constructor(context: ContextType, ast: SimpleDeclarationASTNode | undefined, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers) {
         super(context, ast);
@@ -568,6 +566,10 @@ export abstract class SimpleDeclaration<ContextType extends TranslationUnitConte
             else {
                 this.addNote(CPPError.declaration.virtual_prohibited(this));
             }
+        }
+
+        if (this.storageSpecifier.extern && !this.allowsExtern) {
+            this.addNote(CPPError.declaration.storage.extern_prohibited(this));
         }
     }
 
