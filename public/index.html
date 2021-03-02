@@ -32,14 +32,14 @@
     <script src="https://cdn.jsdelivr.net/npm/js-cookie@2/src/js.cookie.min.js"></script>
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="css/buttons.css?v=12">
-    <link rel="stylesheet" href="css/main.css?v=12">
-    <link rel="stylesheet" href="css/code.css?v=12">
-    <link rel="stylesheet" href="css/exercises.css?v=12">
-    <link rel="stylesheet" href="css/frontend.css?v=12">
+    <link rel="stylesheet" href="css/buttons.css?v=13">
+    <link rel="stylesheet" href="css/main.css?v=13">
+    <link rel="stylesheet" href="css/code.css?v=13">
+    <link rel="stylesheet" href="css/exercises.css?v=13">
+    <link rel="stylesheet" href="css/frontend.css?v=13">
 
     <!-- Main Script -->
-    <script src = "js/main.js?v=12"></script>
+    <script src = "js/main.js?v=13"></script>
 
 </head>
 
@@ -165,6 +165,29 @@
             <div style="text-align: right">
                 <button class="btn btn-default" data-dismiss="modal">Cancel</button>
                 <button type="submit" class="btn btn-primary">Save</button>
+            </div>
+        </form>
+        </div>
+    </div>
+    </div>
+</div>
+
+<div id="lobster-project-add-file-modal" class="modal fade" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+    <div class="modal-content">
+        <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title">Add File</h4>
+        </div>
+        <div class="modal-body">
+        <form class="form" id="lobster-project-add-file-form" >
+            <label for="lobster-project-add-file-name" class="control-label">File Name</label>
+            <br />
+            <input type="text" minlength="1" maxlength="50" class="form-control" id="lobster-project-add-file-name" required>
+            <br />
+            <div style="text-align: right">
+                <button class="btn btn-default" data-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary">Add</button>
             </div>
         </form>
         </div>

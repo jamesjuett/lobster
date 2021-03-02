@@ -7,6 +7,7 @@ import { ClassDefinition } from "./declarations";
 import { ClassScope } from "./entities";
 import { RuntimeExpression } from "./expressionBase";
 import { SimulationEvent } from "./Simulation";
+import { QualifiedName } from "./lexical";
 
 
 
@@ -186,7 +187,10 @@ abstract class TypeBase {
     }
 
     public isIntegralType(): this is IntegralType {
-        return this instanceof IntegralType;
+        return this instanceof Char ||
+                this instanceof Int ||
+                this instanceof Size_t ||
+                this instanceof Bool;
     }
 
     public isFloatingPointType(): this is FloatingPointType {
@@ -832,16 +836,16 @@ export abstract class ArithmeticType extends SimpleType {
 
 }
 
-export type AnalyticArithmeticType = AnalyticIntegralType | AnalyticFloatingPointType;
+export type AnalyticArithmeticType = IntegralType | AnalyticFloatingPointType;
 
-export abstract class IntegralType extends ArithmeticType {
+abstract class IntegralTypeBase extends ArithmeticType {
 
 }
 
-export type AnalyticIntegralType = Char | Int | Size_t | Bool;
+export type IntegralType = Char | Int | Size_t | Bool;
 
 
-export class Char extends IntegralType {
+export class Char extends IntegralTypeBase {
     public static readonly CHAR = new Char();
 
     public readonly simpleType = "char";
@@ -883,7 +887,7 @@ export class Char extends IntegralType {
     }
 }
 
-export class Int extends IntegralType {
+export class Int extends IntegralTypeBase {
     public static readonly INT = new Int();
     public static readonly ZERO = new Value(0, Int.INT);
 
@@ -905,7 +909,7 @@ export class Int extends IntegralType {
     }
 };
 
-export class Size_t extends IntegralType {
+export class Size_t extends IntegralTypeBase {
     public readonly simpleType = "size_t";
     public readonly size = 8;
 
@@ -924,7 +928,7 @@ export class Size_t extends IntegralType {
     }
 }
 
-export class Bool extends IntegralType {
+export class Bool extends IntegralTypeBase {
     public static readonly BOOL = new Bool();
 
     public readonly simpleType = "bool";
@@ -1411,7 +1415,7 @@ class ClassTypeBase extends TypeBase implements Omit<ObjectTypeInterface, "size"
 
     public readonly precedence: number = 0;
     public readonly className: string;
-    public readonly qualifiedName: string;
+    public readonly qualifiedName: QualifiedName;
 
     private readonly classId: number;
     private readonly shared: ClassShared;
@@ -1421,7 +1425,7 @@ class ClassTypeBase extends TypeBase implements Omit<ObjectTypeInterface, "size"
     /** DO NOT USE. Exists only to ensure CompleteClassType is not structurally assignable to CompleteClassType */
     public readonly t_isComplete!: boolean;
 
-    public constructor(classId: number, className: string, qualifiedName: string, shared: ClassShared, isConst: boolean = false, isVolatile: boolean = false) {
+    public constructor(classId: number, className: string, qualifiedName: QualifiedName, shared: ClassShared, isConst: boolean = false, isVolatile: boolean = false) {
         super(isConst, isVolatile);
         this.classId = classId;
         this.className = className;
@@ -1555,6 +1559,7 @@ class ClassTypeBase extends TypeBase implements Omit<ObjectTypeInterface, "size"
 function sameClassType(thisClass: ClassTypeBase, otherClass: ClassTypeBase) {
     // Note the any casts are to grant "friend" access to private members of ClassTypeBase
     return (thisClass as any).classId === (otherClass as any).classId
+        || thisClass.qualifiedName === otherClass.qualifiedName
         || (!!(thisClass as any).shared.classDefinition && (thisClass as any).shared.classDefinition === (otherClass as any).shared.classDefinition);
 }
 
@@ -1582,7 +1587,7 @@ export type PotentiallyCompleteClassType = IncompleteClassType | CompleteClassTy
 
 let nextClassId = 0;
 
-export function createClassType(className: string, qualifiedName: string) : IncompleteClassType {
+export function createClassType(className: string, qualifiedName: QualifiedName) : IncompleteClassType {
     return <IncompleteClassType>new ClassTypeBase(nextClassId++, className, qualifiedName, {});
 }
 

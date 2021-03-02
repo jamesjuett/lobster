@@ -667,14 +667,14 @@ export class RuntimeLocalDeallocator extends RuntimeConstruct<CompiledLocalDeall
     }
 
     protected upNextImpl() {
-
-        let locals = this.model.context.blockLocals.localVariables;
-
         if (this.justDestructed) {
             this.sim.memory.killObject(this.justDestructed, this);
             this.justDestructed = undefined;
         }
+    }
 
+    public stepForwardImpl() {
+        let locals = this.model.context.blockLocals.localVariables;
         while(this.index >= 0) {
             // Destroy local at given index
             let local = locals[this.index];
@@ -711,10 +711,6 @@ export class RuntimeLocalDeallocator extends RuntimeConstruct<CompiledLocalDeall
         }
 
         this.startCleanup();
-    }
-
-    public stepForwardImpl() {
-
     }
 }
 

@@ -1,17 +1,21 @@
 
 .CodeMirror {
-	height: 100% !important;
+  height: 100% !important;
 }
 
 .lobster-ex-checkpoints .panel-body {
-	white-space: nowrap;
-	overflow-x: auto;
+  white-space: nowrap;
+  overflow-x: auto;
 }
 
 .nav-tabs > li.disabled {
-	cursor: not-allowed;
+  cursor: not-allowed;
 }
 
 .nav-tabs > li.disabled > a {
-	pointer-events: none;
+  pointer-events: none;
+}
+
+.lobster-simulation-height {
+  height: calc(100vh - 250px);
 }

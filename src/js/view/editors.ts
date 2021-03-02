@@ -4,6 +4,7 @@ import 'codemirror/lib/codemirror.css';
 import '../../css/lobster.css';
 import 'codemirror/mode/clike/clike.js';
 import 'codemirror/addon/display/fullscreen.js';
+import 'codemirror/addon/comment/comment.js'
 import 'codemirror/keymap/sublime.js'
 // import '../../styles/components/_codemirror.css';
 import { assert, Mutable, asMutable } from "../util/util";
@@ -35,7 +36,7 @@ export class ProjectEditor {
     public readonly isOpen: boolean = false;
 
     private filesElem: JQuery;
-    private fileTabsMap: {[index: string]: JQuery} = {};
+    private fileButtonsMap: {[index: string]: JQuery} = {};
     private fileEditorsMap: {[index: string]: FileEditor | undefined} = {};
 
     private currentFileEditor?: string; 
@@ -59,7 +60,7 @@ export class ProjectEditor {
                 "Ctrl-S" : () => {
                     this.project.requestSave();
                 },
-
+                "Ctrl-/" : (editor) => editor.execCommand('toggleComment')
             },
             gutters: ["CodeMirror-linenumbers", "breakpoints", "errors"]
         });
@@ -72,10 +73,10 @@ export class ProjectEditor {
         this.filesElem = element.find(".project-files");
         assert(this.filesElem.length > 0, "CompilationOutlet must contain an element with the 'translation-units-list' class.");
 
-        let addFileButton = $('<a><i class="bi bi-file-earmark-plus"></i></a>');
-        let liContainer = $("<span></span>");
+        let addFileButton = $('<a data-toggle="modal" data-target="#lobster-project-add-file-modal"><i class="bi bi-file-earmark-plus"></i></a>');
+        let liContainer = $("<li></li>");
         liContainer.append(addFileButton);
-        this.filesElem.add(liContainer);
+        this.filesElem.append(liContainer);
 
         this.setProject(project);
 
@@ -154,7 +155,7 @@ export class ProjectEditor {
     //     this.recompile();
     // }
 
-    @messageResponse("fileAdded")
+    @messageResponse("fileAdded", "unwrap")
     private onFileAdded(file: SourceFile) {
 
         // Create a FileEditor object to manage editing the file
@@ -164,14 +165,17 @@ export class ProjectEditor {
 
         // Create tab to select this file for viewing/editing
         let item = $('<li></li>');
-        let link = $('<a href="" data-toggle="pill">' + file.name + '</a>');
-        link.on("shown.bs.tab", () => this.selectFile(file.name));
+        let link = $('<a>' + file.name + '</a>');
+        link.on("click", () => this.selectFile(file.name));
         item.append(link);
-        this.fileTabsMap[file.name] = link;
+        this.fileButtonsMap[file.name] = item;
         this.filesElem.append(item);
 
-        this.filesElem.children().first().addClass("active"); // TODO: should the FileEditor be doing this instead?
-        this.selectFile(file.name);
+        if (Object.keys(this.fileButtonsMap).length === 1) {
+            // The first file added
+            item.addClass("active");
+            this.selectFile(file.name);
+        }
 
     }
 
@@ -182,12 +186,15 @@ export class ProjectEditor {
         if(!fileEd) {
             return;
         }
+        
+        // remove the li containing the link
+        this.fileButtonsMap[file.name].remove();
+        delete this.fileButtonsMap[file.name];
+        delete this.fileEditorsMap[file.name];
 
         if (this.currentFileEditor === file.name) {
-            this.selectFirstFile()
+            this.selectFirstFile();
         }
-        
-        this.fileTabsMap[file.name].remove();
 
         removeListener(fileEd, this);
     }
@@ -231,9 +238,11 @@ export class ProjectEditor {
 
     public selectFile(filename: string) {
         assert(this.fileEditorsMap[filename], `File ${filename} does not exist in this project.`);
+        this.codeMirrorElem.show();
         this.codeMirror.swapDoc(this.fileEditorsMap[filename]!.doc);
         this.currentFileEditor = filename;
-        this.codeMirrorElem.show();
+        this.filesElem.children().removeClass("active");
+        this.fileButtonsMap[filename].addClass("active");
     }
 
     public selectFirstFile() {
@@ -258,10 +267,9 @@ export class ProjectEditor {
         let name = sourceRef.sourceFile.name;
         let editor = this.fileEditorsMap[name];
         if (editor) {
-            this.fileTabsMap[name].tab("show");
+            this.selectFile(name);
             editor.gotoSourceReference(sourceRef);
         }
-
     }
 
     // @messageResponse()
@@ -626,7 +634,7 @@ export class FileEditor {
 
         CodeMirror.on(this.doc, "change", () => { this.onEdit(); });
 
-        FileEditor.instances.push(this);
+        // FileEditor.instances.push(this);
     }
 
     // public setFile() {
@@ -664,8 +672,10 @@ export class FileEditor {
     }
 
     public addMark(sourceRef: SourceReference, cssClass: string){
-        var from = this.doc.posFromIndex(sourceRef.start);
-        var to = this.doc.posFromIndex(sourceRef.end);
+        let from = {line: sourceRef.line-1, ch: sourceRef.column - 1};
+        let to = {line: sourceRef.line-1, ch: sourceRef.column - 1 + sourceRef.end - sourceRef.start};
+        // var from = this.doc.posFromIndex(sourceRef.start);
+        // var to = this.doc.posFromIndex(sourceRef.end);
         return this.doc.markText(from, to, {startStyle: "begin", endStyle: "end", className: "codeMark " + cssClass});
     }
 

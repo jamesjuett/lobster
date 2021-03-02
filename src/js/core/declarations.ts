@@ -1,12 +1,12 @@
-import { BasicCPPConstruct, ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, BlockContext, createClassContext, ClassContext, isClassContext, createMemberSpecificationContext, MemberSpecificationContext, isMemberSpecificationContext, createImplicitContext, isMemberFunctionContext, EMPTY_SOURCE, createBlockContext, isMemberBlockContext } from "./constructs";
+import { BasicCPPConstruct, ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, BlockContext, createClassContext, ClassContext, isClassContext, createMemberSpecificationContext, MemberSpecificationContext, isMemberSpecificationContext, createImplicitContext, isMemberFunctionContext, EMPTY_SOURCE, createBlockContext, isMemberBlockContext, createOutOfLineFunctionDefinitionContext } from "./constructs";
 import { CPPError, Note, CompilerNote, NoteHandler } from "./errors";
 import { asMutable, assertFalse, assert, Mutable, Constructor, assertNever, DiscriminateUnion } from "../util/util";
 import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, CompleteObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, PotentialReturnType, PeelReference, AtomicType, ArithmeticType, IntegralType, FloatingPointType, CompleteClassType, PotentiallyCompleteClassType, IncompleteClassType, PotentiallyCompleteObjectType, ReferredType, CompleteParameterType, IncompleteObjectType, CompleteReturnType, isAtomicType, isCompleteClassType, isBoundedArrayType, covariantType } from "./types";
 import { Initializer, DefaultInitializer, DirectInitializer, InitializerASTNode, CompiledInitializer, DirectInitializerASTNode, CopyInitializerASTNode, CtorInitializer, CompiledCtorInitializer, ListInitializer, ListInitializerASTNode } from "./initializers";
-import { LocalObjectEntity, LocalReferenceEntity, GlobalObjectEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity, BlockScope, ClassEntity, MemberObjectEntity, MemberReferenceEntity, MemberVariableEntity, ObjectEntityType, CompleteClassEntity } from "./entities";
+import { LocalObjectEntity, LocalReferenceEntity, GlobalObjectEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity, BlockScope, ClassEntity, MemberObjectEntity, MemberReferenceEntity, MemberVariableEntity, ObjectEntityType, CompleteClassEntity, ClassScope } from "./entities";
 import { ExpressionASTNode, NumericLiteralASTNode, createExpressionFromAST, parseNumericLiteralValueFromAST, isConvertible } from "./expressions";
 import { BlockASTNode, Block, createStatementFromAST, CompiledBlock } from "./statements";
-import { UnqualifiedIdentifierASTNode, checkIdentifier, QualifiedIdentifierASTNode, IdentifierASTNode, LexicalIdentifier, astToIdentifier, stringifyIdentifier } from "./lexical";
+import { UnqualifiedIdentifierASTNode, checkIdentifier, QualifiedIdentifierASTNode, IdentifierASTNode, LexicalIdentifier, astToIdentifier, identifierToString, QualifiedName, UnqualifiedName, isUnqualifiedName, getUnqualifiedName, composeQualifiedName, getQualifiedName, isQualifiedName } from "./lexical";
 import { CPPObject, ArraySubobject } from "./objects";
 import { Expression } from "./expressionBase";
 import { RuntimeFunction } from "./functions";
@@ -50,10 +50,6 @@ export class StorageSpecifier extends BasicCPPConstruct<TranslationUnitContext, 
 
         if (this.static) {
             this.addNote(CPPError.lobster.unsupported_feature(this, "static"));
-        }
-
-        if (this.extern) {
-            this.addNote(CPPError.lobster.unsupported_feature(this, "extern"));
         }
 
         if (this.thread_local) {
@@ -548,6 +544,8 @@ export abstract class SimpleDeclaration<ContextType extends TranslationUnitConte
     public readonly initializer?: Initializer;
     public abstract readonly declaredEntity?: CPPEntity;
 
+    protected readonly allowsExtern: boolean = false;
+
     protected constructor(context: ContextType, ast: SimpleDeclarationASTNode | undefined, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers) {
         super(context, ast);
@@ -555,12 +553,11 @@ export abstract class SimpleDeclaration<ContextType extends TranslationUnitConte
         this.attach(this.typeSpecifier = typeSpec);
         this.attach(this.storageSpecifier = storageSpec);
         this.otherSpecifiers = otherSpecs;
+
+        assert(declarator.name, "Simple declarations must have a name.");
         this.attach(this.declarator = declarator);
 
-        this.name = declarator.name!; // TODO: remove non-null assertion here once typescript supports assert based control flow analysis (soon)
-        if (!declarator.name) {
-            return assertFalse("Simple declarations must have a name.");
-        }
+        this.name = getUnqualifiedName(declarator.name);
 
         if (otherSpecs.virtual) {
             if (declarator.type?.isFunctionType() && isClassContext(context)) {
@@ -569,6 +566,10 @@ export abstract class SimpleDeclaration<ContextType extends TranslationUnitConte
             else {
                 this.addNote(CPPError.declaration.virtual_prohibited(this));
             }
+        }
+
+        if (this.storageSpecifier.extern && !this.allowsExtern) {
+            this.addNote(CPPError.declaration.storage.extern_prohibited(this));
         }
     }
 
@@ -694,6 +695,7 @@ export class FunctionDeclaration extends SimpleDeclaration {
 
     public readonly type: FunctionType;
     public readonly declaredEntity: FunctionEntity;
+    public readonly qualifiedName: QualifiedName;
     public readonly initializer: undefined;
 
     public readonly parameterDeclarations: readonly ParameterDeclaration[];
@@ -712,10 +714,14 @@ export class FunctionDeclaration extends SimpleDeclaration {
 
         this.type = type;
 
+        assert(declarator.name);
+
         let overrideTarget: FunctionEntity | undefined;
         let containingClass: ClassEntity | undefined;
+
         if (isClassContext(context)) {
             containingClass = context.containingClass;
+            this.qualifiedName = composeQualifiedName(containingClass.qualifiedName, declarator.name);
             this.isMemberFunction = true;
             this.isVirtual = !!otherSpecs.virtual;
             this.isPureVirtual = !!declarator.isPureVirtual;
@@ -743,6 +749,10 @@ export class FunctionDeclaration extends SimpleDeclaration {
                 }
                 base = base.classDefinition.baseClass;
             }
+        }
+        else {
+            this.qualifiedName = getQualifiedName(declarator.name);
+            // non-class context
         }
 
         if (this.isOverride && !overrideTarget) {
@@ -1022,12 +1032,16 @@ export class GlobalVariableDefinition extends VariableDefinitionBase<Translation
     public readonly type: VariableDefinitionType;
     public readonly declaredEntity!: GlobalObjectEntity<CompleteObjectType>; // TODO definite assignment assertion can be removed when global references are supported
 
+    public readonly qualifiedName: QualifiedName;
+
     public constructor(context: TranslationUnitContext, ast: NonMemberSimpleDeclarationASTNode | undefined, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: VariableDefinitionType) {
 
         super(context, ast, typeSpec, storageSpec, declarator, otherSpecs);
 
         this.type = type;
+        assert(declarator.name);
+        this.qualifiedName = getQualifiedName(declarator.name);
 
         if (type.isReferenceType()) {
             this.addNote(CPPError.lobster.unsupported_feature(this, "globally scoped references"));
@@ -1095,7 +1109,11 @@ export class ParameterDeclaration extends BasicCPPConstruct<TranslationUnitConte
         this.attach(this.declarator = declarator);
         this.otherSpecifiers = otherSpecs;
 
-        this.name = declarator.name;
+        this.name = declarator.name && getUnqualifiedName(declarator.name);
+
+        if (declarator.name && isQualifiedName(declarator.name)) {
+            storageSpec.addNote(CPPError.declaration.parameter.storage_prohibited(storageSpec));
+        }
 
         if (!storageSpec.isEmpty) {
             storageSpec.addNote(CPPError.declaration.parameter.storage_prohibited(storageSpec));
@@ -1252,7 +1270,7 @@ export interface DeclaratorASTNode extends ASTNode {
     readonly reference?: DeclaratorASTNode;
     readonly const?: boolean;
     readonly volatile?: boolean;
-    readonly name?: UnqualifiedIdentifierASTNode;
+    readonly name?: IdentifierASTNode;
     readonly postfixes?: readonly (ArrayPostfixDeclaratorASTNode | FunctionPostfixDeclaratorASTNode)[];
 }
 
@@ -1264,7 +1282,7 @@ export interface DeclaratorInitASTNode extends DeclaratorASTNode {
 export class Declarator extends BasicCPPConstruct<TranslationUnitContext, DeclaratorASTNode> {
     public readonly construct_type = "declarator";
 
-    public readonly name?: string;
+    public readonly name?: UnqualifiedName | QualifiedName;
     public readonly type?: Type;
 
     public readonly baseType?: Type;
@@ -1307,14 +1325,40 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
     private determineNameAndType(ast: DeclaratorASTNode) {
 
         let findName: DeclaratorASTNode | undefined = ast;
+        let n: LexicalIdentifier;
         while (findName) {
             if (findName.name) {
-                (<Mutable<this>>this).name = findName.name.identifier.replace(/<.*>/g, ""); // remove template parameters
-                checkIdentifier(this, findName.name.identifier, this.notes);
+                n = astToIdentifier(findName.name);
+                if (isUnqualifiedName(n)) {
+                    n = n.replace(/<.*>/g, ""); // remove template parameters
+                }
+                else {
+                    let newComponents = n.components.map(component => component.replace(/<.*>/g, ""));
+                    n = {
+                        components: newComponents,
+                        str: newComponents.join("::")
+                    };
+                }
+                asMutable(this).name = n;
+                checkIdentifier(this, n, this.notes);
                 break;
             }
             findName = findName.pointer || findName.reference || findName.sub;
         }
+
+        if (this.name && isQualifiedName(this.name)) {
+            let le = this.context.program.getLinkedFunctionEntity(this.name);
+            if (le && isClassContext(le.firstDeclaration.context)) {
+                let className = le.firstDeclaration.context.containingClass.name;
+                className = className.replace(/<.*>/g, ""); // remove template parameters
+                if (getUnqualifiedName(this.name) === className) {
+                    (<Mutable<this>>this).hasConstructorName = true;
+                }
+                else if (getUnqualifiedName(this.name) === "~" + className){
+                    (<Mutable<this>>this).hasDestructorName = true;
+                }
+            }
+        } 
 
         if (this.name && isClassContext(this.context)) {
             let className = this.context.containingClass.name;
@@ -1538,7 +1582,7 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
         }
 
         // TODO clean up error immediately above and get rid of yucky cast below
-        return new FunctionType(type, <PotentialParameterType[]>paramTypes, this.context.containingClass && this.context.containingClass.type.cvQualified(!!postfix.const));
+        return new FunctionType(type, <PotentialParameterType[]>paramTypes, this.context.containingClass?.type.cvQualified(!!postfix.const));
     }
 
 }
@@ -1599,6 +1643,12 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, Funct
                 return decl;
             }
             declaration = decl;
+        }
+
+        // Consider "out-of-line" definitions as if they were in the class scope.
+        // Need to change the parent to the context in which the definition occurs, though.
+        if (isMemberSpecificationContext(declaration.context)) {
+            context = createOutOfLineFunctionDefinitionContext(declaration.context, context);
         }
 
         // Create implementation and body block (before params and body statements added yet)
@@ -1897,6 +1947,15 @@ function createFunctionDeclarationFromDefinitionAST(ast: FunctionDefinitionASTNo
     let declarator = Declarator.createFromAST(ast.declarator, context, baseType);
     let declaredType = declarator.type;
 
+    // if the declarator has a qualified name, we need to check to see if a previous
+    // declaration for the function already exists, and if so, use that one
+    if (declarator.name && isQualifiedName(declarator.name)) {
+        let prevEntity = context.program.getLinkedFunctionEntity(declarator.name);
+        if (prevEntity) {
+            return prevEntity.firstDeclaration;
+        }
+    }
+
     if (!declaredType?.isFunctionType()) {
         return new InvalidConstruct(context, ast, CPPError.declaration.func.definition_non_function_type);
     }
@@ -1940,15 +1999,17 @@ export class ClassDeclaration extends BasicCPPConstruct<TranslationUnitContext, 
     public readonly construct_type = "class_declaration";
 
     public readonly name: string;
+    public readonly qualifiedName: QualifiedName;
     public readonly key: ClassKey;
     public readonly type: PotentiallyCompleteClassType;
     public readonly declaredEntity: ClassEntity;
     // public readonly isDuplicateDeclaration: boolean = false;
 
-    public constructor(context: TranslationUnitContext, name: string, key: ClassKey) {
+    public constructor(context: TranslationUnitContext, name: LexicalIdentifier, key: ClassKey) {
         super(context, undefined);
 
-        this.name = name;
+        this.name = getUnqualifiedName(name);
+        this.qualifiedName = getQualifiedName(name);
         this.key = key;
 
         this.declaredEntity = new ClassEntity(this);
@@ -2708,7 +2769,7 @@ export class BaseSpecifier extends BasicCPPConstruct<TranslationUnitContext, Bas
             : this.context.translationUnit.qualifiedLookup(this.name);
 
         if (!lookupResult) {
-            this.addNote(CPPError.iden.not_found(this, stringifyIdentifier(this.name)));
+            this.addNote(CPPError.iden.not_found(this, identifierToString(this.name)));
         }
         else if (lookupResult.declarationKind === "class") {
             this.baseEntity = lookupResult;

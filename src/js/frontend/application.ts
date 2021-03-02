@@ -13,6 +13,7 @@ import axios from 'axios';
 import { CourseData, getCourses as getPublicCourses } from "./courses";
 import { ExerciseData, getFullExercise, saveExercise } from "./exercises";
 import { getExtras } from "../analysis/extras";
+import { SourceFile } from "../core/Program";
 
 
 
@@ -142,6 +143,15 @@ export class LobsterApplication {
                     contents: stringifyProjectContents(this.activeProject)
                 }
             );
+        });
+
+        
+        // Project Add File Modal
+        $("#lobster-project-add-file-form").on("submit", (e) => {
+            e.preventDefault();
+            let name = $("#lobster-project-add-file-name").val() as string;
+            this.activeProject.addFile(new SourceFile(name, "// " + name), false);
+            $("#lobster-project-add-file-modal").modal("hide");
         });
 
 

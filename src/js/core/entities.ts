@@ -11,6 +11,7 @@ import { Expression } from "./expressionBase";
 import { TranslationUnit } from "./Program";
 import { RuntimeFunction } from "./functions";
 import { NewObjectType, RuntimeNewExpression } from "./expressions";
+import { QualifiedName, UnqualifiedName } from "./lexical";
 
 
 
@@ -58,7 +59,8 @@ export class Scope {
     public readonly children: { [index: string]: NamedScope | undefined } = {};
 
     public constructor(translationUnit: TranslationUnit, parent?: Scope) {
-        assert(!parent || translationUnit === parent.translationUnit);
+        // This assertion is no longer always true due to out-of-line function definitions
+        // assert(!parent || translationUnit === parent.translationUnit);
         this.translationUnit = translationUnit;
         this.parent = parent;
     }
@@ -267,7 +269,7 @@ export class Scope {
      * @param options A set of options to customize the lookup process.
      * @returns 
      */
-    public lookup(name: string, options: NameLookupOptions = { kind: "normal" }): DeclaredScopeEntry | undefined {
+    public lookup(name: UnqualifiedName, options: NameLookupOptions = { kind: "normal" }): DeclaredScopeEntry | undefined {
         options = options || {};
 
         assert(!name.includes("::"), "Qualified name used with unqualified lookup function.");
@@ -414,6 +416,12 @@ export class ClassScope extends NamedScope {
     public constructor(translationUnit: TranslationUnit, name: string, parent?: Scope | ClassScope, base?: ClassScope) {
         super(translationUnit, name, parent);
         this.base = base;
+    }
+
+    public createAlternateParentProxy(newParent: Scope) {
+        let proxy = Object.create(this);
+        proxy.parent = newParent;
+        return proxy;
     }
 
     protected variableEntityCreated(newEntity: VariableEntity) {
@@ -831,7 +839,7 @@ export class GlobalObjectEntity<T extends CompleteObjectType = CompleteObjectTyp
     public readonly variableKind = "object";
     public readonly variableLocation = "global";
 
-    public readonly qualifiedName: string;
+    public readonly qualifiedName: QualifiedName;
     public readonly firstDeclaration: GlobalVariableDefinition;
     public readonly declarations: readonly GlobalVariableDefinition[];
     public readonly definition?: GlobalVariableDefinition;
@@ -845,7 +853,7 @@ export class GlobalObjectEntity<T extends CompleteObjectType = CompleteObjectTyp
         // Eventually, this constructor will take in a GlobalObjectDeclaration instead, but that would
         // require support for the extern keyword or static member variables (although that might be
         // a separate class entirely)
-        this.qualifiedName = "::" + this.name;
+        this.qualifiedName = decl.qualifiedName;
     }
 
     public toString() {
@@ -1429,7 +1437,7 @@ let FE_overrideID = 0;
 export class FunctionEntity<T extends FunctionType = FunctionType> extends DeclaredEntityBase<T> {
     public readonly declarationKind = "function";
 
-    public readonly qualifiedName: string;
+    public readonly qualifiedName: QualifiedName;
     public readonly firstDeclaration: FunctionDeclaration;
     public readonly declarations: readonly FunctionDeclaration[];
     public readonly definition?: FunctionDefinition;
@@ -1462,7 +1470,7 @@ export class FunctionEntity<T extends FunctionType = FunctionType> extends Decla
         this.isPureVirtual = false;
         this.isConstructor = decl.isConstructor;
         this.isDestructor = decl.isDestructor;
-        this.qualifiedName = "::" + this.name;
+        this.qualifiedName = decl.qualifiedName;
 
         this.isImplicit = !!decl.context.implicit;
         this.isUserDefined = !decl.context.implicit;
@@ -1470,7 +1478,7 @@ export class FunctionEntity<T extends FunctionType = FunctionType> extends Decla
         this.overrideID = FE_overrideID++;
         if (this.isMemberFunction) {
             assert(isClassContext(decl.context));
-            this.overriders[decl.context.containingClass.qualifiedName] = this;
+            this.overriders[decl.context.containingClass.qualifiedName.str] = this;
         }
     }
 
@@ -1487,7 +1495,7 @@ export class FunctionEntity<T extends FunctionType = FunctionType> extends Decla
     }
 
     public registerOverrider(containingClass: ClassEntity, overrider: FunctionEntity) {
-        this.overriders[containingClass.qualifiedName] = overrider;
+        this.overriders[containingClass.qualifiedName.str] = overrider;
         this.overrideTarget?.registerOverrider(containingClass, overrider);
     }
 
@@ -1598,7 +1606,7 @@ export class FunctionEntity<T extends FunctionType = FunctionType> extends Decla
     }
 
     public isMain() {
-        return this.qualifiedName === "::main";
+        return this.qualifiedName.str === "main";
     }
 
     public getDynamicallyBoundFunction(receiver: CPPObject<CompleteClassType> | undefined) {
@@ -1614,7 +1622,7 @@ export class FunctionEntity<T extends FunctionType = FunctionType> extends Decla
             let dynamicType: CompleteClassType | undefined = receiver.type;
             let finalOverrider: FunctionEntity | undefined;
             while (!finalOverrider && dynamicType) {
-                finalOverrider = this.overriders[dynamicType.qualifiedName];
+                finalOverrider = this.overriders[dynamicType.qualifiedName.str];
                 dynamicType = dynamicType.classDefinition.baseClass;
             }
             return finalOverrider?.definition || this.definition;
@@ -1650,7 +1658,7 @@ export class FunctionEntity<T extends FunctionType = FunctionType> extends Decla
 export class ClassEntity extends DeclaredEntityBase<PotentiallyCompleteClassType> {
     public readonly declarationKind = "class";
 
-    public readonly qualifiedName: string;
+    public readonly qualifiedName: QualifiedName;
     public readonly firstDeclaration: ClassDeclaration;
     public readonly declarations: readonly ClassDeclaration[];
     public readonly definition?: ClassDefinition;
@@ -1660,13 +1668,12 @@ export class ClassEntity extends DeclaredEntityBase<PotentiallyCompleteClassType
         // Ask the type system for the appropriate type.
         // Because Lobster only supports mechanisms for class declaration that yield
         // classes with external linkage, it is sufficient to use the fully qualified
-        // class name to distinguish types from each other. But, because Lobster does
-        // not support namespaces, the unqualified name is also sufficient.
+        // class name to distinguish types from each other.
 
-        super(createClassType(decl.name, "::" + decl.name), decl.name);
+        super(createClassType(decl.name, decl.qualifiedName), decl.name);
         this.firstDeclaration = decl;
         this.declarations = [decl];
-        this.qualifiedName = "::" + this.name;
+        this.qualifiedName = decl.qualifiedName;
     }
 
     public isComplete() : this is CompleteClassEntity {
@@ -1725,10 +1732,6 @@ export class ClassEntity extends DeclaredEntityBase<PotentiallyCompleteClassType
         else {
             this.declarations.forEach((decl) => decl.addNote(CPPError.link.classes.def_not_found(decl, this)));
         }
-    }
-
-    public isMain() {
-        return this.qualifiedName === "::main";
     }
 
     public isTyped<NarrowedT extends PotentiallyCompleteClassType>(predicate: (t:PotentiallyCompleteClassType) => t is NarrowedT) : this is ClassEntity;

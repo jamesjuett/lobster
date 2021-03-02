@@ -13,6 +13,7 @@ import { registerOpaqueExpression, RuntimeOpaqueExpression } from "./opaqueExpre
 import { getDataPtr } from "../lib/string";
 import { Value } from "./runtimeEnvironment";
 import { FunctionCall } from "./PotentialFullExpression";
+import { QualifiedName, identifierToString } from "./lexical";
 
 
 
@@ -84,16 +85,16 @@ export class Program {
         // are registered with the program, so we don't have to take care of them
         // here and thus don't even call "link" if there was a previous definition.
         this.linkedObjectEntities.forEach(le =>
-            le.definition ?? le.link(this.linkedObjectDefinitions[le.qualifiedName])
+            le.definition ?? le.link(this.linkedObjectDefinitions[le.qualifiedName.str])
         );
         this.linkedFunctionEntities.forEach(le =>
-            le.definition ?? le.link(this.linkedFunctionDefinitions[le.qualifiedName])
+            le.definition ?? le.link(this.linkedFunctionDefinitions[le.qualifiedName.str])
         );
         this.linkedClassEntities.forEach(le =>
-            le.definition ?? le.link(this.linkedClassDefinitions[le.qualifiedName])
+            le.definition ?? le.link(this.linkedClassDefinitions[le.qualifiedName.str])
         );
 
-        let mainLookup = this.linkedFunctionDefinitions["::main"];
+        let mainLookup = this.linkedFunctionDefinitions["main"];
         if (mainLookup) {
             if (mainLookup.definitions.length === 1) {
                 (<Mutable<this>>this).mainFunction = mainLookup.definitions[0];
@@ -130,28 +131,36 @@ export class Program {
         asMutable(this.linkedClassEntities).push(entity);
     }
 
-    public registerGlobalObjectDefinition(qualifiedName: string, def: GlobalVariableDefinition) {
-        if (!this.linkedObjectDefinitions[qualifiedName]) {
-            this.linkedObjectDefinitions[qualifiedName] = def;
+    public getLinkedFunctionEntity(qualifiedName: QualifiedName) {
+        return this.linkedFunctionEntities.find(le => le.qualifiedName.str === qualifiedName.str);
+    }
+
+    public getLinkedObjectEntity(qualifiedName: QualifiedName) {
+        return this.linkedObjectEntities.find(le => le.qualifiedName.str === qualifiedName.str);
+    }
+
+    public registerGlobalObjectDefinition(qualifiedName: QualifiedName, def: GlobalVariableDefinition) {
+        if (!this.linkedObjectDefinitions[qualifiedName.str]) {
+            this.linkedObjectDefinitions[qualifiedName.str] = def;
             asMutable(this.globalObjects).push(def);
         }
         else {
             // One definition rule violation
-            this.addNote(CPPError.link.multiple_def(def, qualifiedName));
+            this.addNote(CPPError.link.multiple_def(def, qualifiedName.str));
         }
     }
 
-    public registerFunctionDefinition(qualifiedName: string, def: FunctionDefinition) {
-        let prevDef = this.linkedFunctionDefinitions[qualifiedName];
+    public registerFunctionDefinition(qualifiedName: QualifiedName, def: FunctionDefinition) {
+        let prevDef = this.linkedFunctionDefinitions[qualifiedName.str];
         if (!prevDef) {
-            this.linkedFunctionDefinitions[qualifiedName] = new FunctionDefinitionGroup([def]);
+            this.linkedFunctionDefinitions[qualifiedName.str] = new FunctionDefinitionGroup([def]);
         }
         else {
             // Already some definitions for functions with this same name. Check if there's
             // a conflicting overload that violates ODR
             let conflictingDef = selectOverloadedDefinition(prevDef.definitions, def.declaration.type);
             if (conflictingDef) {
-                this.addNote(CPPError.link.multiple_def(def, qualifiedName));
+                this.addNote(CPPError.link.multiple_def(def, qualifiedName.str));
             }
             else {
                 prevDef.addDefinition(def);
@@ -167,10 +176,10 @@ export class Program {
      * @param qualifiedName 
      * @param def 
      */
-    public registerClassDefinition(qualifiedName: string, def: ClassDefinition) {
-        let prevDef = this.linkedClassDefinitions[qualifiedName];
+    public registerClassDefinition(qualifiedName: QualifiedName, def: ClassDefinition) {
+        let prevDef = this.linkedClassDefinitions[qualifiedName.str];
         if (!prevDef) {
-            return this.linkedClassDefinitions[qualifiedName] = def;
+            return this.linkedClassDefinitions[qualifiedName.str] = def;
         }
         else {
             // Multiple definitions. If they are from the same translation unit, this is always
@@ -711,19 +720,20 @@ export class TranslationUnit {
      * If you've got a string like "std::vector", just use .split("::"") to
      * get the corresponding array, like ["std", "vector"].
      */
-    public qualifiedLookup(name: readonly string[], options: NameLookupOptions = {kind: "normal"}){
-        assert(name.length > 0);
+    public qualifiedLookup(name: QualifiedName, options: NameLookupOptions = {kind: "normal"}){
+        let comps = name.components;
+        assert(comps.length > 0);
 
         var scope : NamedScope | undefined = this.globalScope;
-        for(var i = 0; scope && i < name.length - 1; ++i) {
-            scope = scope.children[name[i]];
+        for(var i = 0; scope && i < comps.length - 1; ++i) {
+            scope = scope.children[comps[i]];
         }
 
         if (!scope){
             return undefined;
         }
 
-        var unqualifiedName = name[name.length - 1];
+        var unqualifiedName = comps[comps.length - 1];
         var result = scope.lookup(unqualifiedName, Object.assign({}, options, {noParent: true}));
 
         // Qualified lookup suppresses virtual function call mechanism, so if we
@@ -773,13 +783,6 @@ const LIBRARY_FILES : {[index:string]: SourceFile} = {
            : begin(other.begin), end(other.end) {}
         };
         
-    `, true),
-    iostream: new SourceFile("iostream.h", `
-        class ostream {};
-        ostream cout;
-        const char endl = '\\n';
-        class istream {};
-        istream cin;
     `, true)
 }
 
