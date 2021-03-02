@@ -71,6 +71,20 @@ export class SynchronousSimulationRunner {
             this.simulation.stepForward();
         }
     }
+    
+    /**
+     * Repeatedly steps forward until just before main will exit
+     */
+    public async stepToEndOfMain(stepLimit?: number, stopOnCinBlock: boolean = false) {
+        let stepsTaken = 0;
+        while (this.simulation.top()?.model !== this.simulation.program.mainFunction.body.localDeallocator
+            && (!stopOnCinBlock || !this.simulation.isBlockingUntilCin)
+            && (stepLimit === undefined || stepsTaken < stepLimit)) {
+
+            this.stepForward();
+            ++stepsTaken;
+        }
+    }
 
     /**
      * If a function call is up next, repeatedly steps forward until the function call
@@ -275,7 +289,7 @@ export class AsynchronousSimulationRunner {
      */
     public async stepToEndOfMain(delay: number = this.delay, stepLimit?: number, stopOnCinBlock: boolean = false) {
         let stepsTaken = 0;
-        while (this.simulation.top()?.model !== this.simulation.program.mainFunction
+        while (this.simulation.top()?.model !== this.simulation.program.mainFunction.body.localDeallocator
             && (!stopOnCinBlock || !this.simulation.isBlockingUntilCin)
             && (stepLimit === undefined || stepsTaken < stepLimit)) {
 

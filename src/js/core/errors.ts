@@ -518,6 +518,9 @@ export const CPPError = {
 
         },
         storage: {
+            extern_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.storage.extern_prohibited", "The extern specifier is not allowed on this kind of declaration.");
+            },
             once: function (construct: TranslationUnitConstruct, spec: StorageSpecifierKey) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.storage.once", "Storage specifier (" + spec + ") may only be used once.");
             },
@@ -550,6 +553,9 @@ export const CPPError = {
         parameter: {
             storage_prohibited: function (construct: StorageSpecifier) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.parameter.storage_prohibited", "Storage specifiers are not permitted in parameter declarations.");
+            },
+            qualified_name_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.parameter.qualified_name_prohibited", "Qualified names are not permitted in parameter declarations.");
             },
             invalid_parameter_type: function (construct: TranslationUnitConstruct, type: Type) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.parameter.invalid_parameter_type", `The type ${type} is not a valid parameter type.`);

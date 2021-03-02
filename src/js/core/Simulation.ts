@@ -4,7 +4,7 @@ import { Memory, Value } from "./runtimeEnvironment";
 import { RuntimeConstruct, RuntimeGlobalObjectAllocator } from "./constructs";
 import { CPPRandom, Mutable, escapeString, asMutable, assertNever } from "../util/util";
 import { DynamicObject, MainReturnObject } from "./objects";
-import { Int, PointerType, Char, CompleteObjectType, AtomicType, FunctionType, PotentiallyCompleteObjectType, ReferenceType, ReferredType, ArithmeticType, AnalyticArithmeticType, isType } from "./types";
+import { Int, PointerType, Char, CompleteObjectType, AtomicType, FunctionType, PotentiallyCompleteObjectType, ReferenceType, ReferredType, ArithmeticType, AnalyticArithmeticType, isType, isIntegralType, IntegralType } from "./types";
 import { Initializer, RuntimeDirectInitializer } from "./initializers";
 import { PassByReferenceParameterEntity, PassByValueParameterEntity } from "./entities";
 import { CompiledExpression, RuntimeExpression } from "./expressionBase";
@@ -781,6 +781,8 @@ export class SimulationInputStream {
 
     public readonly buffer: string = "";
 
+    private failbit: boolean = false;
+
     // public readonly bufferAdditionRecord : readonly {readonly stepsTaken: number; readonly contents: string}[] = [];
     
     // public clone() {
@@ -822,10 +824,12 @@ export class SimulationInputStream {
         (<Mutable<this>>this).buffer = trimStart(this.buffer);
     }
 
-
     public extractAndParseFromBuffer(type: ArithmeticType) {
         if (isType(type, Char)) {
             return type.parse(this.extractCharFromBuffer());
+        }
+        else if (isIntegralType(type)) {
+            return type.parse(this.extractIntFromBuffer());
         }
         else {
             return type.parse(this.extractWordFromBuffer());
@@ -836,6 +840,22 @@ export class SimulationInputStream {
         let c = this.buffer.charAt(0);
         this.updateBuffer(this.buffer.substring(1));
         return c;
+    }
+    
+    public extractIntFromBuffer() {
+        let m = this.buffer.match(/^[0123456789+-]+/);
+        if (m) {
+            // match found
+            this.updateBuffer(this.buffer.substring(m[0].length));
+            return m[0];
+        }
+        else {
+            // error, no viable int at start of stream buffer
+            // (or stream buffer was empty)
+            // buffer contents are not changed
+            this.failbit = true;
+            return "0"; // return so that we'll parse a 0 according to C++ standard
+        }
     }
 
     public extractWordFromBuffer() {

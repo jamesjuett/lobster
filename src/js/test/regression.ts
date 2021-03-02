@@ -1,7 +1,9 @@
-import { ProgramTest, SingleTranslationUnitTest, NoErrorsNoWarningsVerifier, NoBadRuntimeEventsVerifier, BasicSynchronousRunnerTest, NoteVerifier, OutputVerifier } from "./verifiers";
+import { ProgramTest, SingleTranslationUnitTest, NoErrorsNoWarningsVerifier, NoBadRuntimeEventsVerifier, BasicSynchronousRunnerTest, NoteVerifier, OutputVerifier, EndOfMainStateVerifier } from "./verifiers";
 import { CompilationNotesOutlet } from "../view/editors";
 
 import "../lib/standard"
+import { checkLocalAtomicVariableValues } from "../analysis/runtime";
+import { createCinTests } from "./tests_cin";
 
 $(() => {
     var numTests = 0;
@@ -1142,6 +1144,10 @@ int main() {
 `)
         ]
     );
+    
+      // ---------- 183 Cin Tests ----------
+
+        createCinTests();
 
     // string test
     

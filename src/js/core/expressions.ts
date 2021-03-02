@@ -6,7 +6,7 @@ import { Note, CPPError, NoteHandler } from "./errors";
 import { FunctionEntity, ObjectEntity, Scope, VariableEntity, MemberVariableEntity, NameLookupOptions, BoundReferenceEntity, runtimeObjectLookup, DeclaredScopeEntry, TemporaryObjectEntity, NewObjectEntity } from "./entities";
 import { Value, RawValueType } from "./runtimeEnvironment";
 import { escapeString, assertNever, assert, assertFalse, Mutable } from "../util/util";
-import { checkIdentifier, MAGIC_FUNCTION_NAMES, LexicalIdentifier, QualifiedIdentifierASTNode, IdentifierASTNode, stringifyIdentifier, astToIdentifier } from "./lexical";
+import { checkIdentifier, MAGIC_FUNCTION_NAMES, LexicalIdentifier, QualifiedIdentifierASTNode, IdentifierASTNode, identifierToString, astToIdentifier } from "./lexical";
 import { FunctionCallExpressionASTNode, FunctionCallExpression, TypedFunctionCallExpression, CompiledFunctionCallExpression, RuntimeFunctionCallExpression } from "./FunctionCallExpression";
 import { RuntimeExpression, VCResultTypes, ValueCategory, Expression, CompiledExpression, TypedExpression, SpecificTypedExpression, t_TypedExpression, allWellTyped } from "./expressionBase";
 import { ConstructOutlet, TernaryExpressionOutlet, CommaExpressionOutlet, AssignmentExpressionOutlet, BinaryOperatorExpressionOutlet, UnaryOperatorExpressionOutlet, SubscriptExpressionOutlet, IdentifierOutlet, NumericLiteralOutlet, ParenthesesOutlet, MagicFunctionCallExpressionOutlet, StringLiteralExpressionOutlet, LValueToRValueOutlet, ArrayToPointerOutlet, TypeConversionOutlet, QualificationConversionOutlet, DotExpressionOutlet, ArrowExpressionOutlet, OutputOperatorExpressionOutlet, PostfixIncrementExpressionOutlet, InputOperatorExpressionOutlet, StreamToBoolOutlet, NonMemberOperatorOverloadExpressionOutlet, MemberOperatorOverloadExpressionOutlet, InitializerListOutlet as InitializerListExpressionOutlet, CompoundAssignmentExpressionOutlet, ThisExpressionOutlet, NewExpressionOutlet, DeleteExpressionOutlet } from "../view/codeOutlets";
@@ -3345,13 +3345,13 @@ export class DotExpression extends Expression<DotExpressionASTNode> {
         let entityOrError = entityLookup(this, lookupResult);
         switch (entityOrError) {
             case "not_found":
-                this.addNote(CPPError.expr.dot.no_such_member(this, classType, stringifyIdentifier(memberName)));
+                this.addNote(CPPError.expr.dot.no_such_member(this, classType, identifierToString(memberName)));
                 break;
             case "ambiguous":
-                this.addNote(CPPError.expr.dot.ambiguous_member(this, stringifyIdentifier(memberName)));
+                this.addNote(CPPError.expr.dot.ambiguous_member(this, identifierToString(memberName)));
                 break;
             case "class_found":
-                this.addNote(CPPError.expr.dot.class_entity_found(this, stringifyIdentifier(memberName)));
+                this.addNote(CPPError.expr.dot.class_entity_found(this, identifierToString(memberName)));
                 break;
             default:
                 if (entityOrError.declarationKind === "function") {
@@ -3579,13 +3579,13 @@ export class ArrowExpression extends Expression<ArrowExpressionASTNode> {
         let entityOrError = entityLookup(this, lookupResult);
         switch (entityOrError) {
             case "not_found":
-                this.addNote(CPPError.expr.arrow.no_such_member(this, classType, stringifyIdentifier(memberName)));
+                this.addNote(CPPError.expr.arrow.no_such_member(this, classType, identifierToString(memberName)));
                 break;
             case "ambiguous":
-                this.addNote(CPPError.expr.arrow.ambiguous_member(this, stringifyIdentifier(memberName)));
+                this.addNote(CPPError.expr.arrow.ambiguous_member(this, identifierToString(memberName)));
                 break;
             case "class_found":
-                this.addNote(CPPError.expr.arrow.class_entity_found(this, stringifyIdentifier(memberName)));
+                this.addNote(CPPError.expr.arrow.class_entity_found(this, identifierToString(memberName)));
                 break;
             default:
                 if (entityOrError.declarationKind === "function") {
@@ -4645,13 +4645,13 @@ export class IdentifierExpression extends Expression<IdentifierExpressionASTNode
         let entityOrError = entityLookup(this, lookupResult);
         switch (entityOrError) {
             case "not_found":
-                this.addNote(CPPError.iden.not_found(this, stringifyIdentifier(this.name)));
+                this.addNote(CPPError.iden.not_found(this, identifierToString(this.name)));
                 break;
             case "ambiguous":
-                this.addNote(CPPError.iden.ambiguous(this, stringifyIdentifier(this.name)));
+                this.addNote(CPPError.iden.ambiguous(this, identifierToString(this.name)));
                 break;
             case "class_found":
-                this.addNote(CPPError.iden.class_entity_found(this, stringifyIdentifier(this.name)));
+                this.addNote(CPPError.iden.class_entity_found(this, identifierToString(this.name)));
                 break;
             default:
                 this.entity = entityOrError;
@@ -4861,6 +4861,23 @@ export class RuntimeThisExpression<T extends PointerType<CompleteClassType> = Po
     }
 
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // export var EntityExpression  = Expression.extend({
 //     _name: "EntityExpression",

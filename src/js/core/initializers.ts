@@ -1,14 +1,14 @@
 import { ASTNode, SuccessfullyCompiled, TranslationUnitContext, RuntimeConstruct, CPPConstruct, ExpressionContext, BlockContext, ClassContext, MemberFunctionContext, MemberBlockContext, BasicCPPConstruct, createImplicitContext, InvalidConstruct } from "./constructs";
 import { CompiledFunctionCall, CompiledTemporaryDeallocator, FunctionCall, PotentialFullExpression, RuntimeFunctionCall, RuntimePotentialFullExpression } from "./PotentialFullExpression";
-import { ExpressionASTNode, StringLiteralExpression, CompiledStringLiteralExpression, RuntimeStringLiteralExpression, createRuntimeExpression, standardConversion, overloadResolution, createExpressionFromAST, InitializerListExpressionASTNode, InitializerListExpression } from "./expressions";
-import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity, FunctionEntity, ReceiverEntity, BaseSubobjectEntity, MemberObjectEntity, ObjectEntityType, TemporaryObjectEntity } from "./entities";
-import { CompleteObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType, Char, FunctionType, VoidType, CompleteClassType, PotentiallyCompleteObjectType, ReferenceType, ReferredType, isCvConvertible, referenceRelated } from "./types";
+import { ExpressionASTNode, StringLiteralExpression, CompiledStringLiteralExpression, RuntimeStringLiteralExpression, createRuntimeExpression, standardConversion, overloadResolution, createExpressionFromAST, InitializerListExpressionASTNode, InitializerListExpression, AnalyticExpression } from "./expressions";
+import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity, FunctionEntity, ReceiverEntity, BaseSubobjectEntity, MemberObjectEntity, ObjectEntityType, TemporaryObjectEntity, MemberVariableEntity } from "./entities";
+import { CompleteObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType, Char, FunctionType, VoidType, CompleteClassType, PotentiallyCompleteObjectType, ReferenceType, ReferredType, isCvConvertible, referenceRelated, isBoundedArrayOfType, isBoundedArrayType } from "./types";
 import { assertFalse, assert, asMutable, assertNever, Mutable } from "../util/util";
 import { CPPError } from "./errors";
 import { Simulation } from "./Simulation";
 import { CPPObject, TemporaryObject } from "./objects";
 import { Expression, CompiledExpression, RuntimeExpression, allWellTyped } from "./expressionBase";
-import { InitializerOutlet, ConstructOutlet, AtomicDefaultInitializerOutlet, ArrayDefaultInitializerOutlet, ReferenceDirectInitializerOutlet, AtomicDirectInitializerOutlet, ReferenceCopyInitializerOutlet, AtomicCopyInitializerOutlet, ClassDefaultInitializerOutlet, ClassDirectInitializerOutlet, ClassCopyInitializerOutlet, CtorInitializerOutlet, ArrayAggregateInitializerOutlet } from "../view/codeOutlets";
+import { InitializerOutlet, ConstructOutlet, AtomicDefaultInitializerOutlet, ArrayDefaultInitializerOutlet, ReferenceDirectInitializerOutlet, AtomicDirectInitializerOutlet, ReferenceCopyInitializerOutlet, AtomicCopyInitializerOutlet, ClassDefaultInitializerOutlet, ClassDirectInitializerOutlet, ClassCopyInitializerOutlet, CtorInitializerOutlet, ArrayAggregateInitializerOutlet, ArrayMemberInitializerOutlet } from "../view/codeOutlets";
 import { Value } from "./runtimeEnvironment";
 import { Statement, UnsupportedStatement } from "./statements";
 import { CtorInitializerASTNode } from "./declarations";
@@ -1078,8 +1078,8 @@ export class CtorInitializer extends BasicCPPConstruct<MemberBlockContext, CtorI
 
     public readonly delegatedConstructorInitializer?: ClassDefaultInitializer | ClassDirectInitializer;
     public readonly baseInitializer?: ClassDefaultInitializer | ClassDirectInitializer;
-    public readonly memberInitializers: readonly (DefaultInitializer | DirectInitializer)[] = [];
-    public readonly memberInitializersByName: { [index: string]: DirectInitializer | DefaultInitializer | undefined } = { };
+    public readonly memberInitializers: readonly (DefaultInitializer | DirectInitializer | ArrayMemberInitializer)[] = [];
+    public readonly memberInitializersByName: { [index: string]: DirectInitializer | DefaultInitializer | ArrayMemberInitializer | undefined } = { };
 
     public static createFromAST(ast: CtorInitializerASTNode, context: MemberBlockContext) {
         return new CtorInitializer(context, ast, ast.initializers.map(memInitAST => {
@@ -1165,9 +1165,27 @@ export class CtorInitializer extends BasicCPPConstruct<MemberBlockContext, CtorI
                 let memName = comp.name;
                 let memEntity = receiverType.classDefinition.memberVariableEntitiesByName[memName];
                 if (memEntity) {
-                    let memInit = comp.args.length === 0
-                        ? DefaultInitializer.create(context, memEntity)
-                        : DirectInitializer.create(context, memEntity, comp.args, "direct");
+                    let memInit: DefaultInitializer | DirectInitializer | ArrayMemberInitializer | undefined;
+                    if (memEntity.isTyped(isBoundedArrayType) && comp.args.length === 1) {
+                        let arg = <AnalyticExpression>comp.args[0];
+                        if (arg.construct_type === "dot_expression"
+                            && arg.entity?.declarationKind === "variable"
+                            && arg.entity.variableKind === "object"
+                            && arg.entity?.isTyped(isBoundedArrayType)) {
+                            // if it's e.g. of the form "other.arr"
+                            memInit = new ArrayMemberInitializer(
+                                context,
+                                memEntity,
+                                arg.entity
+                            );
+                        }
+                    }
+                    
+                    if (!memInit) {
+                        memInit = comp.args.length === 0
+                            ? DefaultInitializer.create(context, memEntity)
+                            : DirectInitializer.create(context, memEntity, comp.args, "direct");
+                    }
                     this.attach(memInit);
 
                     if (!this.memberInitializersByName[memName]) {
@@ -1522,102 +1540,121 @@ export class RuntimeCtorInitializer extends RuntimeConstruct<CompiledCtorInitial
 
 
 
-// /**
-//  * Note: only use is in implicitly defined copy constructor
-//  */
-// export class ArrayMemberInitializer extends Initializer {
+/**
+ * Note: only use is in implicitly defined copy constructor
+ */
+export class ArrayMemberInitializer extends Initializer {
+    public readonly construct_type = "array_member_initializer";
+    public readonly kind = "direct";
 
-//      // Note: this are not MemberSubobjectEntity since they might need to apply to a nested array inside an array member
-//     public readonly target: ObjectEntity<BoundedArrayType>;
-//     public readonly otherMember: ObjectEntity<BoundedArrayType>;
+     // Note: this are not MemberSubobjectEntity since they might need to apply to a nested array inside an array member
+    public readonly target: MemberObjectEntity<BoundedArrayType>;
+    public readonly otherMember: MemberObjectEntity<BoundedArrayType>;
 
-//     public readonly elementInitializers: DirectInitializer[] = [];
+    public readonly elementInitializers: DirectInitializer[] = [];
 
-//     public constructor(context: TranslationUnitContext, target: ObjectEntity<BoundedArrayType>,
-//                        otherMember: ObjectEntity<BoundedArrayType>) {
-//         super(context);
+    public constructor(context: TranslationUnitContext, target: MemberObjectEntity<BoundedArrayType>,
+                       otherMember: MemberObjectEntity<BoundedArrayType>) {
+        super(context, undefined);
 
-//         this.target = target;
-//         this.otherMember = otherMember;
-//         let targetType = target.type;
+        this.target = target;
+        this.otherMember = otherMember;
+        let targetType = target.type;
 
-//         for(let i = 0; i < targetType.length; ++i) {
-//             let elemInit;
-//             // COMMENTED BELOW BECAUSE MULTIDIMENSIONAL ARRAYS ARE NOT ALLOWED
-//             // if (targetType.elemType instanceof BoundedArrayType) {
-//             //     elemInit = new ArrayMemberInitializer(context,
-//             //         new ArraySubobjectEntity(target, i),
-//             //         new ArraySubobjectEntity(<ObjectEntity<BoundedArrayType<BoundedArrayType>>>otherMember, i));
-//             // }
-//             // else {
-//                 elemInit = DirectInitializer.create(context,
-//                     new ArraySubobjectEntity(target, i),
-//                     [new EntityExpression(context, new ArraySubobjectEntity(otherMember, i))]);
-//             // }
+        for(let i = 0; i < targetType.numElems; ++i) {
+            // let elemInit;
+            // COMMENTED BELOW BECAUSE MULTIDIMENSIONAL ARRAYS ARE NOT ALLOWED
+            // if (targetType.elemType instanceof BoundedArrayType) {
+            //     elemInit = new ArrayMemberInitializer(context,
+            //         new ArraySubobjectEntity(target, i),
+            //         new ArraySubobjectEntity(<ObjectEntity<BoundedArrayType<BoundedArrayType>>>otherMember, i));
+            // }
+            // else {
+            let otherEntity = new ArraySubobjectEntity(otherMember, i);
+            let elemInit = DirectInitializer.create(
+                    context,
+                    new ArraySubobjectEntity(target, i),
+                    [
+                        new OpaqueExpression(context, {
+                            type: otherEntity.type,
+                            valueCategory: "lvalue",
+                            operate: (rt) => <CPPObject<CompleteClassType> | CPPObject<AtomicType>>otherEntity.runtimeLookup(rt)
+                        })
+                    ],
+                    // [new EntityExpression(context, new ArraySubobjectEntity(otherMember, i))],
+                    "direct"
+                    );
+            // }
 
-//             this.elementInitializers.push(elemInit);
-//             this.attach(elemInit);
+            this.elementInitializers.push(elemInit);
+            this.attach(elemInit);
 
-//             if(elemInit.hasErrors) {
-//                 this.addNote(CPPError.declaration.init.array_direct_init(this));
-//                 break;
-//             }
-//         }
+            if(!elemInit.isSuccessfullyCompiled()) {
+                this.addNote(CPPError.declaration.init.array_direct_init(this));
+                break;
+            }
+        }
 
-//     }
+    }
 
-//     public createRuntimeInitializer(this: CompiledArrayMemberInitializer, parent: RuntimeConstruct) {
-//         return new RuntimeArrayMemberInitializer(this, parent);
-//     }
+    public createRuntimeInitializer(this: CompiledArrayMemberInitializer, parent: RuntimeConstruct) {
+        return new RuntimeArrayMemberInitializer(this, parent);
+    }
+    
+    public createDefaultOutlet(this: CompiledArrayMemberInitializer, element: JQuery, parent?: ConstructOutlet) {
+        return new ArrayMemberInitializerOutlet(element, this, parent);
+    }
 
-//     public explain(sim: Simulation, rtConstruct: RuntimeConstruct) : Explanation {
-//         let targetDesc = this.target.describe();
-//         let targetType = this.target.type;
-//         let otherMemberDesc = this.otherMember.describe();
+    // public explain(sim: Simulation, rtConstruct: RuntimeConstruct) : Explanation {
+    //     let targetDesc = this.target.describe();
+    //     let targetType = this.target.type;
+    //     let otherMemberDesc = this.otherMember.describe();
 
-//         if (targetType.length === 0) {
-//             return {message: "No initialization is performed for " + (targetDesc.name || targetDesc.message) + "because the array has length 0."};
-//         }
-//         else {
-//             return {message: "Each element of " + (targetDesc.name || targetDesc.message) + " will be default-initialized with the value of the"
-//                 + "corresponding element of " + (otherMemberDesc.name || otherMemberDesc.message) + ". For example, " +
-//                 this.elementInitializers[0].explain(sim, rtConstruct) };
-//         }
-//     }
-// }
+    //     if (targetType.length === 0) {
+    //         return {message: "No initialization is performed for " + (targetDesc.name || targetDesc.message) + "because the array has length 0."};
+    //     }
+    //     else {
+    //         return {message: "Each element of " + (targetDesc.name || targetDesc.message) + " will be default-initialized with the value of the"
+    //             + "corresponding element of " + (otherMemberDesc.name || otherMemberDesc.message) + ". For example, " +
+    //             this.elementInitializers[0].explain(sim, rtConstruct) };
+    //     }
+    // }
+}
 
-// export interface CompiledArrayMemberInitializer extends ArrayMemberInitializer, SuccessfullyCompiled {
-//     readonly elementInitializers: CompiledDirectInitializer[];
-// }
+export interface CompiledArrayMemberInitializer extends ArrayMemberInitializer, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+    
+    readonly elementInitializers: CompiledDirectInitializer[];
+}
 
-// export class RuntimeArrayMemberInitializer extends RuntimeInitializer<CompiledArrayMemberInitializer> {
+export class RuntimeArrayMemberInitializer extends RuntimeInitializer<CompiledArrayMemberInitializer> {
 
-//     public readonly elementInitializers: RuntimeDirectInitializer[];
+    public readonly elementInitializers: RuntimeDirectInitializer[];
 
-//     private index = 0;
+    private index = 0;
 
-//     public constructor (model: CompiledArrayMemberInitializer, parent: RuntimeConstruct) {
-//         super(model, parent);
-//         this.elementInitializers = this.model.elementInitializers.map((elemInit) => {
-//             return elemInit.createRuntimeInitializer(this);
-//         });
-//     }
+    public constructor (model: CompiledArrayMemberInitializer, parent: RuntimeConstruct) {
+        super(model, parent);
+        this.elementInitializers = this.model.elementInitializers.map((elemInit) => {
+            return elemInit.createRuntimeInitializer(this);
+        });
+    }
 
-//     protected upNextImpl() {
-//         if (this.elementInitializers && this.index < this.elementInitializers.length) {
-//             this.sim.push(this.elementInitializers[this.index++])
-//         }
-//         else {
-//             target = this.model.target.runtimeLookup(this);
-//             this.observable.send("initialized", target);
-//             this.startCleaningUp();
-//         }
-//     }
+    protected upNextImpl() {
+        if (this.elementInitializers && this.index < this.elementInitializers.length) {
+            this.sim.push(this.elementInitializers[this.index++])
+        }
+        else {
+            let target = this.model.target.runtimeLookup(this);
+            this.observable.send("initialized", target);
+            this.startCleanup();
+        }
+    }
 
-//     public stepForwardImpl() {
-//         // do nothing
-//     }
-// }
+    public stepForwardImpl() {
+        // do nothing
+    }
+}
 
 
 

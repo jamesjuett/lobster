@@ -209,10 +209,10 @@ declaration
 
   /* TODO: template declaration */
 
-// The ! identifier part below is to prevent e.g. int constblah; parsing as int const blah;
+// The ! id_expression part below is to prevent e.g. int constblah; parsing as int const blah;
 // This wouldn't be necessary if we had a separate lexing phase
 simple_declaration
-  = specs:decl_specifiers ! {return specs.length === 0;} ! identifier ws declarators:declarator_list ws ";"
+  = specs:decl_specifiers ! {return specs.length === 0;} ! id_expression ws declarators:declarator_list ws ";"
     { return track({construct_type: "simple_declaration", specs:specs, declarators:declarators}, location(), text()); }
 
 declarator_list
@@ -227,17 +227,17 @@ class_definition
 function_definition
 
   /* constructors */
-  = specs:decl_specifiers_prohibit_class_name ! identifier ws declarator:declarator ws init:ctor_initializer? ws body:function_body
+  = specs:decl_specifiers_prohibit_class_name ! id_expression ws declarator:declarator ws init:ctor_initializer? ws body:function_body
     {return track({construct_type: "function_definition", specs:specs, declarator:declarator, ctor_initializer:init, body:body}, location(), text()); }
 
   / ws declarator:declarator ws init:ctor_initializer? ws body:function_body
     {return track({construct_type: "function_definition", specs:emptyDeclSpecs, declarator:declarator, ctor_initializer:init, body:body}, location(), text()); }
 
   /* regular functions */
-  / specs:decl_specifiers ! identifier ws declarator:declarator ws init:ctor_initializer? ws body:function_body
+  / specs:decl_specifiers ! id_expression ws declarator:declarator ws init:ctor_initializer? ws body:function_body
     {return track({construct_type: "function_definition", specs:specs, declarator:declarator, ctor_initializer:init, body:body}, location(), text()); }
   
-  / specs:decl_specifiers ! identifier ws declarator:member_declarator ws init:ctor_initializer? ws body:function_body
+  / specs:decl_specifiers ! id_expression ws declarator:member_declarator ws init:ctor_initializer? ws body:function_body
     {return track({construct_type: "function_definition", specs:specs, declarator:declarator, ctor_initializer:init, body:body}, location(), text()); }
 
 
@@ -302,10 +302,10 @@ decl_specifiers
       return track(declSpecs, location(), text()); }
 
 _decl_specifiers_non_type
-  = first:decl_specifier_non_type? rest:(WS s:decl_specifier_non_type ! identifier {return s;})* {first && rest.unshift(first); return rest;}
+  = first:decl_specifier_non_type? rest:(WS s:decl_specifier_non_type ! id_expression {return s;})* {first && rest.unshift(first); return rest;}
 
 _decl_specifiers_non_user_type_name
-  = first:decl_specifier_non_user_type_name? rest:(WS s:decl_specifier_non_user_type_name ! identifier {return s;})* {first && rest.unshift(first); return rest;}
+  = first:decl_specifier_non_user_type_name? rest:(WS s:decl_specifier_non_user_type_name ! id_expression {return s;})* {first && rest.unshift(first); return rest;}
 
 decl_specifier
   = t:type_specifier { return {typeSpec:t}; }
@@ -504,8 +504,7 @@ abs_declarator_simple
 
 
 dname
-  = n:name ! { return KEYWORDS.has(n.identifier); } { return n; }
-  / "~" ws n:class_name { return {identifier: "~"+n.identifier}; }
+  = id_expression
 
   /* / class_name
   / "~" ws class_name 
@@ -537,14 +536,14 @@ argument_declaration_list
 
 argument_declaration
 
-  = specs:decl_specifiers ! {return specs.length === 0;} ! identifier ws decl:declarator ws "=" ws init:exp_assn
+  = specs:decl_specifiers ! {return specs.length === 0;} ! id_expression ws decl:declarator ws "=" ws init:exp_assn
     {return track({construct_type:"parameter_declaration", declarator:decl, specs:specs, initializer:init}, location(), text()); }
-  / specs:decl_specifiers ! {return specs.length === 0;} ! identifier ws decl:declarator
+  / specs:decl_specifiers ! {return specs.length === 0;} ! id_expression ws decl:declarator
     {return track({construct_type:"parameter_declaration", specs:specs, declarator:decl}, location(), text()); }
 
-  / specs:decl_specifiers ! {return specs.length === 0;} ! identifier ws decl:abstract_declarator ws "=" ws init:exp_assn
+  / specs:decl_specifiers ! {return specs.length === 0;} ! id_expression ws decl:abstract_declarator ws "=" ws init:exp_assn
     {return track({construct_type:"parameter_declaration", declarator:decl, specs:specs, initializer:init}, location(), text()); }
-  / specs:decl_specifiers ! {return specs.length === 0;} ! identifier ws decl:abstract_declarator
+  / specs:decl_specifiers ! {return specs.length === 0;} ! id_expression ws decl:abstract_declarator
     {return track({construct_type:"parameter_declaration", specs:specs, declarator:decl}, location(), text()); }
 
   /* TODO abstract arg declarations */
@@ -779,11 +778,12 @@ exp_primary
 
 id_expression
   = qualified_id
-  / unqualified_id
-
+  / n:unqualified_id ! { return KEYWORDS.has(n.identifier); } { return n; }
 
 unqualified_id
-  = name
+  = operator_function_id
+  / "~" ws n:class_name { return {construct_type: "unqualified_identifier", identifier: "~"+n.identifier}; }
+  / identifier
 
 qualified_id
   = n:nested_name_specifier ws u:unqualified_id {
@@ -807,7 +807,7 @@ name
 
 operator_function_id
   = "operator" ws op:overloadable_op
-{return track({identifier: "operator"+op, operator: op}, location(), text());}
+{return track({construct_type: "unqualified_identifier", identifier: "operator"+op, operator: op}, location(), text());}
 
 overloadable_op
   = "new[]"
@@ -950,7 +950,7 @@ access_specifier
 member_declaration
 
   /* constructor declarations */
-  = specs:decl_specifiers_prohibit_class_name ! identifier ws declarators:member_declarator_list ws ";"
+  = specs:decl_specifiers_prohibit_class_name ! id_expression ws declarators:member_declarator_list ws ";"
     {
       return track({construct_type: "simple_member_declaration", specs:specs, declarators:declarators}, location(), text());
     }
@@ -960,7 +960,7 @@ member_declaration
     }
     
   /* regular declaration */
-  / specs:decl_specifiers ! {return specs.length === 0;} ! identifier ws declarators:member_declarator_list ws ";"
+  / specs:decl_specifiers ! {return specs.length === 0;} ! id_expression ws declarators:member_declarator_list ws ";"
     {
       return track({construct_type: "simple_member_declaration", specs:specs, declarators:declarators}, location(), text());
     }
