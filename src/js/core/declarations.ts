@@ -1647,7 +1647,7 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, Funct
 
         // Consider "out-of-line" definitions as if they were in the class scope.
         // Need to change the parent to the context in which the definition occurs, though.
-        if (isMemberSpecificationContext(declaration.context)) {
+        if (isMemberSpecificationContext(declaration.context) && !isMemberSpecificationContext(context)) {
             context = createOutOfLineFunctionDefinitionContext(declaration.context, context);
         }
 
