@@ -518,6 +518,9 @@ export const CPPError = {
 
         },
         storage: {
+            extern_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.storage.extern_prohibited", "The extern specifier is not allowed on this kind of declaration.");
+            },
             once: function (construct: TranslationUnitConstruct, spec: StorageSpecifierKey) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.storage.once", "Storage specifier (" + spec + ") may only be used once.");
             },

@@ -184,7 +184,44 @@ export class OutputVerifier extends TestVerifier {
             return VERIFICATION_SUCCESSFUL;
         }
         else {
-            return {status: "failure", message: "The programs output did not match what was expected."};
+            return {status: "failure", message: "The program's output did not match what was expected."};
+        }
+    }
+}
+
+
+export class EndOfMainStateVerifier extends TestVerifier {
+    public readonly verifierName = "EndOfMainStateVerifier";
+
+    public readonly input: string;
+    public readonly stepLimit: number;
+
+    private criteria: (sim: Simulation) => boolean;
+
+    public constructor(criteria: (sim: Simulation) => boolean, input: string = "", stepLimit: number = 1000) {
+        super();
+        this.criteria = criteria;
+        this.input = input;
+        this.stepLimit = stepLimit;
+    }
+
+    protected verifyImpl(program: Program) : Omit<VerificationStatus, "verifierName"> {
+        if (!program.isRunnable()) {
+            return {status: "failure", message: "The program either failed to compile or is missing a main function."};
+        }
+
+        let sim = new Simulation(program);
+        if (this.input !== "") {
+            sim.cin.addToBuffer(this.input)
+        }
+        let runner = new SynchronousSimulationRunner(sim);
+        runner.stepToEndOfMain(this.stepLimit, true);
+
+        if (this.criteria(sim)) {
+            return VERIFICATION_SUCCESSFUL;
+        }
+        else {
+            return {status: "failure", message: "The programs end-of-main state did not match what was expected."};
         }
     }
 }

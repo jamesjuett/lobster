@@ -26,7 +26,7 @@ export function createSimpleExerciseOutlet(id: string) {
 
         </ul>
 
-        <div class="tab-content" style="height: calc(100vh - 250px); overflow: hidden;">
+        <div class="tab-content lobster-simulation-height" style="overflow: hidden;">
             <div id="lobster-ex-${id}-compilation-pane" class="lobster-compilation-pane tab-pane fade" style="height: 100%; overflow-y: scroll;">
                 
             </div>
@@ -85,7 +85,7 @@ export function createSimpleExerciseOutlet(id: string) {
                 <table style="width: 100%; height: 100%; margin-top: 5px; ">
                     <tr>
                         <td style="min-width: 260px; width: 260px; max-width: 260px; vertical-align: top; height: 100%">
-                            <div style="position: relative; display: flex; flex-direction: column;">
+                            <div class="lobster-simulation-height" style="position: relative; display: flex; flex-direction: column;">
                                 <div style="margin-bottom: 5px;">
                                     <button class = "restart btn btn-warning-muted" style="font-size: 12px; padding: 6px 6px"><span class="glyphicon glyphicon-fast-backward"></span> Restart</button>
                                     <!--<span style = "display: inline-block; width: 4ch"></span>-->
@@ -116,7 +116,7 @@ export function createSimpleExerciseOutlet(id: string) {
                             </div>
                         </td>
                         <td style="position: relative; vertical-align: top;">
-                            <div class = "codeStack readOnly" style="display: block; margin-left: 5px; overflow-y: auto; position: absolute; width: 100%; height: 100%; white-space: nowrap;"> </div>
+                            <div class = "codeStack readOnly lobster-simulation-height" style="display: block; margin-left: 5px; overflow-y: auto; position: absolute; width: 100%; white-space: nowrap;"> </div>
                         </td>
                     </tr>
                 </table>
