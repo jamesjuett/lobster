@@ -1,7 +1,9 @@
-import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, TranslationUnitContext, ASTNode, CPPConstruct, BlockContext, FunctionContext, InvalidConstruct, createLoopContext, createBlockContext } from "./constructs";
+import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, TranslationUnitContext, CPPConstruct, BlockContext, FunctionContext, InvalidConstruct, createLoopContext, createBlockContext } from "./constructs";
+import { ASTNode } from "../ast/ASTNode";
 import { CPPError } from "./errors";
-import { ExpressionASTNode, createExpressionFromAST, createRuntimeExpression, standardConversion } from "./expressions";
-import { DeclarationASTNode, FunctionDefinition, VariableDefinition, ClassDefinition, AnalyticCompiledDeclaration, LocalDeclaration, createLocalDeclarationFromAST, LocalDeclarationASTNode, LocalSimpleDeclaration } from "./declarations";
+import { createExpressionFromAST, createRuntimeExpression, standardConversion } from "./expressions";
+import { ExpressionASTNode } from "../ast/ast_expressions";
+import { FunctionDefinition, VariableDefinition, ClassDefinition, AnalyticCompiledDeclaration, LocalDeclaration, createLocalDeclarationFromAST, LocalSimpleDeclaration } from "./declarations";
 import { DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
 import { VoidType, ReferenceType, Bool, isType, Int, isCompleteObjectType, isReferenceType, isReferenceToCompleteType, isCompleteClassType, CompleteClassType } from "./types";
 import { ReturnByReferenceEntity, ReturnObjectEntity, BlockScope, LocalObjectEntity, LocalReferenceEntity } from "./entities";
@@ -11,18 +13,11 @@ import { StatementOutlet, ConstructOutlet, ExpressionStatementOutlet, NullStatem
 import { RuntimeFunction } from "./functions";
 import { Predicates } from "./predicates";
 import { Value } from "./runtimeEnvironment";
-import { CompiledFunctionCall, FunctionCall, RuntimePotentialFullExpression } from "./PotentialFullExpression";
+import { RuntimePotentialFullExpression } from "./PotentialFullExpression";
+import { CompiledFunctionCall, FunctionCall } from "./FunctionCall";
 import { AutoObject } from "./objects";
+import { LabeledStatementASTNode, BlockASTNode, IfStatementASTNode, WhileStatementASTNode, DoWhileStatementASTNode, ForStatementASTNode, BreakStatementASTNode, ContinueStatementASTNode, ReturnStatementASTNode, DeclarationStatementASTNode, ExpressionStatementASTNode, NullStatementASTNode, StatementASTNode } from "../ast/ast_statements";
 
-export type StatementASTNode =
-    LabeledStatementASTNode |
-    BlockASTNode |
-    IfStatementASTNode |
-    IterationStatementASTNode |
-    JumpStatementASTNode |
-    DeclarationStatementASTNode |
-    ExpressionStatementASTNode |
-    NullStatementASTNode;
 
 const StatementConstructsMap = {
     "labeled_statement": (ast: LabeledStatementASTNode, context: BlockContext) => new UnsupportedStatement(context, ast, "labeled statement"),
@@ -145,10 +140,6 @@ export class UnsupportedStatement extends Statement {
 }
 
 
-export interface ExpressionStatementASTNode extends ASTNode {
-    readonly construct_type: "expression_statement";
-    readonly expression: ExpressionASTNode;
-}
 
 export class ExpressionStatement extends Statement<ExpressionStatementASTNode> {
     public readonly construct_type = "expression_statement";
@@ -204,9 +195,6 @@ export class RuntimeExpressionStatement extends RuntimeStatement<CompiledExpress
 }
 
 
-export interface NullStatementASTNode extends ASTNode {
-    readonly construct_type: "null_statement";
-}
 
 export class NullStatement extends Statement<NullStatementASTNode> {
     public readonly construct_type = "null_statement";
@@ -242,10 +230,6 @@ export class RuntimeNullStatement extends RuntimeStatement<CompiledNullStatement
 
 }
 
-export interface DeclarationStatementASTNode extends ASTNode {
-    readonly construct_type: "declaration_statement";
-    readonly declaration: LocalDeclarationASTNode;
-}
 
 export class DeclarationStatement extends Statement<DeclarationStatementASTNode> {
     public readonly construct_type = "declaration_statement";
@@ -330,12 +314,6 @@ export class RuntimeDeclarationStatement extends RuntimeStatement<CompiledDeclar
 }
 
 
-export type JumpStatementASTNode = BreakStatementASTNode | ContinueStatementASTNode | ReturnStatementASTNode;
-
-export interface BreakStatementASTNode extends ASTNode {
-    readonly construct_type: "break_statement";
-}
-
 export class BreakStatement extends Statement<BreakStatementASTNode> {
     public readonly construct_type = "break_statement";
 
@@ -391,14 +369,6 @@ export class RuntimeBreakStatement extends RuntimeStatement<CompiledBreakStateme
 }
 
 
-export interface ContinueStatementASTNode extends ASTNode {
-    readonly construct_type: "continue_statement";
-}
-
-export interface ReturnStatementASTNode extends ASTNode {
-    readonly construct_type: "return_statement";
-    readonly expression: ExpressionASTNode;
-}
 
 export class ReturnStatement extends Statement<ReturnStatementASTNode> {
     public readonly construct_type = "return_statement";
@@ -509,10 +479,6 @@ export class RuntimeReturnStatement extends RuntimeStatement<CompiledReturnState
     }
 }
 
-export interface BlockASTNode extends ASTNode {
-    readonly construct_type: "block";
-    readonly statements: readonly StatementASTNode[];
-}
 
 export class Block extends Statement<BlockASTNode> {
     public readonly construct_type = "block";
@@ -761,12 +727,6 @@ export class RuntimeLocalDeallocator extends RuntimeConstruct<CompiledLocalDeall
 
 
 
-export interface IfStatementASTNode extends ASTNode {
-    readonly construct_type: "if_statement";
-    readonly condition: ExpressionASTNode;
-    readonly then: StatementASTNode;
-    readonly otherwise?: StatementASTNode;
-}
 
 export class IfStatement extends Statement<IfStatementASTNode> {
     public readonly construct_type = "if_statement";
@@ -905,13 +865,6 @@ export class RuntimeIfStatement extends RuntimeStatement<CompiledIfStatement> {
 
 
 
-export type IterationStatementASTNode = WhileStatementASTNode | DoWhileStatementASTNode | ForStatementASTNode;
-
-export interface WhileStatementASTNode extends ASTNode {
-    readonly construct_type: "while_statement";
-    readonly condition: ExpressionASTNode;
-    readonly body: StatementASTNode;
-}
 
 export class WhileStatement extends Statement<WhileStatementASTNode> {
     public readonly construct_type = "while_statement";
@@ -1012,21 +965,6 @@ export class RuntimeWhileStatement extends RuntimeStatement<CompiledWhileStateme
     //     }
 }
 
-export interface DoWhileStatementASTNode extends ASTNode {
-    readonly construct_type: "dowhile_statement";
-    readonly condition: ExpressionASTNode;
-    readonly body: StatementASTNode;
-}
-
-
-
-export interface ForStatementASTNode extends ASTNode {
-    readonly construct_type: "for_statement";
-    readonly condition: ExpressionASTNode;
-    readonly initial: ExpressionStatementASTNode | NullStatementASTNode | DeclarationStatementASTNode;
-    readonly post?: ExpressionASTNode;
-    readonly body: StatementASTNode;
-}
 
 
 // The ForStatement class contains additional comments intended
@@ -1299,12 +1237,4 @@ export class RuntimeForStatement extends RuntimeStatement<CompiledForStatement> 
 // });
 
 
-
-export interface LabeledStatementASTNode extends ASTNode {
-    readonly construct_type: "labeled_statement";
-}
-
-export interface SwitchStatementASTNode extends ASTNode {
-    readonly construct_type: "switch_statement";
-}
 

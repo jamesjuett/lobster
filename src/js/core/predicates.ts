@@ -10,7 +10,7 @@ import { FunctionCallExpression } from "./FunctionCallExpression";
 import { DirectInitializer, AtomicDirectInitializer } from "./initializers";
 import { containsConstruct, findFirstConstruct } from "../analysis/analysis";
 import { VariableEntity } from "./entities";
-import { FunctionCall } from "./PotentialFullExpression";
+import { FunctionCall } from "./FunctionCall";
 
 
 

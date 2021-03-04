@@ -8,7 +8,7 @@ import { Simulation } from "./Simulation";
 import { Mutable, assert } from "../util/util";
 import { LocalObjectEntity, LocalReferenceEntity } from "./entities";
 import { RuntimeCtorInitializer } from "./initializers";
-import { RuntimeFunctionCall } from "./PotentialFullExpression";
+import { RuntimeFunctionCall } from "./FunctionCall";
 
 enum RuntimeFunctionIndices {
 

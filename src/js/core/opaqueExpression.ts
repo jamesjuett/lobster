@@ -1,4 +1,5 @@
-import {ASTNode, ExpressionContext, CPPConstruct, SuccessfullyCompiled, ConstructDescription, RuntimeConstruct } from "./constructs"
+import {ExpressionContext, CPPConstruct, SuccessfullyCompiled, ConstructDescription, RuntimeConstruct } from "./constructs"
+import { ASTNode } from "../ast/ASTNode";
 import { Value } from "./runtimeEnvironment";
 import { Int, ExpressionType, VoidType, CompleteObjectType, ReferenceType } from "./types";
 import { assert } from "../util/util";
@@ -6,6 +7,7 @@ import { Expression, ValueCategory, VCResultTypes, RuntimeExpression, t_TypedExp
 import { ConstructOutlet, OpaqueExpressionOutlet } from "../view/codeOutlets";
 import { LocalObjectEntity, LocalReferenceEntity } from "./entities";
 import { CompiledTemporaryDeallocator } from "./PotentialFullExpression";
+import { OpaqueExpressionASTNode } from "../ast/ast_expressions";
 
 
 export type OpaqueExpressionImpl<T extends ExpressionType = ExpressionType, VC extends ValueCategory = ValueCategory> = {
@@ -28,10 +30,6 @@ export function registerOpaqueExpression<T extends ExpressionType = ExpressionTy
     OPAQUE_EXPRESSIONS[id] = <any>impl;
 }
 
-export interface OpaqueExpressionASTNode extends ASTNode {
-    readonly construct_type: "opaque_expression";
-    readonly id: string;
-}
 
 export class OpaqueExpression<T extends ExpressionType = ExpressionType, VC extends ValueCategory = ValueCategory> extends Expression<OpaqueExpressionASTNode> {
     public readonly construct_type = "opaque_expression";

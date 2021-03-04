@@ -1,7 +1,8 @@
 import { NoteHandler, CPPError } from "./errors";
-import { CPPConstruct, ASTNode, TranslationUnitConstruct } from "./constructs";
+import { CPPConstruct, TranslationUnitConstruct } from "./constructs";
 import { expr } from "jquery";
 import { assert } from "../util/util";
+import { IdentifierASTNode } from "../ast/ast_identifiers";
 
 export const KEYWORDS = new Set([
     "alignas", "continue", "friend", "register", "true",
@@ -94,22 +95,6 @@ export function composeQualifiedName(prefix: LexicalIdentifier, name: LexicalIde
         str: n1.str + "::" + n2.str
     };
 }
-
-export interface UnqualifiedIdentifierASTNode extends ASTNode {
-    construct_type: "unqualified_identifier";
-    readonly identifier: string;
-}
-
-export interface QualifiedIdentifierComponentASTNode extends ASTNode {
-    readonly identifier: string;
-}
-
-export interface QualifiedIdentifierASTNode extends ASTNode {
-    construct_type: "qualified_identifier";
-    components: readonly QualifiedIdentifierComponentASTNode[];
-}
-
-export type IdentifierASTNode = UnqualifiedIdentifierASTNode | QualifiedIdentifierASTNode;
 
 export type UnqualifiedName = string;
 

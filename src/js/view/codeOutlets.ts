@@ -1,5 +1,6 @@
 import { CPPConstruct, RuntimeConstruct } from "../core/constructs";
-import { CompiledFunctionCall, RuntimeFunctionCall, RuntimePotentialFullExpression } from "../core/PotentialFullExpression";
+import { RuntimePotentialFullExpression } from "../core/PotentialFullExpression";
+import { CompiledFunctionCall, RuntimeFunctionCall } from "../core/FunctionCall";
 import { SimulationOutlet } from "./simOutlets";
 import { Mutable, asMutable, assertFalse, htmlDecoratedType, htmlDecoratedName, htmlDecoratedKeyword, htmlDecoratedOperator, assert, htmlDecoratedValue, unescapeString, htmlDecoratedObject } from "../util/util";
 import { listenTo, stopListeningTo, messageResponse, Message, MessageResponses, Observable, ObserverType } from "../util/observe";
@@ -10,7 +11,8 @@ import { RuntimeExpression, Expression, CompiledExpression } from "../core/expre
 import { CPPObject, AutoObject } from "../core/objects";
 import { FunctionEntity, PassByReferenceParameterEntity, PassByValueParameterEntity, ReturnByReferenceEntity, ReturnObjectEntity, MemberVariableEntity } from "../core/entities";
 import { Value } from "../core/runtimeEnvironment";
-import { RuntimeAssignment as RuntimeAssignmentExpression, RuntimeTernary, CompiledAssignmentExpression, CompiledTernaryExpression, RuntimeComma, CompiledCommaExpression, RuntimeLogicalBinaryOperatorExpression, RuntimeRelationalBinaryOperator, RuntimeArithmeticBinaryOperator, CompiledArithmeticBinaryOperatorExpression, CompiledRelationalBinaryOperatorExpression, CompiledLogicalBinaryOperatorExpression, CompiledUnaryOperatorExpression, RuntimeSubscriptExpression, CompiledSubscriptExpression, RuntimeParentheses, CompiledParenthesesExpression, RuntimeObjectIdentifierExpression, CompiledObjectIdentifierExpression, RuntimeNumericLiteral, CompiledNumericLiteralExpression, RuntimeFunctionIdentifierExpression, CompiledFunctionIdentifierExpression, RuntimeMagicFunctionCallExpression, CompiledMagicFunctionCallExpression, RuntimeStringLiteralExpression, CompiledStringLiteralExpression, RuntimeUnaryOperatorExpression, RuntimeBinaryOperator, CompiledBinaryOperatorExpression, RuntimeImplicitConversion, CompiledImplicitConversion, RuntimeObjectDotExpression, RuntimeFunctionDotExpression, CompiledObjectDotExpression, CompiledFunctionDotExpression, RuntimeObjectArrowExpression, RuntimeFunctionArrowExpression, CompiledObjectArrowExpression, CompiledFunctionArrowExpression, CompiledOutputOperatorExpression, RuntimeOutputOperatorExpression, RuntimePostfixIncrementExpression, CompiledPostfixIncrementExpression, RuntimeInputOperatorExpression, CompiledInputOperatorExpression, RuntimeNonMemberOperatorOverloadExpression, CompiledNonMemberOperatorOverloadExpression, RuntimeMemberOperatorOverloadExpression, CompiledMemberOperatorOverloadExpression, CompiledInitializerListExpression, RuntimeInitializerListExpression, CompiledCompoundAssignmentExpression, RuntimeCompoundAssignment as RuntimeCompoundAssignmentExpression, CompiledThisExpression, RuntimeThisExpression, CompiledNewExpression, RuntimeNewExpression, CompiledDeleteExpression, RuntimeDeleteExpression } from "../core/expressions";
+import { RuntimeAssignment as RuntimeAssignmentExpression, RuntimeTernary, CompiledAssignmentExpression, CompiledTernaryExpression, RuntimeComma, CompiledCommaExpression, RuntimeLogicalBinaryOperatorExpression, RuntimeRelationalBinaryOperator, RuntimeArithmeticBinaryOperator, CompiledArithmeticBinaryOperatorExpression, CompiledRelationalBinaryOperatorExpression, CompiledLogicalBinaryOperatorExpression, CompiledUnaryOperatorExpression, RuntimeSubscriptExpression, CompiledSubscriptExpression, RuntimeParentheses, CompiledParenthesesExpression, RuntimeObjectIdentifierExpression, CompiledObjectIdentifierExpression, RuntimeNumericLiteral, CompiledNumericLiteralExpression, RuntimeFunctionIdentifierExpression, CompiledFunctionIdentifierExpression, RuntimeMagicFunctionCallExpression, CompiledMagicFunctionCallExpression, RuntimeStringLiteralExpression, CompiledStringLiteralExpression, RuntimeUnaryOperatorExpression, RuntimeBinaryOperator, CompiledBinaryOperatorExpression, RuntimeImplicitConversion, CompiledImplicitConversion, RuntimeObjectDotExpression, RuntimeFunctionDotExpression, CompiledObjectDotExpression, CompiledFunctionDotExpression, RuntimeObjectArrowExpression, RuntimeFunctionArrowExpression, CompiledObjectArrowExpression, CompiledFunctionArrowExpression, CompiledOutputOperatorExpression, RuntimeOutputOperatorExpression, RuntimePostfixIncrementExpression, CompiledPostfixIncrementExpression, RuntimeInputOperatorExpression, CompiledInputOperatorExpression, RuntimeNonMemberOperatorOverloadExpression, CompiledNonMemberOperatorOverloadExpression, RuntimeMemberOperatorOverloadExpression, CompiledMemberOperatorOverloadExpression, CompiledInitializerListExpression, RuntimeInitializerListExpression, CompiledCompoundAssignmentExpression, RuntimeCompoundAssignment as RuntimeCompoundAssignmentExpression, CompiledThisExpression, RuntimeThisExpression } from "../core/expressions";
+import { CompiledNewExpression, RuntimeNewExpression, CompiledDeleteExpression, RuntimeDeleteExpression, RuntimeNewArrayExpression, CompiledNewArrayExpression } from "../core/new_delete";
 import { Bool, AtomicType, CompleteObjectType, isPointerType, isPointerToType, Char, isArrayPointerType, isArrayPointerToType, isAtomicType, isReferenceType, isCompleteClassType, PointerType, isType, ArrayPointerType } from "../core/types";
 import { mixin } from "lodash";
 import { RuntimeFunctionCallExpression, CompiledFunctionCallExpression } from "../core/FunctionCallExpression";
@@ -1082,6 +1084,7 @@ export class ArrayDefaultInitializerOutlet extends InitializerOutlet<RuntimeArra
     
 }
 
+
 export class ClassDefaultInitializerOutlet extends InitializerOutlet<RuntimeClassDefaultInitializer> {
     
     public readonly ctorCallOutlet: FunctionCallOutlet;
@@ -1894,6 +1897,41 @@ export class NewExpressionOutlet extends ExpressionOutlet<RuntimeNewExpression> 
                 case "direct": this.exprElem.append(")"); break;
                 case "list": this.exprElem.append(" }"); break;
             }
+        }
+    }
+}
+
+
+export class NewArrayExpressionOutlet extends ExpressionOutlet<RuntimeNewArrayExpression> {
+
+    public readonly individualElementInitializerOutlets: readonly InitializerOutlet[];
+    public readonly dynamicLengthExpression?: ExpressionOutlet;
+
+    public constructor(element: JQuery, construct: CompiledNewArrayExpression, parent?: ConstructOutlet) {
+        super(element, construct, parent);
+
+        this.exprElem.append(htmlDecoratedOperator("new", "code-unaryOp"));
+        this.exprElem.append(" ");
+
+        if (this.construct.createdType.isBoundedArrayType()) {
+            this.exprElem.append(htmlDecoratedType(this.construct.createdType.toString()));
+        }
+        else {
+            this.exprElem.append(htmlDecoratedType(this.construct.createdType.elemType.toString()));
+            this.exprElem.append("[");
+            this.dynamicLengthExpression = addChildExpressionOutlet(this.exprElem, this.construct.dynamicLengthExpression!, this);
+            this.exprElem.append("]");
+        }
+
+        if (this.construct.individualElementInitializers.length > 0) {
+            this.exprElem.append("{ ");
+            this.individualElementInitializerOutlets = this.construct.individualElementInitializers.map(
+                elemInit => createInitializerOutlet($("<span></span>").appendTo(this.exprElem), elemInit, this)
+            );
+            this.exprElem.append(" }");
+        }
+        else {
+            this.individualElementInitializerOutlets = [];
         }
     }
 }

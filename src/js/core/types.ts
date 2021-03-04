@@ -2,7 +2,7 @@ import { Constructor, htmlDecoratedType, unescapeString } from "../util/util";
 import { ConstructDescription, TranslationUnitContext } from "./constructs";
 import { byte, RawValueType, Value } from "./runtimeEnvironment";
 import { CPPObject } from "./objects";
-import { ExpressionASTNode } from "./expressions";
+import { ExpressionASTNode } from "../ast/ast_expressions";
 import { ClassDefinition } from "./declarations";
 import { ClassScope } from "./entities";
 import { RuntimeExpression } from "./expressionBase";
@@ -1392,7 +1392,8 @@ export class ArrayOfUnknownBoundType<Elem_type extends ArrayElemType = ArrayElem
     
 }
 
-export type PotentiallyCompleteArrayType = BoundedArrayType | ArrayOfUnknownBoundType;
+export type PotentiallyCompleteArrayType<E extends ArrayElemType = ArrayElemType>
+    = BoundedArrayType<E> | ArrayOfUnknownBoundType<E>;
 
 // TODO: Add a type for an incomplete class
 
