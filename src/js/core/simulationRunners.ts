@@ -3,7 +3,7 @@ import { Mutable } from "../util/util";
 import { setCPP_ANIMATIONS } from "../view/simOutlets";
 import { DirectInitializer, RuntimeDirectInitializer } from "./initializers";
 import { PassByReferenceParameterEntity, PassByValueParameterEntity } from "./entities";
-import { FunctionCall, RuntimeFunctionCall } from "./PotentialFullExpression";
+import { FunctionCall, RuntimeFunctionCall } from "./FunctionCall";
 
 
 export class SynchronousSimulationRunner {

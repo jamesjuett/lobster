@@ -1,11 +1,12 @@
-import { TranslationUnitConstruct, CPPConstruct } from "./constructs";
-import { SourceReference } from "./Program";
-import { ReferenceType, CompleteObjectType, Type, BoundedArrayType, ArrayOfUnknownBoundType, AtomicType, sameType, PotentialParameterType, CompleteClassType, PointerType, PotentiallyCompleteObjectType, IncompleteObjectType, PotentialReturnType, ExpressionType, PotentiallyCompleteArrayType, FunctionType, VoidType, PotentiallyCompleteClassType } from "./types";
-import { CPPEntity, DeclaredEntity, ObjectEntity, LocalObjectEntity, TemporaryObjectEntity, FunctionEntity, GlobalObjectEntity, ClassEntity } from "./entities";
-import { VoidDeclaration, StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName, FunctionDeclaration, ClassDefinition, ClassDeclaration, StorageSpecifier, FunctionDefinition, VariableDefinition, ParameterDefinition, SimpleDeclaration, BaseSpecifier, IncompleteTypeVariableDefinition, IncompleteTypeMemberVariableDeclaration } from "./declarations";
-import { Expression, TypedExpression } from "./expressionBase";
+import { StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName } from "../ast/ast_declarations";
 import { Mutable } from "../util/util";
-import { IdentifierExpression, PointerDifferenceExpression, t_OverloadableOperators } from "./expressions";
+import { TranslationUnitConstruct, CPPConstruct } from "./constructs";
+import { BaseSpecifier, SimpleDeclaration, FunctionDefinition, VariableDefinition, ParameterDefinition, ClassDefinition, StorageSpecifier, VoidDeclaration, IncompleteTypeVariableDefinition, IncompleteTypeMemberVariableDeclaration, FunctionDeclaration, ClassDeclaration } from "./declarations";
+import { LocalObjectEntity, TemporaryObjectEntity, ObjectEntity, DeclaredEntity, CPPEntity, FunctionEntity, ClassEntity, GlobalObjectEntity } from "./entities";
+import { Expression, TypedExpression } from "./expressionBase";
+import { t_OverloadableOperators } from "./expressions";
+import { SourceReference } from "./Program";
+import { CompleteObjectType, ReferenceType, CompleteClassType, Type, AtomicType, PotentiallyCompleteArrayType, PotentiallyCompleteClassType, FunctionType, VoidType, PointerType, ExpressionType, sameType, PotentialParameterType, PotentialReturnType, IncompleteObjectType } from "./types";
 
 export enum NoteKind {
     ERROR = "error",
@@ -693,8 +694,19 @@ export const CPPError = {
         },
         new: {
             unsupported_type: function (construct: TranslationUnitConstruct, type: Type) {
-                return new CompilerNote(construct, NoteKind.ERROR, "expr.input.unsupported_type", `The new operator cannot be used to create an object of type: ${type}`);
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.new.unsupported_type", `The new operator cannot be used to create an object of type: ${type}`);
             }
+        },
+        new_array: {
+            length_required: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.new.length_required", `A length must be specified when creating a dynamically allocated array.`);
+            },
+            integer_length_required: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.new.integer_length_required", `The expression specifying the length of a dynamically allocated array must yield an integer.`);
+            },
+            direct_initialization_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.new.direct_initialization_prohibited", `A dynamically allocated array may not be initialized with (). (Try {} if you want to initialize individual elements.)`);
+            },
         },
         delete: {
             no_destructor: function (construct: TranslationUnitConstruct, type: CompleteClassType) {

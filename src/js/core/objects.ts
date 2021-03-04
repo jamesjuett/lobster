@@ -375,8 +375,13 @@ export abstract class CPPObject<T extends CompleteObjectType = CompleteObjectTyp
         this.observable.send("deallocated");
     }
 
-    public getPointerTo(): Value<PointerType<T>> { // More general return type, is overridden by arrays differently
+    public getPointerTo(): Value<PointerType<T>> {
         return new Value(this.address, new ObjectPointerType(this));
+    }
+
+    // Only allowed if receiver matches CPPObject<ArrayType<Elem_type>>
+    public decayToPointer<AT extends BoundedArrayType>(this: CPPObject<AT>) : Value<ArrayPointerType<AT["elemType"]>> {
+        return this.getArrayElemSubobject(0).getPointerTo();
     }
 
     public getValue(read: boolean = false): ObjectValueRepresentation<T> {

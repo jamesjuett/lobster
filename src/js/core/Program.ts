@@ -2,18 +2,20 @@
 import { parse as cpp_parse } from "../parse/cpp_parser";
 import { NoteKind, SyntaxNote, CPPError, NoteRecorder, Note } from "./errors";
 import { Mutable, asMutable, assertFalse, assert } from "../util/util";
-import { GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, CompiledFunctionDefinition, CompiledGlobalVariableDefinition, DeclarationASTNode, FunctionDeclaration, TypeSpecifier, StorageSpecifier, Declarator, FunctionDefinitionGroup, ClassDefinition, TopLevelDeclarationASTNode, TopLevelDeclaration, createTopLevelDeclarationFromAST, SimpleDeclaration, ClassDefinitionASTNode, SimpleDeclarationASTNode, NonMemberSimpleDeclarationASTNode, DeclaratorASTNode } from "./declarations";
 import { NamespaceScope, GlobalObjectEntity, selectOverloadedDefinition, FunctionEntity, ClassEntity, NameLookupOptions, Scope, NamedScope } from "./entities";
 import { Observable } from "../util/observe";
-import { TranslationUnitContext, CPPConstruct, createTranslationUnitContext, ProgramContext, GlobalObjectAllocator, CompiledGlobalObjectAllocator, ASTNode, createLibraryContext } from "./constructs";
+import { TranslationUnitContext, CPPConstruct, createTranslationUnitContext, ProgramContext, GlobalObjectAllocator, CompiledGlobalObjectAllocator, createLibraryContext } from "./constructs";
+import { ASTNode } from "../ast/ASTNode";
 import { StringLiteralExpression } from "./expressions";
 import { FunctionType, Int, VoidType, CompleteClassType, Double } from "./types";
 import { startCase } from "lodash";
 import { registerOpaqueExpression, RuntimeOpaqueExpression } from "./opaqueExpression";
 import { getDataPtr } from "../lib/string";
 import { Value } from "./runtimeEnvironment";
-import { FunctionCall } from "./PotentialFullExpression";
+import { FunctionCall } from "./FunctionCall";
 import { QualifiedName, identifierToString } from "./lexical";
+import { TranslationUnitAST } from "../ast/ast_program";
+import { GlobalVariableDefinition, FunctionDefinitionGroup, ClassDefinition, FunctionDefinition, CompiledFunctionDefinition, CompiledGlobalVariableDefinition, TopLevelDeclaration, createTopLevelDeclarationFromAST } from "./declarations";
 
 
 
@@ -524,10 +526,6 @@ class PreprocessedSource {
 }
 
 
-export interface TranslationUnitAST {
-    readonly construct_type: "translation_unit";
-    readonly declarations: readonly TopLevelDeclarationASTNode[];
-}
 
 /**
  * TranslationUnit

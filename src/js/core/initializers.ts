@@ -1,8 +1,11 @@
-import { ASTNode, SuccessfullyCompiled, TranslationUnitContext, RuntimeConstruct, CPPConstruct, ExpressionContext, BlockContext, ClassContext, MemberFunctionContext, MemberBlockContext, BasicCPPConstruct, createImplicitContext, InvalidConstruct } from "./constructs";
-import { CompiledFunctionCall, CompiledTemporaryDeallocator, FunctionCall, PotentialFullExpression, RuntimeFunctionCall, RuntimePotentialFullExpression } from "./PotentialFullExpression";
-import { ExpressionASTNode, StringLiteralExpression, CompiledStringLiteralExpression, RuntimeStringLiteralExpression, createRuntimeExpression, standardConversion, overloadResolution, createExpressionFromAST, InitializerListExpressionASTNode, InitializerListExpression, AnalyticExpression } from "./expressions";
-import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity, FunctionEntity, ReceiverEntity, BaseSubobjectEntity, MemberObjectEntity, ObjectEntityType, TemporaryObjectEntity, MemberVariableEntity } from "./entities";
-import { CompleteObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType, Char, FunctionType, VoidType, CompleteClassType, PotentiallyCompleteObjectType, ReferenceType, ReferredType, isCvConvertible, referenceRelated, isBoundedArrayOfType, isBoundedArrayType } from "./types";
+import { SuccessfullyCompiled, TranslationUnitContext, RuntimeConstruct, CPPConstruct, ExpressionContext, BlockContext, ClassContext, MemberFunctionContext, MemberBlockContext, BasicCPPConstruct, createImplicitContext, InvalidConstruct } from "./constructs";
+import { ASTNode } from "../ast/ASTNode";
+import { CompiledTemporaryDeallocator, PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
+import { CompiledFunctionCall, FunctionCall, RuntimeFunctionCall } from "./FunctionCall";
+import { StringLiteralExpression, CompiledStringLiteralExpression, RuntimeStringLiteralExpression, createRuntimeExpression, standardConversion, overloadResolution, createExpressionFromAST, InitializerListExpression, AnalyticExpression } from "./expressions";
+import { ExpressionASTNode } from "../ast/ast_expressions";
+import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity, FunctionEntity, ReceiverEntity, BaseSubobjectEntity, MemberObjectEntity, ObjectEntityType, TemporaryObjectEntity, MemberVariableEntity, NewArrayEntity, DynamicLengthArrayNextElementEntity } from "./entities";
+import { CompleteObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType, Char, FunctionType, VoidType, CompleteClassType, PotentiallyCompleteObjectType, ReferenceType, ReferredType, isCvConvertible, referenceRelated, isBoundedArrayOfType, isBoundedArrayType, ArrayOfUnknownBoundType } from "./types";
 import { assertFalse, assert, asMutable, assertNever, Mutable } from "../util/util";
 import { CPPError } from "./errors";
 import { Simulation } from "./Simulation";
@@ -11,18 +14,14 @@ import { Expression, CompiledExpression, RuntimeExpression, allWellTyped } from 
 import { InitializerOutlet, ConstructOutlet, AtomicDefaultInitializerOutlet, ArrayDefaultInitializerOutlet, ReferenceDirectInitializerOutlet, AtomicDirectInitializerOutlet, ReferenceCopyInitializerOutlet, AtomicCopyInitializerOutlet, ClassDefaultInitializerOutlet, ClassDirectInitializerOutlet, ClassCopyInitializerOutlet, CtorInitializerOutlet, ArrayAggregateInitializerOutlet, ArrayMemberInitializerOutlet } from "../view/codeOutlets";
 import { Value } from "./runtimeEnvironment";
 import { Statement, UnsupportedStatement } from "./statements";
-import { CtorInitializerASTNode } from "./declarations";
 import { lookupTypeInContext, OpaqueExpression } from "./opaqueExpression";
-
-export type InitializerASTNode = DirectInitializerASTNode | CopyInitializerASTNode | ListInitializerASTNode;
-
-export type NewInitializerASTNode = DirectInitializerASTNode | ListInitializerASTNode;
+import { CtorInitializerASTNode } from "../ast/ast_declarations";
 
 export type InitializerKind = "default" | DirectInitializerKind | "list";
 
 export abstract class Initializer extends PotentialFullExpression {
 
-    public abstract readonly target: ObjectEntity | UnboundReferenceEntity;
+    public abstract readonly target: NewArrayEntity | ObjectEntity | UnboundReferenceEntity;
 
     public abstract createRuntimeInitializer(parent: RuntimeConstruct): RuntimeInitializer;
 
@@ -190,6 +189,7 @@ export class ArrayDefaultInitializer extends DefaultInitializer {
         let type = this.target.type;
         if (type.elemType instanceof AtomicType) {
             // Do nothing
+            // TODO: should I create the DefaultInitializers anyway for analysis purposes?
         }
         else {
             this.elementInitializers = [];
@@ -263,7 +263,7 @@ export class RuntimeArrayDefaultInitializer<T extends BoundedArrayType = Bounded
         }
         else {
             let target = this.model.target.runtimeLookup(this);
-            this.observable.send("arrayObjectInitialized", this);
+            this.observable.send("arrayObjectInitialized", target);
             this.startCleanup();
         }
     }
@@ -273,6 +273,7 @@ export class RuntimeArrayDefaultInitializer<T extends BoundedArrayType = Bounded
     }
 
 }
+
 
 export class ClassDefaultInitializer extends DefaultInitializer {
     public readonly construct_type = "ClassDefaultInitializer";
@@ -360,11 +361,6 @@ export class RuntimeClassDefaultInitializer<T extends CompleteClassType = Comple
 
 
 
-
-export interface DirectInitializerASTNode extends ASTNode {
-    construct_type: "direct_initializer";
-    args: ExpressionASTNode[];
-}
 
 
 export type DirectInitializerKind = "direct" | "copy";
@@ -1044,10 +1040,6 @@ export class RuntimeClassDirectInitializer<T extends CompleteClassType = Complet
 
 
 
-export interface CopyInitializerASTNode extends ASTNode {
-    readonly construct_type: "copy_initializer";
-    readonly args: ExpressionASTNode[];
-}
 
 
 type DelegatedConstructorCtorInitializerComponent = {
@@ -1711,10 +1703,6 @@ export class RuntimeArrayMemberInitializer extends RuntimeInitializer<CompiledAr
 // });
 
 
-export interface ListInitializerASTNode extends ASTNode {
-    readonly construct_type: "list_initializer";
-    readonly arg: InitializerListExpressionASTNode;
-}
 
 export abstract class ListInitializer extends Initializer {
 
@@ -1793,6 +1781,7 @@ export class ArrayAggregateInitializer extends ListInitializer {
         let arraySize = target.type.numElems;
 
         if (args.length > arraySize) {
+            // TODO: this seems like a weird error to give. why not something more specific?
             this.addNote(CPPError.param.numParams(this));
             // No need to bail out, though. We can still generate initializers
             // for all of the arguments that do correspond to an in-bounds element.
@@ -1808,7 +1797,7 @@ export class ArrayAggregateInitializer extends ListInitializer {
         for(let i = args.length; i < arraySize; ++i) {
             remainingElemInits.push(DefaultInitializer.create(context, new ArraySubobjectEntity(target, i)));
         }
-        this.implicitElemInitializers = remainingElemInits
+        this.implicitElemInitializers = remainingElemInits;
 
         this.elemInitializers = [];
         this.elemInitializers = this.elemInitializers.concat(this.explicitElemInitializers, this.implicitElemInitializers);

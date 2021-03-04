@@ -1,21 +1,23 @@
-import { BasicCPPConstruct, ASTNode, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, BlockContext, createClassContext, ClassContext, isClassContext, createMemberSpecificationContext, MemberSpecificationContext, isMemberSpecificationContext, createImplicitContext, isMemberFunctionContext, EMPTY_SOURCE, createBlockContext, isMemberBlockContext, createOutOfLineFunctionDefinitionContext } from "./constructs";
+import { BasicCPPConstruct, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, BlockContext, createClassContext, ClassContext, isClassContext, createMemberSpecificationContext, MemberSpecificationContext, isMemberSpecificationContext, createImplicitContext, isMemberFunctionContext, EMPTY_SOURCE, createBlockContext, isMemberBlockContext, createOutOfLineFunctionDefinitionContext } from "./constructs";
+import { ASTNode } from "../ast/ASTNode";
 import { CPPError, Note, CompilerNote, NoteHandler } from "./errors";
 import { asMutable, assertFalse, assert, Mutable, Constructor, assertNever, DiscriminateUnion } from "../util/util";
 import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, CompleteObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, PotentialReturnType, PeelReference, AtomicType, ArithmeticType, IntegralType, FloatingPointType, CompleteClassType, PotentiallyCompleteClassType, IncompleteClassType, PotentiallyCompleteObjectType, ReferredType, CompleteParameterType, IncompleteObjectType, CompleteReturnType, isAtomicType, isCompleteClassType, isBoundedArrayType, covariantType } from "./types";
-import { Initializer, DefaultInitializer, DirectInitializer, InitializerASTNode, CompiledInitializer, DirectInitializerASTNode, CopyInitializerASTNode, CtorInitializer, CompiledCtorInitializer, ListInitializer, ListInitializerASTNode } from "./initializers";
-import { LocalObjectEntity, LocalReferenceEntity, GlobalObjectEntity, NamespaceScope, VariableEntity, CPPEntity, FunctionEntity, BlockScope, ClassEntity, MemberObjectEntity, MemberReferenceEntity, MemberVariableEntity, ObjectEntityType, CompleteClassEntity, ClassScope } from "./entities";
-import { ExpressionASTNode, NumericLiteralASTNode, createExpressionFromAST, parseNumericLiteralValueFromAST, isConvertible } from "./expressions";
-import { BlockASTNode, Block, createStatementFromAST, CompiledBlock } from "./statements";
-import { UnqualifiedIdentifierASTNode, checkIdentifier, QualifiedIdentifierASTNode, IdentifierASTNode, LexicalIdentifier, astToIdentifier, identifierToString, QualifiedName, UnqualifiedName, isUnqualifiedName, getUnqualifiedName, composeQualifiedName, getQualifiedName, isQualifiedName } from "./lexical";
 import { CPPObject, ArraySubobject } from "./objects";
 import { Expression } from "./expressionBase";
 import { RuntimeFunction } from "./functions";
 import { parseDeclarator, parseFunctionDefinition } from "../parse/cpp_parser_util";
-import { RuntimeFunctionCall } from "./PotentialFullExpression";
+import { RuntimeFunctionCall } from "./FunctionCall";
+import { StorageSpecifierASTNode, StorageSpecifierKey, TypeSpecifierASTNode, TypeSpecifierKey, NonMemberSimpleDeclarationASTNode, FunctionDefinitionASTNode, ClassDefinitionASTNode, TopLevelDeclarationASTNode, LocalDeclarationASTNode, MemberSimpleDeclarationASTNode, MemberDeclarationASTNode, SimpleDeclarationASTNode, ParameterDeclarationASTNode, ClassKey, AccessSpecifier, BaseSpecifierASTNode } from "../ast/ast_declarations";
+import { DeclaratorASTNode, FunctionPostfixDeclaratorASTNode } from "../ast/ast_declarators";
+import { parseNumericLiteralValueFromAST } from "../ast/ast_expressions";
+import { CPPEntity, FunctionEntity, ClassEntity, VariableEntity, LocalObjectEntity, LocalReferenceEntity, GlobalObjectEntity, MemberVariableEntity, MemberObjectEntity, MemberReferenceEntity, CompleteClassEntity, ObjectEntityType } from "./entities";
+import { createExpressionFromAST } from "./expressions";
+import { getUnqualifiedName, QualifiedName, composeQualifiedName, getQualifiedName, isQualifiedName, UnqualifiedName, LexicalIdentifier, astToIdentifier, isUnqualifiedName, checkIdentifier, identifierToString } from "./lexical";
+import { Block, createStatementFromAST, CompiledBlock } from "./statements";
+import { DirectInitializerASTNode, CopyInitializerASTNode, ListInitializerASTNode } from "../ast/ast_initializers";
+import { Initializer, CompiledInitializer, DefaultInitializer, DirectInitializer, ListInitializer, CtorInitializer, CompiledCtorInitializer } from "./initializers";
 
-export type StorageSpecifierKey = "register" | "static" | "thread_local" | "extern" | "mutable";
-
-export type StorageSpecifierASTNode = readonly StorageSpecifierKey[];
 
 export class StorageSpecifier extends BasicCPPConstruct<TranslationUnitContext, ASTNode> {
     public readonly construct_type = "storage_specifier";
@@ -83,11 +85,6 @@ export class StorageSpecifier extends BasicCPPConstruct<TranslationUnitContext, 
 export interface CompiledStorageSpecifier extends StorageSpecifier, SuccessfullyCompiled {
 
 }
-
-export type SimpleTypeName = string | "char" | "short" | "int" | "bool" | "long" | "signed" | "unsigned" | "float" | "double" | "void";
-export type TypeSpecifierKey = "const" | "volatile" | "signed" | "unsigned" | "enum";
-
-export type TypeSpecifierASTNode = readonly (TypeSpecifierKey | SimpleTypeName | ElaboratedTypeSpecifierASTNode | ClassDefinitionASTNode)[];
 
 export class TypeSpecifier extends BasicCPPConstruct<TranslationUnitContext, ASTNode> {
     public readonly construct_type = "type_specifier";
@@ -197,26 +194,6 @@ interface OtherSpecifiers {
     readonly explicit?: boolean;
     readonly virtual?: boolean;
 }
-
-export interface DeclarationSpecifiersASTNode {
-    readonly typeSpecs: TypeSpecifierASTNode;
-    readonly storageSpecs: StorageSpecifierASTNode;
-    readonly elaboratedTypeSpecifiers: readonly ElaboratedTypeSpecifierASTNode[];
-    readonly classSpecifiers: readonly ClassDefinitionASTNode[];
-    readonly friend?: boolean;
-    readonly typedef?: boolean;
-    readonly inline?: boolean;
-    readonly explicit?: boolean;
-    readonly virtual?: boolean;
-}
-
-export type DeclarationASTNode = TopLevelDeclarationASTNode | MemberDeclarationASTNode;
-
-export type TopLevelDeclarationASTNode = NonMemberSimpleDeclarationASTNode | FunctionDefinitionASTNode | ClassDefinitionASTNode;
-
-export type LocalDeclarationASTNode = NonMemberSimpleDeclarationASTNode | FunctionDefinitionASTNode | ClassDefinitionASTNode;
-
-export type SimpleDeclarationASTNode = NonMemberSimpleDeclarationASTNode | MemberSimpleDeclarationASTNode;
 
 export type Declaration = TopLevelSimpleDeclaration | LocalSimpleDeclaration | MemberDeclaration | FunctionDefinition | ClassDefinition | InvalidConstruct;
 
@@ -524,11 +501,6 @@ export type AnalyticCompiledDeclaration<C extends AnalyticDeclaration, T extends
 
 
 
-export interface NonMemberSimpleDeclarationASTNode extends ASTNode {
-    readonly construct_type: "simple_declaration";
-    readonly specs: DeclarationSpecifiersASTNode;
-    readonly declarators: readonly DeclaratorInitASTNode[];
-}
 
 export abstract class SimpleDeclaration<ContextType extends TranslationUnitContext = TranslationUnitContext> extends BasicCPPConstruct<ContextType, SimpleDeclarationASTNode> {
     // public readonly construct_type = "simple_declaration";
@@ -1244,39 +1216,7 @@ export interface TypedIncompleteTypeVariableDefinition<T extends IncompleteObjec
 
 
 
-export interface ArrayPostfixDeclaratorASTNode {
-    readonly kind: "array";
-    readonly size?: ExpressionASTNode;
-}
 
-export interface ParameterDeclarationASTNode extends ASTNode {
-    readonly declarator: DeclaratorASTNode;
-    readonly specs: DeclarationSpecifiersASTNode;
-    readonly initializer?: InitializerASTNode;
-}
-
-export interface FunctionPostfixDeclaratorASTNode {
-    readonly kind: "function";
-    readonly size: ExpressionASTNode;
-    readonly args: readonly ParameterDeclarationASTNode[];
-    readonly const?: boolean;
-}
-
-export interface DeclaratorASTNode extends ASTNode {
-    readonly pureVirtual?: boolean;
-    readonly override?: boolean;
-    readonly sub?: DeclaratorASTNode; // parentheses
-    readonly pointer?: DeclaratorASTNode;
-    readonly reference?: DeclaratorASTNode;
-    readonly const?: boolean;
-    readonly volatile?: boolean;
-    readonly name?: IdentifierASTNode;
-    readonly postfixes?: readonly (ArrayPostfixDeclaratorASTNode | FunctionPostfixDeclaratorASTNode)[];
-}
-
-export interface DeclaratorInitASTNode extends DeclaratorASTNode {
-    readonly initializer?: InitializerASTNode;
-}
 
 // TODO: take baseType as a parameter to compile rather than init
 export class Declarator extends BasicCPPConstruct<TranslationUnitContext, DeclaratorASTNode> {
@@ -1612,15 +1552,7 @@ let OVERLOADABLE_OPS: { [index: string]: true | undefined } = {};
         OVERLOADABLE_OPS["operator" + op] = true;
     });
 
-export type FunctionBodyASTNode = BlockASTNode;
 
-export interface FunctionDefinitionASTNode extends ASTNode {
-    readonly construct_type: "function_definition";
-    readonly specs: DeclarationSpecifiersASTNode;
-    readonly declarator: DeclaratorASTNode;
-    readonly ctor_initializer?: CtorInitializerASTNode;
-    readonly body: FunctionBodyASTNode;
-}
 
 export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, FunctionDefinitionASTNode> {
     public readonly construct_type = "function_definition";
@@ -2040,59 +1972,7 @@ export interface CompiledClassDeclaration<T extends PotentiallyCompleteClassType
 }
 
 
-export type ClassKey = "struct" | "class";
-export interface ElaboratedTypeSpecifierASTNode extends ASTNode {
-    readonly construct_type: "elaborated_type_specifier";
-    readonly classKey: ClassKey;
-    readonly name: UnqualifiedIdentifierASTNode;
-}
 
-export interface ClassHeadASTNode extends ASTNode {
-    readonly construct_type: "class_head";
-    readonly classKey: ClassKey;
-    readonly name: UnqualifiedIdentifierASTNode;
-    readonly bases: readonly BaseSpecifierASTNode[];
-}
-
-export interface BaseSpecifierASTNode extends ASTNode {
-    readonly name: IdentifierASTNode;
-    readonly virtual?: true;
-    readonly access?: AccessSpecifier;
-}
-
-export interface ClassDefinitionASTNode extends ASTNode {
-    readonly construct_type: "class_definition";
-    readonly head: ClassHeadASTNode;
-    readonly memberSpecs: readonly MemberSpecificationASTNode[];
-}
-
-export type AccessSpecifier = "private" | "protected" | "public";
-export interface MemberSpecificationASTNode extends ASTNode {
-    readonly construct_type: "member_specification";
-    readonly access?: AccessSpecifier;
-    readonly members: readonly MemberDeclarationASTNode[];
-}
-
-export type MemberDeclarationASTNode =
-    MemberSimpleDeclarationASTNode |
-    FunctionDefinitionASTNode;
-
-export interface MemberSimpleDeclarationASTNode extends ASTNode {
-    readonly construct_type: "simple_member_declaration";
-    readonly specs: DeclarationSpecifiersASTNode;
-    readonly declarators: readonly DeclaratorInitASTNode[];
-}
-
-export interface CtorInitializerASTNode extends ASTNode {
-    readonly construct_type: "ctor_initializer";
-    readonly initializers: readonly MemberInitializerASTNode[];
-}
-
-export interface MemberInitializerASTNode extends ASTNode {
-    readonly construct_type: "member_initializer";
-    readonly member: UnqualifiedIdentifierASTNode;
-    readonly args: readonly ExpressionASTNode[];
-}
 
 export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefinitionASTNode> {
     public readonly construct_type = "class_definition";
@@ -2131,11 +2011,6 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
     //     public readonly members: MemberVariableDeclaration | MemberFunctionDeclaration | MemberFunctionDefinition;
 
 
-    // export interface SimpleDeclarationASTNode extends ASTNode {
-    //     readonly construct_type: "simple_declaration";
-    //     readonly specs: DeclarationSpecifiersASTNode;
-    //     readonly declarators: readonly DeclaratorInitASTNode[];
-    // }
 
     public static createFromAST(ast: ClassDefinitionASTNode, tuContext: TranslationUnitContext) {
 
