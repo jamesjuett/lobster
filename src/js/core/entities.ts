@@ -506,6 +506,7 @@ export abstract class CPPEntity<T extends Type = Type> {
         this.type = type;
     }
 
+    public abstract isTyped<NarrowedT extends CompleteObjectType>(this: ObjectEntity, predicate: (t:Type) => t is NarrowedT) : this is ObjectEntity<NarrowedT>;
     public abstract isTyped<NarrowedT extends Type>(predicate: (t:Type) => t is NarrowedT) : this is CPPEntity<NarrowedT>;
 
     public abstract describe(): EntityDescription;

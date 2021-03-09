@@ -92,6 +92,10 @@ class ArrayObjectData<Elem_type extends ArrayElemType> extends ObjectData<Bounde
         return this.elemObjects;
     }
 
+    public numArrayElemSubobjects(): number {
+        return this.elemObjects.length;
+    }
+
     public getValue() {
         return this.elemObjects.map((elemObj) => { return elemObj.getValue(); });
     }
@@ -326,6 +330,11 @@ export abstract class CPPObject<T extends CompleteObjectType = CompleteObjectTyp
     // Only allowed if receiver matches CPPObject<ArrayType<Elem_type>>
     public getArrayElemSubobjects<AT extends BoundedArrayType>(this: CPPObject<AT>): readonly ArraySubobject<AT["elemType"]>[] {
         return this.data.getArrayElemSubobjects();
+    }
+
+    // Only allowed if receiver matches CPPObject<ArrayType<Elem_type>>
+    public numArrayElemSubobjects<AT extends BoundedArrayType>(this: CPPObject<AT>): number {
+        return this.data.numArrayElemSubobjects();
     }
 
     // Only allowed if receiver matches CPPObject<ArrayType<Elem_type>>
@@ -827,7 +836,7 @@ abstract class Subobject<T extends CompleteObjectType = CompleteObjectType> exte
 
 export class ArraySubobject<T extends ArrayElemType = ArrayElemType> extends Subobject<T> {
 
-    public readonly containingObject!: CPPObject<BoundedArrayType<T>>; // Handled by parent (TODO: is this a good idea?)
+    public readonly containingObject!: CPPObject<BoundedArrayType<T>>; // Handled by parent (TODO: is this a good idea?) lol no i don't think so
     public readonly index: number;
 
     public constructor(arrObj: CPPObject<BoundedArrayType<T>>, index: number, memory: Memory, address: number) {

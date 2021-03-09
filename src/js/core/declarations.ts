@@ -469,11 +469,6 @@ export type TypedDeclarationKinds<T extends Type> = {
     // TODO: add rest of discriminants and their types
 };
 
-function test<T extends Type>() {
-    let x! : T & FunctionType;
-    let y! : FunctionType;
-    y = x;
-}
 
 export type CompiledDeclarationKinds<T extends Type> = {
     "invalid_construct": never; // these never compile

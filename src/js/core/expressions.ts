@@ -16,7 +16,7 @@ import { Predicates } from "./predicates";
 import { OpaqueExpression, RuntimeOpaqueExpression, TypedOpaqueExpression, CompiledOpaqueExpression } from "./opaqueExpression";
 import { CompiledTemporaryDeallocator } from "./PotentialFullExpression";
 import { CompiledFunctionCall, FunctionCall, RuntimeFunctionCall, TypedFunctionCall } from "./FunctionCall";
-import { createNewExpressionFromAST, DeleteExpression, NewExpression, TypedNewExpression, TypedDeleteExpression, CompiledNewExpression, CompiledDeleteExpression, RuntimeNewExpression, RuntimeDeleteExpression, NewObjectType, NewArrayExpression, CompiledNewArrayExpression, RuntimeNewArrayExpression, TypedNewArrayExpression } from "./new_delete";
+import { createNewExpressionFromAST, DeleteExpression, NewExpression, TypedNewExpression, TypedDeleteExpression, CompiledNewExpression, CompiledDeleteExpression, RuntimeNewExpression, RuntimeDeleteExpression, NewObjectType, NewArrayExpression, CompiledNewArrayExpression, RuntimeNewArrayExpression, TypedNewArrayExpression, DeleteArrayExpression, CompiledDeleteArrayExpression, RuntimeDeleteArrayExpression, TypedDeleteArrayExpression } from "./new_delete";
 import { AddressOfExpressionASTNode, ArithmeticBinaryOperatorExpressionASTNode, ArrowExpressionASTNode, AssignmentExpressionASTNode, BinaryOperatorExpressionASTNode, BitwiseNotExpressionASTNode, CommaASTNode, CompoundAssignmentExpressionASTNode, ConstCastExpressionASTNode, ConstructExpressionASTNode, CStyleCastExpressionASTNode, DeleteArrayExpressionASTNode, DeleteExpressionASTNode, DereferenceExpressionASTNode, DotExpressionASTNode, DynamicCastExpressionASTNode, ExpressionASTNode, FunctionCallExpressionASTNode, IdentifierExpressionASTNode, InitializerListExpressionASTNode, LogicalBinaryOperatorExpressionASTNode, LogicalNotExpressionASTNode, NewExpressionASTNode, NumericLiteralASTNode, OpaqueExpressionASTNode, ParenthesesExpressionASTNode, parseNumericLiteralValueFromAST, PointerToMemberExpressionASTNode, PostfixIncrementExpressionASTNode, PrefixIncrementExpressionASTNode, ReinterpretCastExpressionASTNode, RelationalBinaryOperatorExpressionASTNode, SizeofExpressionASTNode, SizeofTypeExpressionASTNode, StaticCastExpressionASTNode, StringLiteralASTNode, SubscriptExpressionASTNode, TernaryASTNode, ThisExpressionASTNode, t_ArithmeticBinaryOperators, t_BinaryOperators, t_CompoundAssignmentOperators, t_LogicalBinaryOperators, t_RelationalBinaryOperators, t_UnaryOperators, UnaryMinusExpressionASTNode, UnaryOperatorExpressionASTNode, UnaryPlusExpressionASTNode } from "../ast/ast_expressions";
 
 
@@ -62,7 +62,7 @@ const ExpressionConstructsMap = {
     "sizeof_type_expression": (ast: SizeofTypeExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "sizeof (type)"),
     "new_expression": (ast: NewExpressionASTNode, context: ExpressionContext) => createNewExpressionFromAST(ast, context),
     "delete_expression": (ast: DeleteExpressionASTNode, context: ExpressionContext) => DeleteExpression.createFromAST(ast, context),
-    "delete_array_expression": (ast: DeleteArrayExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "delete[]"),
+    "delete_array_expression": (ast: DeleteArrayExpressionASTNode, context: ExpressionContext) => DeleteArrayExpression.createFromAST(ast, context),
 
     // postfix operators
     "static_cast_expression": (ast: StaticCastExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "static cast"),
@@ -117,6 +117,7 @@ export type AnalyticExpression =
     NewExpression |
     NewArrayExpression |
     DeleteExpression |
+    DeleteArrayExpression |
     PostfixIncrementExpression |
     SubscriptExpression |
     DotExpression |
@@ -199,6 +200,9 @@ export type TypedExpressionKinds<T extends ExpressionType, V extends ValueCatego
     "delete_expression":
     T extends NonNullable<TypedDeleteExpression["type"]> ? V extends NonNullable<TypedDeleteExpression["valueCategory"]> ? TypedDeleteExpression : never :
     NonNullable<TypedDeleteExpression["type"]> extends T ? V extends NonNullable<TypedDeleteExpression["valueCategory"]> ? TypedDeleteExpression : never : never;
+    "delete_array_expression":
+    T extends NonNullable<TypedDeleteArrayExpression["type"]> ? V extends NonNullable<TypedDeleteArrayExpression["valueCategory"]> ? TypedDeleteArrayExpression : never :
+    NonNullable<TypedDeleteArrayExpression["type"]> extends T ? V extends NonNullable<TypedDeleteArrayExpression["valueCategory"]> ? TypedDeleteArrayExpression : never : never;
     "this_expression":
     T extends NonNullable<TypedThisExpression["type"]> ? V extends NonNullable<TypedThisExpression["valueCategory"]> ? TypedThisExpression<T> : never :
     NonNullable<TypedThisExpression["type"]> extends T ? V extends NonNullable<TypedThisExpression["valueCategory"]> ? TypedThisExpression : never : never;
@@ -298,6 +302,7 @@ export type CompiledExpressionKinds<T extends ExpressionType, V extends ValueCat
     "new_expression": T extends NonNullable<CompiledNewExpression["type"]> ? V extends NonNullable<CompiledNewExpression["valueCategory"]> ? CompiledNewExpression<T> : never : never;
     "new_array_expression": T extends NonNullable<CompiledNewArrayExpression["type"]> ? V extends NonNullable<CompiledNewArrayExpression["valueCategory"]> ? CompiledNewArrayExpression<T> : never : never;
     "delete_expression": T extends NonNullable<CompiledDeleteExpression["type"]> ? V extends NonNullable<CompiledDeleteExpression["valueCategory"]> ? CompiledDeleteExpression : never : never;
+    "delete_array_expression": T extends NonNullable<CompiledDeleteArrayExpression["type"]> ? V extends NonNullable<CompiledDeleteArrayExpression["valueCategory"]> ? CompiledDeleteArrayExpression : never : never;
     "this_expression": T extends NonNullable<CompiledThisExpression["type"]> ? V extends NonNullable<CompiledThisExpression["valueCategory"]> ? CompiledThisExpression<T> : never : never;
     "unary_plus_expression": T extends NonNullable<CompiledUnaryPlusExpression["type"]> ? V extends NonNullable<CompiledUnaryPlusExpression["valueCategory"]> ? CompiledUnaryPlusExpression<T> : never : never;
     "unary_minus_expression": T extends NonNullable<CompiledUnaryMinusExpression["type"]> ? V extends NonNullable<CompiledUnaryMinusExpression["valueCategory"]> ? CompiledUnaryMinusExpression<T> : never : never;
@@ -349,6 +354,7 @@ const ExpressionConstructsRuntimeMap = {
     "new_expression": <T extends CompiledNewExpression["type"]>(construct: CompiledNewExpression<T>, parent: RuntimeConstruct) => new RuntimeNewExpression(construct, parent),
     "new_array_expression": <T extends CompiledNewArrayExpression["type"]>(construct: CompiledNewArrayExpression<T>, parent: RuntimeConstruct) => new RuntimeNewArrayExpression(construct, parent),
     "delete_expression": (construct: CompiledDeleteExpression, parent: RuntimeConstruct) => new RuntimeDeleteExpression(construct, parent),
+    "delete_array_expression": (construct: CompiledDeleteArrayExpression, parent: RuntimeConstruct) => new RuntimeDeleteArrayExpression(construct, parent),
     "this_expression": <T extends CompiledThisExpression["type"]>(construct: CompiledThisExpression<T>, parent: RuntimeConstruct) => new RuntimeThisExpression(construct, parent),
     "unary_plus_expression": <T extends CompiledUnaryPlusExpression["type"]>(construct: CompiledUnaryPlusExpression<T>, parent: RuntimeConstruct) => new RuntimeUnaryPlusExpression(construct, parent),
     "unary_minus_expression": <T extends CompiledUnaryMinusExpression["type"]>(construct: CompiledUnaryMinusExpression<T>, parent: RuntimeConstruct) => new RuntimeUnaryMinusExpression(construct, parent),
@@ -412,7 +418,7 @@ export function createRuntimeExpression<T extends CompleteObjectType>(construct:
 export function createRuntimeExpression<T extends PointerType>(construct: CompiledAddressOfExpression<T>, parent: RuntimeConstruct): RuntimeAddressOfExpression<T>;
 export function createRuntimeExpression<T extends PointerType<NewObjectType>>(construct: CompiledNewExpression<T>, parent: RuntimeConstruct): RuntimeNewExpression<T>;
 export function createRuntimeExpression<T extends PointerType<ArrayElemType>>(construct: CompiledNewArrayExpression<T>, parent: RuntimeConstruct): RuntimeNewArrayExpression<T>;
-export function createRuntimeExpression(construct: CompiledDeleteExpression, parent: RuntimeConstruct): RuntimeDeleteExpression;
+export function createRuntimeExpression(construct: CompiledDeleteArrayExpression, parent: RuntimeConstruct): RuntimeDeleteArrayExpression;
 export function createRuntimeExpression<T extends PointerType<CompleteClassType>>(construct: CompiledThisExpression<T>, parent: RuntimeConstruct): RuntimeThisExpression<T>;
 export function createRuntimeExpression<T extends ArithmeticType | PointerType>(construct: CompiledUnaryPlusExpression<T>, parent: RuntimeConstruct): RuntimeUnaryPlusExpression<T>;
 export function createRuntimeExpression<T extends ArithmeticType>(construct: CompiledUnaryMinusExpression<T>, parent: RuntimeConstruct): RuntimeUnaryMinusExpression<T>;
@@ -3768,53 +3774,7 @@ export class RuntimePostfixIncrementExpression<T extends ArithmeticType | Pointe
 //                 return;
 //             }
 
-//             // If it's an array pointer, just grab array object to delete from RTTI.
-//             // Otherwise ask memory what object it's pointing to.
-//             var obj;
-//             if (isA(ptr.type, Types.ArrayPointer)){
-//                 obj = ptr.type.arrObj;
-//             }
-//             else{
-//                 obj = sim.memory.dereference(ptr);
-//             }
-
-//             if (!isA(obj, DynamicObject)) {
-//                 if (isA(obj, AutoObject)) {
-//                     sim.undefinedBehavior("Oh no! The pointer you gave to <span class='code'>delete</span> was pointing to something on the stack!");
-//                 }
-//                 else {
-//                     sim.undefinedBehavior("Oh no! The pointer you gave to <span class='code'>delete</span> wasn't pointing to a valid heap object.");
-//                 }
-//                 this.done(sim, inst);
-//                 return;
-//             }
-
-//             if (isA(obj.type, Types.Array)){
-//                 sim.undefinedBehavior("You tried to delete an array object with a <span class='code'>delete</span> expression. Did you forget to use the delete[] syntax?");
-//                 this.done(sim, inst);
-//                 return;
-//             }
-
-//             //if (!similarType(obj.type, this.operand.type.ptrTo)) {
-//             //    sim.alert("The type of the pointer you gave to <span class='code'>delete</span> is different than the type of the object I found on the heap - that's a bad thing!");
-//             //    this.done(sim, inst);
-//             //    return;
-//             //}
-
-//             if (!obj.isAlive()) {
-//                 DeadObjectMessage.instance(obj, {fromDelete:true}).display(sim, inst);
-//                 this.done(sim, inst);
-//                 return;
-//             }
-
-//             inst.alreadyDestructed = true;
-//             if(this.funcCall){
-//                 // Set obj as receiver for virtual destructor lookup
-//                 var dest = this.funcCall.createAndPushInstance(sim, inst, obj);
-//             }
-//             else{
-//                 return true;
-//             }
+//             
 //         }
 //         else{
 //             var deleted = sim.memory.heap.deleteObject(inst.childInstances.operand.evalResult.value, inst);

@@ -102,9 +102,9 @@ export interface BlockContext extends FunctionContext {
     readonly withinLoop?: true;
 }
 
-export function createBlockContext(parentContext: FunctionContext): BlockContext {
+export function createBlockContext(parentContext: FunctionContext, sharedScope?: BlockScope): BlockContext {
     return Object.assign({}, parentContext, {
-        contextualScope: new BlockScope(parentContext.translationUnit, parentContext.contextualScope),
+        contextualScope: sharedScope || new BlockScope(parentContext.translationUnit, parentContext.contextualScope),
         blockLocals: new ContextualLocals()
     });
 }
@@ -351,7 +351,7 @@ export type TranslationUnitConstruct<ASTType extends ASTNode = ASTNode> = CPPCon
 
 
 
-export type StackType = "statement" | "expression" | "function" | "initializer" | "call" | "ctor-initializer";
+export type StackType = "statement" | "expression" | "function" | "initializer" | "call" | "ctor-initializer" | "cleanup";
 
 export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledConstruct> {
 

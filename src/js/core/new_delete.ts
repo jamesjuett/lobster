@@ -1,18 +1,18 @@
-import { ArraySubobject, DynamicObject } from "./objects";
+import { ArraySubobject, CPPObject, DynamicObject } from "./objects";
 import { SimulationEvent } from "./Simulation";
-import { AtomicType, PointerType, BoundedArrayType, FunctionType, isType, sameType, VoidType, Int, ArrayElemType, CompleteClassType, isBoundedArrayType, isCompleteObjectType, isCompleteClassType, Type, PointerToCompleteType as PointerToCompleteObjectType, isPotentiallyCompleteArrayType, PotentiallyCompleteArrayType } from "./types";
+import { AtomicType, PointerType, BoundedArrayType, FunctionType, isType, sameType, VoidType, Int, ArrayElemType, CompleteClassType, isBoundedArrayType, isCompleteObjectType, isCompleteClassType, Type, PointerToCompleteType as PointerToCompleteObjectType, isPotentiallyCompleteArrayType, PotentiallyCompleteArrayType, isArrayPointerType } from "./types";
 import { SuccessfullyCompiled, RuntimeConstruct, ExpressionContext, ConstructDescription } from "./constructs";
 import { CPPError } from "./errors";
 import { NewObjectEntity, NewArrayEntity, DynamicLengthArrayNextElementEntity } from "./entities";
 import { assertNever, assert, Mutable, asMutable } from "../util/util";
 import { RuntimeExpression, VCResultTypes, Expression, CompiledExpression, t_TypedExpression } from "./expressionBase";
-import { ConstructOutlet, NewExpressionOutlet, DeleteExpressionOutlet, NewArrayExpressionOutlet } from "../view/codeOutlets";
+import { ConstructOutlet, NewExpressionOutlet, DeleteExpressionOutlet, NewArrayExpressionOutlet, DeleteArrayExpressionOutlet } from "../view/codeOutlets";
 import { CompiledTemporaryDeallocator } from "./PotentialFullExpression";
 import { CompiledFunctionCall, FunctionCall, RuntimeFunctionCall } from "./FunctionCall";
 import { CompiledDefaultInitializer, CompiledDirectInitializer, CompiledInitializer, DefaultInitializer, DirectInitializer, Initializer, ListInitializer, RuntimeDefaultInitializer, RuntimeDirectInitializer, RuntimeInitializer } from "./initializers";
 import { CompiledDeclarator, CompiledTypeSpecifier, Declarator, TypeSpecifier } from "./declarations";
 import { convertToPRValue, createExpressionFromAST, createRuntimeExpression, standardConversion } from "./expressions";
-import { NewExpressionASTNode, DeleteExpressionASTNode } from "../ast/ast_expressions";
+import { NewExpressionASTNode, DeleteExpressionASTNode, DeleteArrayExpressionASTNode } from "../ast/ast_expressions";
 
 
 
@@ -443,6 +443,7 @@ export class DeleteExpression extends Expression<DeleteExpressionASTNode> {
             return;
         }
 
+        // Note that this comes after the pointer check, which is intentional
         operand = convertToPRValue(operand);
         this.operand = operand;
 
@@ -488,8 +489,10 @@ export interface CompiledDeleteExpression extends TypedDeleteExpression, Success
 
 export class RuntimeDeleteExpression extends RuntimeExpression<VoidType, "prvalue", CompiledDeleteExpression> {
 
-    public operand: RuntimeExpression<PointerToCompleteObjectType, "prvalue">;
-    public dtor?: RuntimeFunctionCall<FunctionType<VoidType>>;
+    public readonly operand: RuntimeExpression<PointerToCompleteObjectType, "prvalue">;
+    public readonly dtor?: RuntimeFunctionCall<FunctionType<VoidType>>;
+
+    public readonly destroyedObject?: DynamicObject<NewObjectType>;
 
     public constructor(model: CompiledDeleteExpression, parent: RuntimeConstruct) {
         super(model, parent);
@@ -504,35 +507,247 @@ export class RuntimeDeleteExpression extends RuntimeExpression<VoidType, "prvalu
             // delete on a null pointer does nothing
             this.startCleanup();
         }
-        else if (this.model.dtor && !this.dtor) {
+        else if (!this.model.dtor || !this.dtor) {
             let obj = this.sim.memory.dereference(this.operand.evalResult);
 
-            if (obj.isAlive && obj instanceof DynamicObject && obj.isTyped(isCompleteClassType)) {
-                this.sim.push(this.dtor = this.model.dtor.createRuntimeFunctionCall(this, obj));
+            if (!obj.hasStorage("dynamic")) {
+                this.sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "Invalid delete");
+                this.startCleanup();
+                return;
             }
+            else if (!obj.isAlive) {
+                this.sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "Double free");
+                this.startCleanup();
+                return;
+            }
+            else if (obj.isTyped(isBoundedArrayType)) {
+                this.sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "Invalid use of regular delete on array");
+                this.startCleanup();
+                return;
+            }
+            else {
+                asMutable(this).destroyedObject = <DynamicObject<NewObjectType>>obj;
+                if (obj.isTyped(isCompleteClassType) && this.model.dtor) {
+                    let dtor = this.model.dtor.createRuntimeFunctionCall(this, obj);
+                    asMutable(this).dtor = dtor;
+                    this.sim.push(dtor);
+                }
+            }
+
+
         }
     }
 
-    protected stepForwardImpl(): void {
-        let obj = this.sim.memory.dereference(this.operand.evalResult);
-
-        if (!obj.hasStorage("dynamic")) {
-            this.sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "Invalid delete");
-        }
-        else if (!obj.isAlive) {
-            this.sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "Double free");
-            this.startCleanup();
-            return;
-        }
-        else if (obj.isTyped(isBoundedArrayType)) {
-            this.sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "Invalid use of regular delete on array");
-            this.startCleanup();
-            return;
-        }
-        else {
-            this.sim.memory.heap.deleteObject(obj);
-        }
+    protected stepForwardImpl() {
+        this.sim.memory.heap.deleteObject(this.destroyedObject!);
         this.startCleanup();
     }
 
 }
+
+
+
+export class DeleteArrayExpression extends Expression<DeleteArrayExpressionASTNode> {
+    public readonly construct_type = "delete_array_expression";
+
+    public readonly type = VoidType.VOID;
+    public readonly valueCategory = "prvalue";
+
+    public readonly operand: Expression;
+    public readonly elementDtor?: FunctionCall;
+
+    public readonly operator = "delete";
+
+    public constructor(context: ExpressionContext, ast: DeleteArrayExpressionASTNode, operand: Expression) {
+        super(context, ast);
+
+        if (!operand.isWellTyped()) {
+            this.attach(this.operand = operand);
+            return;
+        }
+
+        if (!operand.type.isPointerType()) {
+            this.addNote(CPPError.expr.delete.pointer(this, operand.type));
+            this.attach(this.operand = operand);
+            return;
+        }
+
+        if (!operand.type.isPointerToCompleteObjectType()) {
+            this.addNote(CPPError.expr.delete.pointerToObjectType(this, operand.type));
+            this.attach(this.operand = operand);
+            return;
+        }
+
+        if (!operand.type.ptrTo.isArrayElemType()) {
+            this.addNote(CPPError.expr.delete.pointerToArrayElemType(this, operand.type));
+            this.attach(this.operand = operand);
+            return;
+        }
+
+        // Note that the prvalue conversion comes after type checking
+        // An implication of this is you can't give an array directly to
+        // delete, since it won't decay into a pointer. But there's really
+        // no good reason you would ever do that, since any dynamically allocated
+        // array will have already decayed to a pointer
+        operand = convertToPRValue(operand);
+        this.operand = operand;
+
+        // This should still be true, assertion for type system
+        assert(operand.type?.isPointerToCompleteObjectType());
+
+        let destroyedType = operand.type.ptrTo;
+        if (destroyedType.isCompleteClassType()) {
+            let dtor = destroyedType.classDefinition.destructor;
+            if (dtor) {
+                let dtorCall = new FunctionCall(context, dtor, [], destroyedType);
+                this.attach(this.elementDtor = dtorCall);
+            }
+            else {
+                this.addNote(CPPError.expr.delete.no_destructor(this, destroyedType));
+            }
+        }
+    }
+
+    public static createFromAST(ast: DeleteArrayExpressionASTNode, context: ExpressionContext): DeleteArrayExpression {
+        return new DeleteArrayExpression(context, ast, createExpressionFromAST(ast.operand, context));
+    }
+
+    public createDefaultOutlet(this: CompiledDeleteArrayExpression, element: JQuery, parent?: ConstructOutlet) {
+        return new DeleteArrayExpressionOutlet(element, this, parent);
+    }
+
+    public describeEvalResult(depth: number): ConstructDescription {
+        throw new Error("Method not implemented.");
+    }
+}
+
+export interface TypedDeleteArrayExpression extends DeleteArrayExpression, t_TypedExpression {
+}
+
+export interface CompiledDeleteArrayExpression extends TypedDeleteArrayExpression, SuccessfullyCompiled {
+
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+
+    readonly operand: CompiledExpression<PointerToCompleteObjectType, "prvalue">;
+    readonly elementDtor?: CompiledFunctionCall<FunctionType<VoidType>>;
+}
+
+export class RuntimeDeleteArrayExpression extends RuntimeExpression<VoidType, "prvalue", CompiledDeleteArrayExpression> {
+
+    private index = 0;
+
+    public readonly operand: RuntimeExpression<PointerToCompleteObjectType, "prvalue">;
+    public readonly dtors: readonly RuntimeFunctionCall<FunctionType<VoidType>>[] = [];
+
+    public readonly targetArray?: DynamicObject<BoundedArrayType>;
+
+    public constructor(model: CompiledDeleteArrayExpression, parent: RuntimeConstruct) {
+        super(model, parent);
+        this.operand = createRuntimeExpression(this.model.operand, this);
+    }
+
+    protected upNextImpl() {
+        if (!this.operand.isDone) {
+            this.sim.push(this.operand);
+            return;
+        }
+
+        if (!this.targetArray) {
+            if (PointerType.isNull(this.operand.evalResult.rawValue)) {
+                // delete on a null pointer does nothing
+                this.startCleanup();
+                return;
+            }
+
+            let ptr = this.operand.evalResult;
+            let targetObject = ptr.isTyped(isArrayPointerType)
+                ? ptr.type.arrayObject
+                : this.sim.memory.dereference(ptr);
+            
+            if (!targetObject.hasStorage("dynamic")) {
+                this.sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "Invalid delete");
+                this.startCleanup();
+                return;
+            }
+            else if (!targetObject.isAlive) {
+                this.sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "Double free");
+                this.startCleanup();
+                return;
+            }
+            else if (!targetObject.isTyped(isBoundedArrayType)) {
+                this.sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "Invalid use of array delete[] on non-array");
+                this.startCleanup();
+                return;
+            }
+            
+            asMutable(this).targetArray = targetObject;
+        }
+
+        if (this.targetArray && this.model.elementDtor && this.index < this.targetArray.type.numElems) {
+            let elem = this.targetArray.getArrayElemSubobject(this.index++);
+            if (elem.isTyped(isCompleteClassType)) {
+                let dtor = this.model.elementDtor.createRuntimeFunctionCall(this, elem);
+                asMutable(this.dtors).push(dtor);
+                this.sim.push(dtor);
+                return;
+            }
+        }
+    }
+
+    protected stepForwardImpl() {
+        if (this.targetArray) {
+            this.sim.memory.heap.deleteObject(this.targetArray);
+            this.startCleanup();
+        }
+    }
+
+}
+
+
+// If it's an array pointer, just grab array object to delete from RTTI.
+//             // Otherwise ask memory what object it's pointing to.
+//             var obj;
+//             if (isA(ptr.type, Types.ArrayPointer)){
+//                 obj = ptr.type.arrObj;
+//             }
+//             else{
+//                 obj = sim.memory.dereference(ptr);
+//             }
+
+//             if (!isA(obj, DynamicObject)) {
+//                 if (isA(obj, AutoObject)) {
+//                     sim.undefinedBehavior("Oh no! The pointer you gave to <span class='code'>delete</span> was pointing to something on the stack!");
+//                 }
+//                 else {
+//                     sim.undefinedBehavior("Oh no! The pointer you gave to <span class='code'>delete</span> wasn't pointing to a valid heap object.");
+//                 }
+//                 this.done(sim, inst);
+//                 return;
+//             }
+
+//             if (isA(obj.type, Types.Array)){
+//                 sim.undefinedBehavior("You tried to delete an array object with a <span class='code'>delete</span> expression. Did you forget to use the delete[] syntax?");
+//                 this.done(sim, inst);
+//                 return;
+//             }
+
+//             //if (!similarType(obj.type, this.operand.type.ptrTo)) {
+//             //    sim.alert("The type of the pointer you gave to <span class='code'>delete</span> is different than the type of the object I found on the heap - that's a bad thing!");
+//             //    this.done(sim, inst);
+//             //    return;
+//             //}
+
+//             if (!obj.isAlive()) {
+//                 DeadObjectMessage.instance(obj, {fromDelete:true}).display(sim, inst);
+//                 this.done(sim, inst);
+//                 return;
+//             }
+
+//             inst.alreadyDestructed = true;
+//             if(this.funcCall){
+//                 // Set obj as receiver for virtual destructor lookup
+//                 var dest = this.funcCall.createAndPushInstance(sim, inst, obj);
+//             }
+//             else{
+//                 return true;
+//             }
