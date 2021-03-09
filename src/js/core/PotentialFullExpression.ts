@@ -176,7 +176,7 @@ export class RuntimeTemporaryDeallocator extends RuntimeConstruct<CompiledTempor
             }
             else {
                 // a temp non-class-type object, no dtor needed.
-                this.sim.memory.killObject(temp.runtimeLookup(this.parent), this);
+                this.sim.memory.deallocateTemporaryObject(temp.runtimeLookup(this.parent), this);
             }
         }
 

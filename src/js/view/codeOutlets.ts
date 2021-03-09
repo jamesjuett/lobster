@@ -12,7 +12,7 @@ import { CPPObject, AutoObject } from "../core/objects";
 import { FunctionEntity, PassByReferenceParameterEntity, PassByValueParameterEntity, ReturnByReferenceEntity, ReturnObjectEntity, MemberVariableEntity } from "../core/entities";
 import { Value } from "../core/runtimeEnvironment";
 import { RuntimeAssignment as RuntimeAssignmentExpression, RuntimeTernary, CompiledAssignmentExpression, CompiledTernaryExpression, RuntimeComma, CompiledCommaExpression, RuntimeLogicalBinaryOperatorExpression, RuntimeRelationalBinaryOperator, RuntimeArithmeticBinaryOperator, CompiledArithmeticBinaryOperatorExpression, CompiledRelationalBinaryOperatorExpression, CompiledLogicalBinaryOperatorExpression, CompiledUnaryOperatorExpression, RuntimeSubscriptExpression, CompiledSubscriptExpression, RuntimeParentheses, CompiledParenthesesExpression, RuntimeObjectIdentifierExpression, CompiledObjectIdentifierExpression, RuntimeNumericLiteral, CompiledNumericLiteralExpression, RuntimeFunctionIdentifierExpression, CompiledFunctionIdentifierExpression, RuntimeMagicFunctionCallExpression, CompiledMagicFunctionCallExpression, RuntimeStringLiteralExpression, CompiledStringLiteralExpression, RuntimeUnaryOperatorExpression, RuntimeBinaryOperator, CompiledBinaryOperatorExpression, RuntimeImplicitConversion, CompiledImplicitConversion, RuntimeObjectDotExpression, RuntimeFunctionDotExpression, CompiledObjectDotExpression, CompiledFunctionDotExpression, RuntimeObjectArrowExpression, RuntimeFunctionArrowExpression, CompiledObjectArrowExpression, CompiledFunctionArrowExpression, CompiledOutputOperatorExpression, RuntimeOutputOperatorExpression, RuntimePostfixIncrementExpression, CompiledPostfixIncrementExpression, RuntimeInputOperatorExpression, CompiledInputOperatorExpression, RuntimeNonMemberOperatorOverloadExpression, CompiledNonMemberOperatorOverloadExpression, RuntimeMemberOperatorOverloadExpression, CompiledMemberOperatorOverloadExpression, CompiledInitializerListExpression, RuntimeInitializerListExpression, CompiledCompoundAssignmentExpression, RuntimeCompoundAssignment as RuntimeCompoundAssignmentExpression, CompiledThisExpression, RuntimeThisExpression } from "../core/expressions";
-import { CompiledNewExpression, RuntimeNewExpression, CompiledDeleteExpression, RuntimeDeleteExpression, RuntimeNewArrayExpression, CompiledNewArrayExpression } from "../core/new_delete";
+import { CompiledNewExpression, RuntimeNewExpression, CompiledDeleteExpression, RuntimeDeleteExpression, RuntimeNewArrayExpression, CompiledNewArrayExpression, CompiledDeleteArrayExpression, RuntimeDeleteArrayExpression } from "../core/new_delete";
 import { Bool, AtomicType, CompleteObjectType, isPointerType, isPointerToType, Char, isArrayPointerType, isArrayPointerToType, isAtomicType, isReferenceType, isCompleteClassType, PointerType, isType, ArrayPointerType } from "../core/types";
 import { mixin } from "lodash";
 import { RuntimeFunctionCallExpression, CompiledFunctionCallExpression } from "../core/FunctionCallExpression";
@@ -1945,6 +1945,21 @@ export class DeleteExpressionOutlet extends ExpressionOutlet<RuntimeDeleteExpres
         super(element, construct, parent);
 
         this.exprElem.append(htmlDecoratedOperator("delete", "code-unaryOp"));
+        this.exprElem.append(" ");
+
+        this.operand = addChildExpressionOutlet(this.exprElem, this.construct.operand, this);
+    }
+}
+
+
+export class DeleteArrayExpressionOutlet extends ExpressionOutlet<RuntimeDeleteArrayExpression> {
+
+    public readonly operand?: ExpressionOutlet;
+
+    public constructor(element: JQuery, construct: CompiledDeleteArrayExpression, parent?: ConstructOutlet) {
+        super(element, construct, parent);
+
+        this.exprElem.append(htmlDecoratedOperator("delete[]", "code-unaryOp"));
         this.exprElem.append(" ");
 
         this.operand = addChildExpressionOutlet(this.exprElem, this.construct.operand, this);
