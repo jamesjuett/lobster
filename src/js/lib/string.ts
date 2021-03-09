@@ -1257,7 +1257,7 @@ registerOpaqueExpression(
             
             let orig = extractCharsFromCString(rt, getDataPtr(rt.contextualReceiver).getValue());
             rt.sim.memory.heap.deleteObject(getDataPtr(rec).getValue().rawValue);
-            copyFromCString(rt, rt.contextualReceiver, [...orig.charValues, c.getValue(), Char.NULL_CHAR], orig.validLength);
+            copyFromCString(rt, rt.contextualReceiver, [...orig.charValues.slice(0,-1), c.getValue(), Char.NULL_CHAR], orig.validLength);
             return rt.contextualReceiver;
         }
     }
