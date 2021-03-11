@@ -953,6 +953,26 @@ int main() {
             })
         ]
     },
+    "ch18_ex_structMemory": {
+        starterCode: `#include <iostream>
+#include <string>
+
+using namespace std;
+
+struct Rover {
+  int type;
+  string id;
+  double charge;
+};
+
+int main() {
+  Rover myRover;
+  Rover yourRover;
+}`,
+        checkpoints: [
+            // No checkpoints
+        ]
+    },
     "ch18_ex_printRover": {
         starterCode: `#include <iostream>
 #include <string>
