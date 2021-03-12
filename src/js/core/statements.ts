@@ -1,12 +1,11 @@
-import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, TranslationUnitContext, CPPConstruct, BlockContext, FunctionContext, InvalidConstruct, createLoopContext, createBlockContext } from "./constructs";
-import { ASTNode } from "../ast/ASTNode";
+import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, CPPConstruct, BlockContext, FunctionContext, InvalidConstruct, createLoopContext, createBlockContext } from "./constructs";
 import { CPPError } from "./errors";
 import { createExpressionFromAST, createRuntimeExpression, standardConversion } from "./expressions";
 import { ExpressionASTNode } from "../ast/ast_expressions";
 import { FunctionDefinition, VariableDefinition, ClassDefinition, AnalyticCompiledDeclaration, LocalDeclaration, createLocalDeclarationFromAST, LocalSimpleDeclaration } from "./declarations";
 import { DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
-import { VoidType, ReferenceType, Bool, isType, Int, isCompleteObjectType, isReferenceType, isReferenceToCompleteType, isCompleteClassType, CompleteClassType, BoundedArrayType, isBoundedArrayType } from "./types";
-import { ReturnByReferenceEntity, ReturnObjectEntity, BlockScope, LocalObjectEntity, LocalReferenceEntity, ObjectEntity, BoundReferenceEntity, ArraySubobjectEntity } from "./entities";
+import { VoidType, ReferenceType, Bool, isType, Int, isCompleteObjectType, isReferenceType, BoundedArrayType } from "./types";
+import { ReturnByReferenceEntity, ReturnObjectEntity, BlockScope, LocalReferenceEntity } from "./entities";
 import { Mutable, asMutable, assertNever, assert } from "../util/util";
 import { Expression, CompiledExpression, RuntimeExpression } from "./expressionBase";
 import { StatementOutlet, ConstructOutlet, ExpressionStatementOutlet, NullStatementOutlet, DeclarationStatementOutlet, ReturnStatementOutlet, BlockOutlet, IfStatementOutlet, WhileStatementOutlet, ForStatementOutlet, BreakStatementOutlet } from "../view/codeOutlets";
@@ -14,9 +13,9 @@ import { RuntimeFunction } from "./functions";
 import { Predicates } from "./predicates";
 import { Value } from "./runtimeEnvironment";
 import { RuntimePotentialFullExpression } from "./PotentialFullExpression";
-import { CompiledFunctionCall, FunctionCall } from "./FunctionCall";
-import { ArraySubobject, AutoObject, CPPObject } from "./objects";
+import { ArraySubobject, AutoObject } from "./objects";
 import { LabeledStatementASTNode, BlockASTNode, IfStatementASTNode, WhileStatementASTNode, DoWhileStatementASTNode, ForStatementASTNode, BreakStatementASTNode, ContinueStatementASTNode, ReturnStatementASTNode, DeclarationStatementASTNode, ExpressionStatementASTNode, NullStatementASTNode, StatementASTNode } from "../ast/ast_statements";
+import { ObjectDeallocator, CompiledObjectDeallocator, createLocalDeallocator, RuntimeObjectDeallocator} from "./ObjectDeallocator";
 
 
 const StatementConstructsMap = {
@@ -485,7 +484,7 @@ export class Block extends Statement<BlockASTNode> {
 
     public readonly statements: readonly Statement[] = [];
 
-    public readonly localDeallocator: LocalDeallocator;
+    public readonly localDeallocator: ObjectDeallocator;
 
     public static createFromAST(ast: BlockASTNode, context: FunctionContext) : Block {
         let blockContext = createBlockContext(context);
@@ -496,7 +495,7 @@ export class Block extends Statement<BlockASTNode> {
         super(context, ast);
         this.attachAll(this.statements = statements);
 
-        this.attach(this.localDeallocator = new LocalDeallocator(context));
+        this.attach(this.localDeallocator = createLocalDeallocator(context));
     }
 
     public isBlock(): this is Block {
@@ -539,14 +538,14 @@ export class Block extends Statement<BlockASTNode> {
 
 export interface CompiledBlock extends Block, SuccessfullyCompiled {
     readonly statements: readonly CompiledStatement[];
-    readonly localDeallocator: CompiledLocalDeallocator;
+    readonly localDeallocator: CompiledObjectDeallocator;
 }
 
 export class RuntimeBlock extends RuntimeStatement<CompiledBlock> {
 
     public readonly statements: readonly RuntimeStatement[];
 
-    public readonly localDeallocator: RuntimeLocalDeallocator;
+    public readonly localDeallocator: RuntimeObjectDeallocator;
 
     private index = 0;
 
@@ -578,107 +577,6 @@ export class RuntimeBlock extends RuntimeStatement<CompiledBlock> {
     // }
 }
 
-
-
-export class LocalDeallocator extends BasicCPPConstruct<BlockContext, ASTNode> {
-    public readonly construct_type = "LocalDeallocator";
-
-    public readonly dtors: (FunctionCall | undefined)[];
-
-    public constructor(context: BlockContext) {
-        super(context, undefined); // Has no AST
-        
-        let localVariables = context.blockLocals.localVariables;
-
-        this.dtors = localVariables.map((local) => {
-            if (local.variableKind === "object" && local.isTyped(isCompleteClassType)) {
-                let dtor = local.type.classDefinition.destructor;
-                if (dtor) {
-                    let dtorCall = new FunctionCall(context, dtor, [], local.type);
-                    this.attach(dtorCall);
-                    return dtorCall;
-                }
-                else{
-                    this.addNote(CPPError.declaration.dtor.no_destructor_local(local.firstDeclaration, local));
-                }
-            }
-            return undefined;
-        });
-    }
-
-    public createRuntimeConstruct(this: CompiledLocalDeallocator, parent: RuntimeBlock | RuntimeForStatement) {
-        return new RuntimeLocalDeallocator(this, parent);
-    }
-
-    // public isTailChild(child: ExecutableConstruct) {
-    //     return {isTail: true};
-    // }
-}
-
-export interface CompiledLocalDeallocator extends LocalDeallocator, SuccessfullyCompiled {
-
-    readonly dtors: (CompiledFunctionCall | undefined)[];
-
-}
-
-export class RuntimeLocalDeallocator extends RuntimeConstruct<CompiledLocalDeallocator> {
-
-    private index: number;
-    private justDestructed: AutoObject<CompleteClassType> | undefined = undefined;
-    public readonly parent!: RuntimeBlock | RuntimeForStatement; // narrows type from base class
-
-    public constructor(model: CompiledLocalDeallocator, parent: RuntimeBlock | RuntimeForStatement) {
-        super(model, "expression", parent);
-        this.index = this.model.context.blockLocals.localVariables.length - 1;
-    }
-
-    protected upNextImpl() {
-        if (this.justDestructed) {
-            this.sim.memory.killObject(this.justDestructed, this);
-            this.justDestructed = undefined;
-        }
-    }
-
-    public stepForwardImpl() {
-        let locals = this.model.context.blockLocals.localVariables;
-        while(this.index >= 0) {
-            // Destroy local at given index
-            let local = locals[this.index];
-            let dtor = this.model.dtors[this.index];
-            --this.index;
-
-            if (local.variableKind === "reference") {
-
-                // If the program is running, and this reference was bound
-                // to some object, the referred type should have
-                // been completed.
-                assert(local.isTyped(isReferenceToCompleteType));
-
-                // destroying a reference doesn't really require doing anything,
-                // but we notify the referred object this reference has been removed
-                local.runtimeLookup(this)?.onReferenceUnbound(local);
-            }
-            else if (local.isTyped(isCompleteClassType)) {
-                // a local class-type object, so we call the dtor
-                assert(dtor);
-                let obj = local.runtimeLookup(this);
-                this.sim.push(dtor.createRuntimeFunctionCall(this, obj));
-
-                // need to destroy the object once dtor is done, so we keep track of it here
-                this.justDestructed = obj;
-
-                // return so that the dtor, which is now on top of the stack, can run instead
-                return;
-            }
-            else {
-                // a local non-class-type object, no dtor needed.
-                this.sim.memory.killObject(local.runtimeLookup(this), this);
-            }
-        }
-
-        this.startCleanup();
-    }
-}
 
 
 // export class ArrayDeallocator extends BasicCPPConstruct<TranslationUnitContext, ASTNode> {
@@ -791,145 +689,6 @@ export class RuntimeLocalDeallocator extends RuntimeConstruct<CompiledLocalDeall
 // }
 
 
-
-export class ObjectDeallocator extends BasicCPPConstruct<TranslationUnitContext, ASTNode> {
-    public readonly construct_type = "ObjectDeallocator";
-
-    public readonly objectTargets: readonly ObjectEntity[];
-    public readonly referenceTargets: readonly BoundReferenceEntity[];
-
-    /**
-     * Contains any constructs responsible for cleanup of compound objects, either
-     * a FunctionCall to a destructor, or a deallocator for each of the elements in an array
-     */
-    public readonly compoundCleanupConstructs: readonly (FunctionCall | ObjectDeallocator | undefined)[];
-
-    public constructor(context: TranslationUnitContext, targets: readonly (ObjectEntity | BoundReferenceEntity)[]) {
-        super(context, undefined); // Has no AST
-        
-        this.objectTargets = <ObjectEntity[]>targets.filter(t => t.variableKind === "object");
-        this.referenceTargets = <BoundReferenceEntity[]>targets.filter(t => t.variableKind === "reference");
-
-        this.compoundCleanupConstructs = this.objectTargets.map((obj) => {
-            if (obj.isTyped(isCompleteClassType)) {
-                // If it's a class type object, we need to call its destructor
-                let dtor = obj.type.classDefinition.destructor;
-                if (dtor) {
-                    let dtorCall = new FunctionCall(context, dtor, [], obj.type);
-                    this.attach(dtorCall);
-                    return dtorCall;
-                }
-                else{
-                    this.addNoDestructorNote(obj);
-                    return undefined;
-                }
-            }
-            else if (obj.isTyped(isBoundedArrayType)) {
-                // If it's an array, we recursively need to cleanup the elements
-                let elems : ArraySubobjectEntity[] = [];
-                for(let i = 0; i < obj.type.numElems; ++i) {
-                    elems.push(new ArraySubobjectEntity(obj, i));
-                }
-                return new ObjectDeallocator(context, elems);
-            }
-            else {
-                // object doesn't need any special cleanup (e.g. an atomic object)
-                return undefined;
-            }
-        });
-
-    }
-
-    public createRuntimeConstruct(this: CompiledObjectDeallocator, parent: RuntimeConstruct) {
-        return new RuntimeObjectDeallocator(this, parent);
-    }
-
-    protected addNoDestructorNote(obj: ObjectEntity<CompleteClassType>) {
-        this.addNote(CPPError.declaration.dtor.no_destructor(this, obj));
-    }
-
-    // public isTailChild(child: ExecutableConstruct) {
-    //     return {isTail: true};
-    // }
-}
-
-export interface CompiledObjectDeallocator extends ObjectDeallocator, SuccessfullyCompiled {
-
-    readonly compoundCleanupConstructs: readonly (CompiledFunctionCall | CompiledObjectDeallocator | undefined)[];
-
-}
-
-export class RuntimeObjectDeallocator extends RuntimeConstruct<CompiledObjectDeallocator> {
-
-    private index: number;
-    private currentObjectTarget?: CPPObject;
-    public readonly parent!: RuntimeBlock | RuntimeForStatement; // narrows type from base class
-
-    public constructor(model: CompiledObjectDeallocator, parent: RuntimeConstruct) {
-        super(model, "cleanup", parent);
-
-        // intentionally 1 too large - gets adjusted in first upNextImpl
-        this.index = this.model.objectTargets.length;
-    }
-
-    protected upNextImpl() {
-
-        // Cleanup previous target that has just finished its destructor
-        // or array element cleanup
-        if (this.currentObjectTarget?.isAlive) {
-            this.sim.memory.killObject(this.currentObjectTarget, this);
-        }
-
-        while (this.index > 0) {
-
-            --this.index;
-
-            this.currentObjectTarget = this.model.objectTargets[this.index].runtimeLookup(this);
-
-            if (!this.currentObjectTarget.isAlive) {
-                // skip any objects that aren't alive (i.e. weren't ever constructed)
-                continue;
-            }
-
-            let ccc = this.model.compoundCleanupConstructs[this.index];
-            if (!ccc) {
-                // no compound cleanup construct, just destroy the object
-                this.sim.memory.killObject(this.currentObjectTarget, this);
-                continue;
-            }
-
-            if (ccc?.construct_type === "FunctionCall") {
-                // call destructor
-                assert(this.currentObjectTarget.isTyped(isCompleteClassType));
-                this.sim.push(ccc.createRuntimeFunctionCall(this, this.currentObjectTarget));
-                return; // leave so that dtor can run
-            }
-            else if (ccc?.construct_type === "ObjectDeallocator") {
-                this.sim.push(ccc.createRuntimeConstruct(this));
-                return; // leave so that array elem deallocator can run
-            }
-        }
-
-        // Once we get here, all objects have been cleaned up and we
-        // just have references left
-        this.model.referenceTargets.forEach(refEntity => {
-            // If the program is running, and this reference was bound
-            // to some object, the referred type should have
-            // been completed.
-            assert(refEntity.isTyped(isReferenceToCompleteType));
-
-            // destroying a reference doesn't really require doing anything,
-            // but we notify the referred object this reference has been removed
-            refEntity.runtimeLookup(this)?.onReferenceUnbound(refEntity);
-        });
-
-        this.startCleanup();
-    }
-
-    public stepForwardImpl() {
-        // nothing to do in here
-    }
-}
 
 
 // export class StaticDeallocator extends BasicCPPConstruct<BlockContext, ASTNode> {
@@ -1339,7 +1098,7 @@ export class ForStatement extends Statement<ForStatementASTNode> {
     // For cleanup of any objects declared in the init-statement in the loop
     // header. These have a different lifetime than objects in the actual body
     // of the loop and are only cleaned up when the loop finishes (not on each iteration).
-    public readonly localDeallocator: LocalDeallocator;
+    public readonly localDeallocator: ObjectDeallocator;
   
     // Constructors for language construct classes take
     // in a `context`, which provides contextual information
@@ -1391,7 +1150,7 @@ export class ForStatement extends Statement<ForStatementASTNode> {
           this.attach(this.post = post);
       }
 
-      this.attach(this.localDeallocator = new LocalDeallocator(context));
+      this.attach(this.localDeallocator = createLocalDeallocator(context));
     }
   
     // The constructor above poses a conundrum. It asks that
@@ -1491,7 +1250,7 @@ export interface CompiledForStatement extends ForStatement, SuccessfullyCompiled
     readonly condition: CompiledExpression<Bool, "prvalue">;
     readonly body: CompiledStatement;
     readonly post?: CompiledExpression;
-    readonly localDeallocator: CompiledLocalDeallocator;
+    readonly localDeallocator: CompiledObjectDeallocator;
 }
 
 export class RuntimeForStatement extends RuntimeStatement<CompiledForStatement> {
@@ -1501,7 +1260,7 @@ export class RuntimeForStatement extends RuntimeStatement<CompiledForStatement> 
     public readonly body?: RuntimeStatement;
     public readonly post?: RuntimeExpression;
 
-    public readonly localDeallocator: RuntimeLocalDeallocator;
+    public readonly localDeallocator: RuntimeObjectDeallocator;
 
     private index = 0;
 

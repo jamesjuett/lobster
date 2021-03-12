@@ -2,11 +2,11 @@ import { CPPConstruct, RuntimeConstruct } from "../core/constructs";
 import { RuntimePotentialFullExpression } from "../core/PotentialFullExpression";
 import { CompiledFunctionCall, RuntimeFunctionCall } from "../core/FunctionCall";
 import { SimulationOutlet } from "./simOutlets";
-import { Mutable, asMutable, assertFalse, htmlDecoratedType, htmlDecoratedName, htmlDecoratedKeyword, htmlDecoratedOperator, assert, htmlDecoratedValue, unescapeString, htmlDecoratedObject } from "../util/util";
+import { Mutable, asMutable, assertFalse, htmlDecoratedType, htmlDecoratedName, htmlDecoratedKeyword, htmlDecoratedOperator, assert, htmlDecoratedValue, unescapeString, htmlDecoratedObject, assertNever } from "../util/util";
 import { listenTo, stopListeningTo, messageResponse, Message, MessageResponses, Observable, ObserverType } from "../util/observe";
 import { CompiledFunctionDefinition, ParameterDefinition, CompiledParameterDefinition, VariableDefinition, CompiledParameterDeclaration, LocalVariableDefinition, CompiledSimpleDeclaration, CompiledLocalVariableDefinition } from "../core/declarations";
 import { RuntimeBlock, CompiledBlock, RuntimeStatement, CompiledStatement, RuntimeDeclarationStatement, CompiledDeclarationStatement, RuntimeExpressionStatement, CompiledExpressionStatement, RuntimeIfStatement, CompiledIfStatement, RuntimeWhileStatement, CompiledWhileStatement, CompiledForStatement, RuntimeForStatement, RuntimeReturnStatement, CompiledReturnStatement, RuntimeNullStatement, CompiledNullStatement, Block, RuntimeBreakStatement, CompiledBreakStatement } from "../core/statements";
-import { RuntimeInitializer, CompiledInitializer, RuntimeDefaultInitializer, CompiledDefaultInitializer, DefaultInitializer, DirectInitializer, RuntimeAtomicDefaultInitializer, CompiledAtomicDefaultInitializer, RuntimeArrayDefaultInitializer, CompiledArrayDefaultInitializer, RuntimeDirectInitializer, CompiledDirectInitializer, RuntimeAtomicDirectInitializer, CompiledAtomicDirectInitializer, CompiledReferenceDirectInitializer, RuntimeReferenceDirectInitializer, RuntimeArrayDirectInitializer, CompiledArrayDirectInitializer, RuntimeClassDefaultInitializer, CompiledClassDefaultInitializer, RuntimeClassDirectInitializer, CompiledClassDirectInitializer, RuntimeCtorInitializer, CompiledCtorInitializer, CompiledArrayAggregateInitializer, RuntimeArrayAggregateInitializer, CompiledArrayMemberInitializer, RuntimeArrayMemberInitializer } from "../core/initializers";
+import { RuntimeInitializer, CompiledInitializer, RuntimeDefaultInitializer, CompiledDefaultInitializer, DefaultInitializer, DirectInitializer, RuntimeAtomicDefaultInitializer, CompiledAtomicDefaultInitializer, RuntimeArrayDefaultInitializer, CompiledArrayDefaultInitializer, RuntimeDirectInitializer, CompiledDirectInitializer, RuntimeAtomicDirectInitializer, CompiledAtomicDirectInitializer, CompiledReferenceDirectInitializer, RuntimeReferenceDirectInitializer, RuntimeArrayDirectInitializer, CompiledArrayDirectInitializer, RuntimeClassDefaultInitializer, CompiledClassDefaultInitializer, RuntimeClassDirectInitializer, CompiledClassDirectInitializer, RuntimeCtorInitializer, CompiledCtorInitializer, CompiledArrayAggregateInitializer, RuntimeArrayAggregateInitializer, CompiledArrayMemberInitializer, RuntimeArrayMemberInitializer, CompiledArrayValueInitializer, CompiledClassValueInitializer, RuntimeArrayValueInitializer, RuntimeAtomicValueInitializer, RuntimeClassValueInitializer } from "../core/initializers";
 import { RuntimeExpression, Expression, CompiledExpression } from "../core/expressionBase";
 import { CPPObject, AutoObject } from "../core/objects";
 import { FunctionEntity, PassByReferenceParameterEntity, PassByValueParameterEntity, ReturnByReferenceEntity, ReturnObjectEntity, MemberVariableEntity } from "../core/entities";
@@ -715,13 +715,20 @@ export class DeclarationStatementOutlet extends StatementOutlet<RuntimeDeclarati
                     case "direct": declarationElem.append("("); break;
                     case "copy": declarationElem.append(" = "); break;
                     case "list": declarationElem.append(" = { "); break;
+                    case "value": declarationElem.append("{"); break;
+                    case "default": break;
+                    default: assertNever(declaration.initializer.kind); break;
                 }
                 asMutable(this.initializerOutlets).push(
                     createInitializerOutlet($("<span></span>").appendTo(declarationElem), declaration.initializer, this)
                 );
                 switch(declaration.initializer.kind) {
                     case "direct": declarationElem.append(")"); break;
+                    case "copy": break;
                     case "list": declarationElem.append(" }"); break;
+                    case "value": declarationElem.append("}"); break;
+                    case "default": break;
+                    default: assertNever(declaration.initializer.kind); break;
                 }
             }
             else {
@@ -1105,6 +1112,47 @@ export type DefaultInitializerOutlet =
     ClassDefaultInitializerOutlet;
 
 
+    export class AtomicValueInitializerOutlet extends InitializerOutlet<RuntimeAtomicValueInitializer> {
+    
+        // Nothing to add based on being atomic
+        
+    }
+    
+    export class ArrayValueInitializerOutlet extends InitializerOutlet<RuntimeArrayValueInitializer> {
+        
+        public readonly elementInitializerOutlets?: readonly InitializerOutlet[];
+    
+        public constructor(element: JQuery, construct: CompiledArrayValueInitializer, parent?: ConstructOutlet) {
+            super(element, construct, parent);
+    
+            if (this.construct.elementInitializers) {
+                this.elementInitializerOutlets = this.construct.elementInitializers.map(
+                    elemInit => createInitializerOutlet(element, elemInit, this)
+                );
+            }
+        }
+        
+    }
+    
+    
+    export class ClassValueInitializerOutlet extends InitializerOutlet<RuntimeClassValueInitializer> {
+        
+        public readonly ctorCallOutlet: FunctionCallOutlet;
+    
+        public constructor(element: JQuery, construct: CompiledClassValueInitializer, parent?: ConstructOutlet) {
+            super(element, construct, parent);
+    
+            this.ctorCallOutlet = new FunctionCallOutlet($("<span></span>").appendTo(this.element), construct.ctorCall, this);
+        }
+        
+    }
+    
+    export type ValueInitializerOutlet =
+        AtomicValueInitializerOutlet |
+        ArrayValueInitializerOutlet |
+        ClassValueInitializerOutlet;
+
+
 export class AtomicDirectInitializerOutlet extends InitializerOutlet<RuntimeAtomicDirectInitializer> {
     
     public readonly argOutlet: ExpressionOutlet;
@@ -1219,7 +1267,7 @@ export class ClassCopyInitializerOutlet extends InitializerOutlet<RuntimeClassDi
 
 export class ArrayAggregateInitializerOutlet extends InitializerOutlet<RuntimeArrayAggregateInitializer> {
     
-    public readonly elemInitializerOutlets: readonly (DirectInitializerOutlet | DefaultInitializerOutlet)[];
+    public readonly elemInitializerOutlets: readonly (DirectInitializerOutlet | ValueInitializerOutlet)[];
 
     public constructor(element: JQuery, construct: CompiledArrayAggregateInitializer, parent?: ConstructOutlet) {
         super(element, construct, parent);
@@ -1228,7 +1276,7 @@ export class ArrayAggregateInitializerOutlet extends InitializerOutlet<RuntimeAr
             if (i > 0) {
                 this.element.append(", ");
             }
-            return <DirectInitializerOutlet | DefaultInitializerOutlet>createInitializerOutlet($("<span></span>").appendTo(this.element), elemInit, this);
+            return <DirectInitializerOutlet | ValueInitializerOutlet>createInitializerOutlet($("<span></span>").appendTo(this.element), elemInit, this);
         });
     }
 }
@@ -1891,11 +1939,19 @@ export class NewExpressionOutlet extends ExpressionOutlet<RuntimeNewExpression> 
             switch(this.construct.initializer.kind) {
                 case "direct": this.exprElem.append("("); break;
                 case "list": this.exprElem.append("{ "); break;
+                case "value": this.exprElem.append("("); break;
+                case "default": break;
+                case "copy": break;
+                default: assertNever(this.construct.initializer.kind);
             }
             this.initializerOutlet = createInitializerOutlet($("<span></span>").appendTo(this.exprElem), this.construct.initializer, this);
             switch(this.construct.initializer.kind) {
                 case "direct": this.exprElem.append(")"); break;
                 case "list": this.exprElem.append(" }"); break;
+                case "value": this.exprElem.append(")"); break;
+                case "default": break;
+                case "copy": break;
+                default: assertNever(this.construct.initializer.kind);
             }
         }
     }

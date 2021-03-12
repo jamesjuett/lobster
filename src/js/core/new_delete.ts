@@ -271,6 +271,10 @@ export class RuntimeNewArrayExpression<T extends PointerType<ArrayElemType> = Po
             this.sim.push(this.elementInitializers![this.elemInitIndex]);
             ++this.elemInitIndex;
         }
+        else {
+            // All initializers must have finished
+            this.allocatedObject?.beginLifetime();
+        }
     }
 
     protected stepForwardImpl(): void {

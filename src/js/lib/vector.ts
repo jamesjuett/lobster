@@ -141,6 +141,8 @@ export function getDataPtr(obj: CPPObject<CompleteClassType>) {
 function allocateNewArray(rt: RuntimeExpression, rec: CPPObject<CompleteClassType>, newCapacity: Value<Int>) {
     let elt_type = getDataPtr(rec).type.ptrTo.cvUnqualified();
     let arrObj = rt.sim.memory.heap.allocateNewObject(new BoundedArrayType(elt_type, newCapacity.rawValue));
+    arrObj.getArrayElemSubobjects().forEach(elem => elem.beginLifetime());
+    arrObj.beginLifetime();
 
     // store pointer to new array
     getDataPtr(rec).writeValue(arrObj.getArrayElemSubobject(0).getPointerTo());

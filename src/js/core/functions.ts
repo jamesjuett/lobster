@@ -9,6 +9,7 @@ import { Mutable, assert } from "../util/util";
 import { LocalObjectEntity, LocalReferenceEntity } from "./entities";
 import { RuntimeCtorInitializer } from "./initializers";
 import { RuntimeFunctionCall } from "./FunctionCall";
+import { RuntimeObjectDeallocator } from "./ObjectDeallocator";
 
 enum RuntimeFunctionIndices {
 
@@ -44,14 +45,26 @@ export class RuntimeFunction<T extends FunctionType<CompleteReturnType> = Functi
     public readonly ctorInitializer?: RuntimeCtorInitializer;
     public readonly body: RuntimeBlock;
 
+    /**
+     * Only defined for destructors. A runtime deallocator for the member
+     * variables of the receiver that is set as the cleanup construct for
+     * this RuntimeFunction.
+     */
+    public readonly memberDeallocator?: RuntimeObjectDeallocator;
+
     public constructor(model: CompiledFunctionDefinition<T>, sim: Simulation, caller: RuntimeFunctionCall | null, receiver?: CPPObject<CompleteClassType>) {
         super(model, "function", caller || sim);
         if (caller) { this.caller = caller };
         this.receiver = receiver;
         // A function is its own containing function context
         this.setContainingRuntimeFunction(this);
-        this.ctorInitializer = this.model.ctorInitializer?.createRuntimeCtorInitializer(this);
-        this.body = createRuntimeStatement(this.model.body, this);
+        this.ctorInitializer = model.ctorInitializer?.createRuntimeCtorInitializer(this);
+        this.body = createRuntimeStatement(model.body, this);
+
+        if (model.memberDeallocator) {
+            this.memberDeallocator = model.memberDeallocator.createRuntimeConstruct(this);
+            this.setCleanupConstruct(this.memberDeallocator);
+        }
     }
 
 
@@ -90,13 +103,14 @@ export class RuntimeFunction<T extends FunctionType<CompleteReturnType> = Functi
         return this.stackFrame.localObjectLookup(param);
     }
 
-    public initializeParameterObject(num: number, value: Value<AtomicType>) {
-        let param = this.model.parameters[num].declaredEntity;
-        assert(param instanceof LocalObjectEntity, "Can't look up an object for a reference parameter.");
-        assert(this.stackFrame);
-        assert(param.type.isAtomicType());
-        this.stackFrame.initializeLocalObject(<LocalObjectEntity<AtomicType>>param, <Value<AtomicType>>value);
-    }
+    // TODO: apparently this is not used?
+    // public initializeParameterObject(num: number, value: Value<AtomicType>) {
+    //     let param = this.model.parameters[num].declaredEntity;
+    //     assert(param instanceof LocalObjectEntity, "Can't look up an object for a reference parameter.");
+    //     assert(this.stackFrame);
+    //     assert(param.type.isAtomicType());
+    //     this.stackFrame.initializeLocalObject(<LocalObjectEntity<AtomicType>>param, <Value<AtomicType>>value);
+    // }
 
     public bindReferenceParameter(num: number, obj: CPPObject) {
         let param = this.model.parameters[num].declaredEntity;

@@ -11,12 +11,13 @@ import { RuntimeFunctionCall } from "./FunctionCall";
 import { StorageSpecifierASTNode, StorageSpecifierKey, TypeSpecifierASTNode, TypeSpecifierKey, NonMemberSimpleDeclarationASTNode, FunctionDefinitionASTNode, ClassDefinitionASTNode, TopLevelDeclarationASTNode, LocalDeclarationASTNode, MemberSimpleDeclarationASTNode, MemberDeclarationASTNode, SimpleDeclarationASTNode, ParameterDeclarationASTNode, ClassKey, AccessSpecifier, BaseSpecifierASTNode } from "../ast/ast_declarations";
 import { DeclaratorASTNode, FunctionPostfixDeclaratorASTNode } from "../ast/ast_declarators";
 import { parseNumericLiteralValueFromAST } from "../ast/ast_expressions";
-import { CPPEntity, FunctionEntity, ClassEntity, VariableEntity, LocalObjectEntity, LocalReferenceEntity, GlobalObjectEntity, MemberVariableEntity, MemberObjectEntity, MemberReferenceEntity, CompleteClassEntity, ObjectEntityType } from "./entities";
+import { CPPEntity, FunctionEntity, ClassEntity, VariableEntity, LocalObjectEntity, LocalReferenceEntity, GlobalObjectEntity, MemberVariableEntity, MemberObjectEntity, MemberReferenceEntity, CompleteClassEntity, ObjectEntityType, BaseSubobjectEntity, ReceiverEntity } from "./entities";
 import { createExpressionFromAST } from "./expressions";
 import { getUnqualifiedName, QualifiedName, composeQualifiedName, getQualifiedName, isQualifiedName, UnqualifiedName, LexicalIdentifier, astToIdentifier, isUnqualifiedName, checkIdentifier, identifierToString } from "./lexical";
 import { Block, createStatementFromAST, CompiledBlock } from "./statements";
 import { DirectInitializerASTNode, CopyInitializerASTNode, ListInitializerASTNode } from "../ast/ast_initializers";
 import { Initializer, CompiledInitializer, DefaultInitializer, DirectInitializer, ListInitializer, CtorInitializer, CompiledCtorInitializer } from "./initializers";
+import { CompiledObjectDeallocator, createMemberDeallocator, ObjectDeallocator } from "./ObjectDeallocator";
 
 
 export class StorageSpecifier extends BasicCPPConstruct<TranslationUnitContext, ASTNode> {
@@ -714,7 +715,7 @@ export class FunctionDeclaration extends SimpleDeclaration {
                         this.addNote(CPPError.declaration.func.nonCovariantReturnType(this, this.type.returnType, matchInBase.type.returnType));
                     }
                 }
-                base = base.classDefinition.baseClass;
+                base = base.classDefinition.baseType;
             }
         }
         else {
@@ -1560,6 +1561,12 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, Funct
     public readonly ctorInitializer?: CtorInitializer | InvalidConstruct;
     public readonly body: Block;
 
+    /**
+     * Only defined for destructors. A deallocator for the member
+     * variables of the receiver that will run after the destructor itself.
+     */
+    public readonly memberDeallocator?: ObjectDeallocator;
+
     public static createFromAST(ast: FunctionDefinitionASTNode, context: TranslationUnitContext, declaration: FunctionDeclaration) : FunctionDefinition;
     public static createFromAST(ast: FunctionDefinitionASTNode, context: TranslationUnitContext, declaration?: FunctionDeclaration) : FunctionDefinition | InvalidConstruct;
     public static createFromAST(ast: FunctionDefinitionASTNode, context: TranslationUnitContext, declaration?: FunctionDeclaration) {
@@ -1636,6 +1643,14 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, Funct
 
         this.name = declaration.name;
         this.type = declaration.type;
+
+        if (this.declaration.isDestructor) {
+            // TODO: the cast on the line below seems kinda sus
+            //       At this point (in a member function DEFINITION)
+            //       I believe the receiver type should always be complete.
+            //       Should that be ensured elsewhere? 
+            this.attach(this.memberDeallocator = createMemberDeallocator(context, new ReceiverEntity(<CompleteClassType>this.type.receiverType)));
+        }
 
         this.declaration.declaredEntity.setDefinition(this);
 
@@ -1917,6 +1932,8 @@ export interface CompiledFunctionDefinition<T extends FunctionType = FunctionTyp
     readonly parameters: readonly CompiledParameterDeclaration[];
     readonly ctorInitializer?: CompiledCtorInitializer;
     readonly body: CompiledBlock;
+
+    readonly memberDeallocator?: CompiledObjectDeallocator;
 }
 
 
@@ -1982,7 +1999,7 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
     public readonly memberDeclarationsByName: { [index: string] : MemberDeclaration | undefined } = {};
     public readonly constructorDeclarations: readonly FunctionDeclaration[] = [];
     
-    public readonly baseClass?: CompleteClassType;
+    public readonly baseType?: CompleteClassType;
     
     public readonly memberFunctionEntities: readonly FunctionEntity[] = [];
     public readonly memberVariableEntities: readonly MemberVariableEntity[] = [];
@@ -2107,7 +2124,7 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         this.attachAll(this.baseSpecifiers = baseSpecs);
         
         if (baseSpecs.length > 0 && baseSpecs[0].baseEntity?.isComplete()) {
-            this.baseClass = baseSpecs[0].baseEntity.type;
+            this.baseType = baseSpecs[0].baseEntity.type;
         }
 
         if (baseSpecs.length > 1) {
@@ -2192,8 +2209,8 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
 
         // Compute size of objects of this class
         let size = 0;
-        if (this.baseClass) {
-            size += this.baseClass.size;
+        if (this.baseType) {
+            size += this.baseType.size;
         }
         this.memberObjectEntities.forEach(mem => size += mem.type.size);
         this.objectSize = size;
@@ -2232,8 +2249,8 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
             return;
         }
 
-        let subobjectTypes = this.baseClass
-            ? [this.baseClass, ...this.memberObjectEntities.map(e => e.type)]
+        let subobjectTypes = this.baseType
+            ? [this.baseType, ...this.memberObjectEntities.map(e => e.type)]
             : this.memberObjectEntities.map(e => e.type);
 
         // All subobjects (bases and members) must be default constructible and destructible
@@ -2273,12 +2290,12 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         }
 
         // If the base class has no destructor, don't create the implicit copy ctor
-        if (this.baseClass && !this.baseClass.isDestructible()) {
+        if (this.baseType && !this.baseType.isDestructible()) {
             return;
         }
 
-        let subobjectTypes = this.baseClass
-            ? [this.baseClass, ...this.memberObjectEntities.map(e => e.type)]
+        let subobjectTypes = this.baseType
+            ? [this.baseType, ...this.memberObjectEntities.map(e => e.type)]
             : this.memberObjectEntities.map(e => e.type);
 
         // Can we create a copy ctor with a const &T param?
@@ -2302,8 +2319,8 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         // is ambiguous for the parameter to the copy ctor (the actual "name" of the ctor would be ok)
         let src =`//@className=${this.name}\n${this.name}(${refParamCanBeConst ? "const " : ""}${this.name} &other)`;
         let memInits : string[] = this.memberVariableEntities.map(mem => `${mem.name}(other.${mem.name})`);
-        if (this.baseClass) {
-            memInits.unshift(this.baseClass.className + "(other)");
+        if (this.baseType) {
+            memInits.unshift(this.baseType.className + "(other)");
         }
         if (memInits.length > 0) {
             src += `\n : ${memInits.join(", ")}`;
@@ -2346,8 +2363,8 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
             return;
         }
 
-        let subobjectTypes = this.baseClass
-            ? [this.baseClass, ...this.memberObjectEntities.map(e => e.type)]
+        let subobjectTypes = this.baseType
+            ? [this.baseType, ...this.memberObjectEntities.map(e => e.type)]
             : this.memberObjectEntities.map(e => e.type);
 
         // All member objects must be copy-assignable
@@ -2373,8 +2390,8 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         // is ambiguous for the parameter to the assn op (the actual "name" of the ctor would be ok)
         let src =`//@className=${this.name}\n${this.name} &operator=(${refParamCanBeConst ? "const " : ""}${this.name} &rhs) {\n`;
         src += "  if (this == &rhs) { return *this; }\n";
-        if (this.baseClass) {
-            src += `  ${this.baseClass.className}::operator=(rhs);\n`
+        if (this.baseType) {
+            src += `  ${this.baseType.className}::operator=(rhs);\n`
         }
         src += this.memberObjectEntities.map(
             mem => mem.isTyped(isBoundedArrayType)
@@ -2400,8 +2417,8 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
             return;
         }
 
-        let subobjectTypes = this.baseClass
-            ? [this.baseClass, ...this.memberObjectEntities.map(e => e.type)]
+        let subobjectTypes = this.baseType
+            ? [this.baseType, ...this.memberObjectEntities.map(e => e.type)]
             : this.memberObjectEntities.map(e => e.type);
 
         // All subobjects (bases and members) must be destructible
@@ -2597,6 +2614,12 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
     //     stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
 
     //     }
+
+    public getBaseAndMemberEntities() {
+        return this.baseType
+            ? [new BaseSubobjectEntity(new ReceiverEntity(this.type), this.baseType), ...this.memberVariableEntities]
+            : this.memberVariableEntities;
+    }
 
     public isSuccessfullyCompiled() : this is CompiledClassDefinition {
         return super.isSuccessfullyCompiled()

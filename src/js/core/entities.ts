@@ -1266,7 +1266,7 @@ export class BaseSubobjectEntity extends CPPEntity<CompleteClassType> implements
         this.containingEntity = containingEntity;
 
         // This should always be true as long as we don't allow multiple inheritance
-        assert(this.containingEntity.type.classDefinition.baseClass?.similarType(type))
+        assert(this.containingEntity.type.classDefinition.baseType?.similarType(type))
     }
 
     public runtimeLookup(rtConstruct: RuntimeConstruct) {
@@ -1682,7 +1682,7 @@ export class FunctionEntity<T extends FunctionType = FunctionType> extends Decla
             let finalOverrider: FunctionEntity | undefined;
             while (!finalOverrider && dynamicType) {
                 finalOverrider = this.overriders[dynamicType.qualifiedName.str];
-                dynamicType = dynamicType.classDefinition.baseClass;
+                dynamicType = dynamicType.classDefinition.baseType;
             }
             return finalOverrider?.definition || this.definition;
         }
