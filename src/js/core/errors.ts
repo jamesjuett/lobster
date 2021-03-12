@@ -2,7 +2,7 @@ import { StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName } from "../ast/as
 import { Mutable } from "../util/util";
 import { TranslationUnitConstruct, CPPConstruct } from "./constructs";
 import { BaseSpecifier, SimpleDeclaration, FunctionDefinition, VariableDefinition, ParameterDefinition, ClassDefinition, StorageSpecifier, VoidDeclaration, IncompleteTypeVariableDefinition, IncompleteTypeMemberVariableDeclaration, FunctionDeclaration, ClassDeclaration } from "./declarations";
-import { LocalObjectEntity, TemporaryObjectEntity, ObjectEntity, DeclaredEntity, CPPEntity, FunctionEntity, ClassEntity, GlobalObjectEntity, NamedEntity } from "./entities";
+import { LocalObjectEntity, TemporaryObjectEntity, ObjectEntity, DeclaredEntity, CPPEntity, FunctionEntity, ClassEntity, GlobalObjectEntity, NamedEntity, ArraySubobjectEntity } from "./entities";
 import { Expression, TypedExpression } from "./expressionBase";
 import { t_OverloadableOperators } from "./expressions";
 import { CPPObject } from "./objects";
@@ -308,8 +308,8 @@ export const CPPError = {
             no_destructor_static: function (construct: TranslationUnitConstruct, entity: NamedEntity) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.no_destructor_local", "The variable " + entity.name + " needs to be destroyed when the program ends, but I can't find a destructor for the " + entity.type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor.");
             },
-            no_destructor_array: function (construct: TranslationUnitConstruct, entity: ObjectEntity<BoundedArrayType>) {
-                return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.no_destructor_array", "The elements of " + entity.name + " need to be destroyed with the overall array, but I can't find a destructor for the " + entity.type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor.");
+            no_destructor_array: function (construct: TranslationUnitConstruct, entity: ArraySubobjectEntity) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.no_destructor_array", "The elements of " + entity.arrayEntity + " need to be destroyed with the overall array, but I can't find a destructor for the " + entity.type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor.");
             },
             // no_destructor_member : function(construct: TranslationUnitConstruct, entity: ObjectEntity, containingClass) {
             //     return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.no_destructor_member", "The member variable " + entity.name + " needs to be destroyed as part of the " + containingClass.className + " destructor, but I can't find a destructor for the " + entity.type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor.");
@@ -522,6 +522,9 @@ export const CPPError = {
             },
             array_default_init: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.WARNING, "declaration.init.array_default_init", "Note: Default initialization of an array requires default initialization of each of its elements.");
+            },
+            array_value_init: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.WARNING, "declaration.init.array_value_init", "Note: Value initialization of an array requires value initialization of each of its elements.");
             },
             array_direct_init: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.OTHER, "declaration.init.array_direct_init", "Note: initialization of an array requires initialization of each of its elements.");

@@ -25,7 +25,7 @@ int main() {
 using namespace std;
 
 class A {
-  
+public:
   A() {
     cout << "hi" << endl;
   }
@@ -63,6 +63,7 @@ bye
 bye
 bye
 4
+bye
 `)
     ]
   );

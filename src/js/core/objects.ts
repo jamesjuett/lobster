@@ -29,6 +29,8 @@ abstract class ObjectData<T extends CompleteObjectType> {
     // public abstract setRawValue(newValue: RawValueType, write: boolean) : void;
 
     public abstract kill(rt?: RuntimeConstruct): void;
+
+    public abstract zeroInitialize(): void;
 };
 
 class AtomicObjectData<T extends AtomicType> extends ObjectData<T> {
@@ -44,6 +46,10 @@ class AtomicObjectData<T extends AtomicType> extends ObjectData<T> {
 
     public setRawValue(newValue: RawValueType, write: boolean) {
         this.memory.writeBytes(this.address, this.object.type.valueToBytes(newValue));
+    }
+
+    public zeroInitialize() {
+        this.setRawValue(0, false);
     }
 
     public kill() {
@@ -111,6 +117,10 @@ class ArrayObjectData<Elem_type extends ArrayElemType> extends ObjectData<Bounde
     //     }
     // }
 
+    public zeroInitialize() {
+        this.elemObjects.forEach(elemObj => elemObj.zeroInitialize());
+    }
+
     public kill(rt?: RuntimeConstruct) {
         this.elemObjects.forEach(elemObj => elemObj.kill(rt));
     }
@@ -139,8 +149,8 @@ class ClassObjectData<T extends CompleteClassType> extends ObjectData<T> {
         //     return subObj;
         // });
         this.baseSubobjects = [];
-        if (classDef.baseClass) {
-            let baseObj = new BaseSubobject(this.object, classDef.baseClass, memory, subAddr);
+        if (classDef.baseType) {
+            let baseObj = new BaseSubobject(this.object, classDef.baseType, memory, subAddr);
             asMutable(this.baseSubobjects).push(baseObj);
             subAddr += baseObj.size;
         }
@@ -195,6 +205,10 @@ class ClassObjectData<T extends CompleteClassType> extends ObjectData<T> {
 
     public rawValue(): never {
         throw new Error("Not implemented");
+    }
+
+    public zeroInitialize() {
+        this.subobjects.forEach(subobj => subobj.zeroInitialize());
     }
     
     public kill(rt?: RuntimeConstruct) {
@@ -318,7 +332,10 @@ export abstract class CPPObject<T extends CompleteObjectType = CompleteObjectTyp
 
         this.address = address;
 
-        this.isAlive = true;
+        // Object is not alive until it is initialized
+        this.isAlive = false;
+
+        // Validity is determined by the data this object currently holds
         this._isValid = false;
     }
 
@@ -369,6 +386,11 @@ export abstract class CPPObject<T extends CompleteObjectType = CompleteObjectTyp
 
     public toString() {
         return "@" + this.address;
+    }
+
+    public beginLifetime() {
+        assert(!this.isAlive);
+        asMutable(this).isAlive = true;
     }
 
     public kill(rt?: RuntimeConstruct) {
@@ -432,6 +454,22 @@ export abstract class CPPObject<T extends CompleteObjectType = CompleteObjectTyp
 
     public writeValue<T_Atomic extends AtomicType>(this: CPPObject<T_Atomic>, newValue: Value<T_Atomic>) {
         this.setValue(newValue, true);
+    }
+
+    /**
+     * Begins this object's lifetime and initializes its value.
+     * May only be called on objects of atomic type.
+     * @param this 
+     * @param newValue 
+     */
+    public initializeValue<T_Atomic extends AtomicType>(this: CPPObject<T_Atomic>, newValue: Value<T_Atomic>) {
+        this.beginLifetime();
+        this.writeValue(newValue);
+    }
+
+    public zeroInitialize() {
+        this.data.zeroInitialize();
+        this.setValidity(true);
     }
 
     public isValueValid<T_Atomic extends AtomicType>(this: CPPObject<T_Atomic>): boolean {

@@ -1309,7 +1309,8 @@ function allocateNewArray(rt: RuntimeExpression, rec: CPPObject<CompleteClassTyp
     let arrObj = rt.sim.memory.heap.allocateNewObject(new BoundedArrayType(Char.CHAR, newCapacity));
     let arrElems = arrObj.getArrayElemSubobjects();
 
-    values.forEach((val, i) => arrElems[i].writeValue(val));
+    arrElems.forEach((elem, i) => i < values.length ? elem.initializeValue(values[i]) : elem.beginLifetime());
+    arrObj.beginLifetime();
 
     // store pointer to new array
     getDataPtr(rec).writeValue(arrElems[0].getPointerTo());

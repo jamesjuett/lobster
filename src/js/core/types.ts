@@ -1479,12 +1479,12 @@ class ClassTypeBase extends TypeBase implements Omit<ObjectTypeInterface, "size"
     }
 
     public isDerivedFrom(other: Type) : boolean {
-        var b = this.classDefinition?.baseClass;
+        var b = this.classDefinition?.baseType;
         while(b) {
             if (similarType(other, b)) {
                 return true;
             }
-            b = b.classDefinition?.baseClass;
+            b = b.classDefinition?.baseType;
         }
         return false;
     }
@@ -1544,7 +1544,7 @@ class ClassTypeBase extends TypeBase implements Omit<ObjectTypeInterface, "size"
         }
 
         // Aggregates may not have base classes (until c++17)
-        if (this.classDefinition.baseClass) {
+        if (this.classDefinition.baseType) {
             return false;
         }
 

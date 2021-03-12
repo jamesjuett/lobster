@@ -488,7 +488,7 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
         this.observable.send("pushed");
     }
 
-    protected setCleanupConstruct(cleanupConstruct: RuntimeConstruct) {
+    public setCleanupConstruct(cleanupConstruct: RuntimeConstruct) {
         this.cleanupConstruct = cleanupConstruct;
     }
 
