@@ -46,12 +46,12 @@ export function isType<T extends Type>(typeOrCtor: Type | Constructor<T>, ctor?:
     }
 };
 
-export function sameType(type1: Type, type2: Type) {
-    return type1.sameType(type2);
+export function sameType(type1: Type | undefined, type2: Type | undefined) {
+    return !!(type1 === type2 || type1 && type2 && type1.sameType(type2));
 };
 
-export function similarType(type1: Type, type2: Type) {
-    return type1.similarType(type2);
+export function similarType(type1: Type | undefined, type2: Type | undefined) {
+    return !!(type1 === type2 || type1 && type2 && type1.similarType(type2));
 };
 
 export function subType(type1: Type, type2: Type) {

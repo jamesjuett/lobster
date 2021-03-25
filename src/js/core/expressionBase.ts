@@ -1,7 +1,7 @@
 import { StringLiteralExpression, AnalyticExpression, CompiledExpressionKinds, AnalyticTypedExpression } from "./expressions";
 import { ExpressionASTNode } from "../ast/ast_expressions";
 
-import { ExpressionContext, RuntimeConstruct, CPPConstruct, ConstructDescription, SuccessfullyCompiled } from "./constructs";
+import { ExpressionContext, RuntimeConstruct, CPPConstruct, ConstructDescription, SuccessfullyCompiled, SemanticContext } from "./constructs";
 import { CompiledTemporaryDeallocator, PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 
 import { Type, CompleteObjectType, AtomicType, ArithmeticType, IntegralType, FloatingPointType, PointerType, ReferenceType, BoundedArrayType, ArrayOfUnknownBoundType, FunctionType, PotentiallyCompleteClassType, CompleteClassType, isAtomicType, isCompleteObjectType, ExpressionType } from "./types";
@@ -14,7 +14,7 @@ import { Value } from "./runtimeEnvironment";
 
 import { CPPObject } from "./objects";
 import { ConstructOutlet, ExpressionOutlet } from "../view/codeOutlets";
-import { Predicates } from "./predicates";
+import { AnalyticConstruct, Predicates } from "./predicates";
 
 
 export type ValueCategory = "prvalue" | "lvalue";
@@ -60,6 +60,11 @@ export abstract class Expression<ASTType extends ExpressionASTNode = ExpressionA
     }
 
     public abstract describeEvalResult(depth: number): ConstructDescription;
+
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
+        return other instanceof Expression;
+        // TODO semantic equivalence
+    }
 }
 
 export interface t_TypedExpression {

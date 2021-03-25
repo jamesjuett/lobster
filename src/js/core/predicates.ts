@@ -1,22 +1,33 @@
 
 import { AnalyticExpression, TypedExpressionKinds, CompiledExpressionKinds, TernaryExpression, TypedCommaExpression, AnalyticCompiledExpression, AnalyticTypedExpression, IdentifierExpression, PointerDifferenceExpression, TypedPointerDifferenceExpression, AssignmentExpression, TypedAssignmentExpression, NumericLiteralExpression, ImplicitConversion, PrefixIncrementExpression, PostfixIncrementExpression, t_OverloadableOperators, OperatorOverloadExpression, DotExpression, ArrowExpression, SubscriptExpression, CompoundAssignmentExpression } from "./expressions";
 import { ValueCategory, Expression, TypedExpression } from "./expressionBase";
-import { UnknownTypeDeclaration, VoidDeclaration, TypedUnknownBoundArrayDeclaration, FunctionDeclaration, TypedFunctionDeclaration, LocalVariableDefinition, TypedLocalVariableDefinition, GlobalVariableDefinition, TypedGlobalVariableDefinition, ParameterDeclaration, TypedParameterDeclaration, Declarator, TypedDeclarator, TypedFunctionDefinition, ClassDeclaration, TypedClassDeclaration, ClassDefinition, TypedClassDefinition, FunctionDefinition, AnalyticDeclaration, TypeSpecifier, StorageSpecifier, AnalyticTypedDeclaration, TypedDeclarationKinds, AnalyticCompiledDeclaration } from "./declarations";
+import { UnknownTypeDeclaration, VoidDeclaration, TypedUnknownBoundArrayDeclaration, FunctionDeclaration, TypedFunctionDeclaration, LocalVariableDefinition, TypedLocalVariableDefinition, GlobalVariableDefinition, TypedGlobalVariableDefinition, ParameterDeclaration, TypedParameterDeclaration, Declarator, TypedDeclarator, TypedFunctionDefinition, ClassDeclaration, TypedClassDeclaration, ClassDefinition, TypedClassDefinition, FunctionDefinition, AnalyticDeclaration, TypeSpecifier, StorageSpecifier, AnalyticTypedDeclaration, TypedDeclarationKinds, AnalyticCompiledDeclaration, BaseSpecifier } from "./declarations";
 import { Type, VoidType, ArrayOfUnknownBoundType, Bool, AtomicType, Int, isAtomicType, ExpressionType } from "./types";
 import { DiscriminateUnion } from "../util/util";
 import { AnalyticStatement } from "./statements";
-import { CPPConstruct } from "./constructs";
+import { CPPConstruct, GlobalObjectAllocator } from "./constructs";
 import { FunctionCallExpression } from "./FunctionCallExpression";
 import { DirectInitializer, AtomicDirectInitializer } from "./initializers";
 import { containsConstruct, findFirstConstruct } from "../analysis/analysis";
 import { VariableEntity } from "./entities";
 import { FunctionCall } from "./FunctionCall";
+import { ObjectDeallocator } from "./ObjectDeallocator";
+import { TemporaryDeallocator } from "./PotentialFullExpression";
 
 
 
 export type ConstructKind<Cs extends {construct_type: string}> = Cs["construct_type"];
 
-export type AnalyticConstruct = AnalyticDeclaration | TypeSpecifier | StorageSpecifier | AnalyticExpression | AnalyticStatement;
+export type AnalyticConstruct =
+    AnalyticDeclaration |
+    TypeSpecifier |
+    StorageSpecifier |
+    AnalyticExpression |
+    AnalyticStatement |
+    GlobalObjectAllocator |
+    ObjectDeallocator |
+    TemporaryDeallocator |
+    BaseSpecifier;
 
 // type TypedKinds<T extends Type> = TypedDeclarationKinds<T> & TypedExpressionKinds<T, ValueCategory>;
 // export type AnalyticTyped<C extends AnalyticConstruct, T extends Type = Type> =
