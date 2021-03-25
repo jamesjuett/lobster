@@ -1,7 +1,10 @@
-import { SuccessfullyCompiled, RuntimeConstruct, ASTNode, ExpressionContext, createExpressionContextWithParameterTypes, ConstructDescription } from "./constructs";
-import { CompiledFunctionCall, CompiledTemporaryDeallocator, FunctionCall, RuntimeFunctionCall, TypedFunctionCall } from "./PotentialFullExpression";
+import { SuccessfullyCompiled, RuntimeConstruct, ExpressionContext, createExpressionContextWithParameterTypes, ConstructDescription } from "./constructs";
+import { ASTNode } from "../ast/ASTNode";
+import { CompiledTemporaryDeallocator } from "./PotentialFullExpression";
+import { CompiledFunctionCall, FunctionCall, RuntimeFunctionCall, TypedFunctionCall } from "./FunctionCall";
 import { FunctionEntity } from "./entities";
-import { ExpressionASTNode, IdentifierExpression, createExpressionFromAST, CompiledFunctionIdentifierExpression, RuntimeFunctionIdentifierExpression, MagicFunctionCallExpression, createRuntimeExpression, DotExpression, CompiledFunctionDotExpression, RuntimeFunctionDotExpression, ArrowExpression, CompiledFunctionArrowExpression, RuntimeFunctionArrowExpression } from "./expressions";
+import { IdentifierExpression, createExpressionFromAST, CompiledFunctionIdentifierExpression, RuntimeFunctionIdentifierExpression, MagicFunctionCallExpression, createRuntimeExpression, DotExpression, CompiledFunctionDotExpression, RuntimeFunctionDotExpression, ArrowExpression, CompiledFunctionArrowExpression, RuntimeFunctionArrowExpression } from "./expressions";
+import { ExpressionASTNode, FunctionCallExpressionASTNode } from "../ast/ast_expressions";
 import { ReferenceType, PeelReference, peelReference, AtomicType, FunctionType, CompleteReturnType } from "./types";
 import { CPPObject } from "./objects";
 import { CPPError } from "./errors";
@@ -13,11 +16,7 @@ import { Mutable } from "../util/util";
 
 
 
-export interface FunctionCallExpressionASTNode extends ASTNode {
-    readonly construct_type: "function_call_expression";
-    readonly operand: ExpressionASTNode;
-    readonly args: readonly ExpressionASTNode[];
-}
+
 // type FunctionResultType<T extends FunctionType> = NoRefType<Exclude<T["returnType"], VoidType>>; // TODO: this isn't used? should I use it somewhere?
 // type ReturnTypeVC<RT extends PotentialReturnType> = RT extends ReferenceType ? "lvalue" : "prvalue";
 

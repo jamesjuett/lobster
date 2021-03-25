@@ -2,18 +2,21 @@
 import { parse as cpp_parse } from "../parse/cpp_parser";
 import { NoteKind, SyntaxNote, CPPError, NoteRecorder, Note } from "./errors";
 import { Mutable, asMutable, assertFalse, assert } from "../util/util";
-import { GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, CompiledFunctionDefinition, CompiledGlobalVariableDefinition, DeclarationASTNode, FunctionDeclaration, TypeSpecifier, StorageSpecifier, Declarator, FunctionDefinitionGroup, ClassDefinition, TopLevelDeclarationASTNode, TopLevelDeclaration, createTopLevelDeclarationFromAST, SimpleDeclaration, ClassDefinitionASTNode, SimpleDeclarationASTNode, NonMemberSimpleDeclarationASTNode, DeclaratorASTNode } from "./declarations";
 import { NamespaceScope, GlobalObjectEntity, selectOverloadedDefinition, FunctionEntity, ClassEntity, NameLookupOptions, Scope, NamedScope } from "./entities";
 import { Observable } from "../util/observe";
-import { TranslationUnitContext, CPPConstruct, createTranslationUnitContext, ProgramContext, GlobalObjectAllocator, CompiledGlobalObjectAllocator, ASTNode, createLibraryContext } from "./constructs";
+import { TranslationUnitContext, CPPConstruct, createTranslationUnitContext, ProgramContext, GlobalObjectAllocator, CompiledGlobalObjectAllocator, createLibraryContext } from "./constructs";
+import { ASTNode } from "../ast/ASTNode";
 import { StringLiteralExpression } from "./expressions";
 import { FunctionType, Int, VoidType, CompleteClassType, Double } from "./types";
 import { startCase } from "lodash";
 import { registerOpaqueExpression, RuntimeOpaqueExpression } from "./opaqueExpression";
 import { getDataPtr } from "../lib/string";
 import { Value } from "./runtimeEnvironment";
-import { FunctionCall } from "./PotentialFullExpression";
+import { FunctionCall } from "./FunctionCall";
 import { QualifiedName, identifierToString } from "./lexical";
+import { TranslationUnitAST } from "../ast/ast_program";
+import { GlobalVariableDefinition, FunctionDefinitionGroup, ClassDefinition, FunctionDefinition, CompiledFunctionDefinition, CompiledGlobalVariableDefinition, TopLevelDeclaration, createTopLevelDeclarationFromAST } from "./declarations";
+import { CompiledObjectDeallocator, createStaticDeallocator, ObjectDeallocator } from "./ObjectDeallocator";
 
 
 
@@ -34,8 +37,9 @@ export class Program {
     public readonly sourceFiles: { [index: string]: SourceFile } = Object.assign({}, LIBRARY_FILES);
     public readonly translationUnits: { [index: string]: TranslationUnit } = {};
 
-    public readonly globalObjects: readonly GlobalVariableDefinition[] = [];
-    public readonly globalObjectAllocator!: GlobalObjectAllocator;
+    public readonly staticObjects: readonly GlobalVariableDefinition[] = [];
+    public readonly staticObjectAllocator?: GlobalObjectAllocator;
+    public readonly staticObjectDeallocator?: ObjectDeallocator;
 
     private readonly functionCalls: readonly FunctionCall[] = [];
 
@@ -104,8 +108,13 @@ export class Program {
             }
         }
 
-        (<Mutable<this>>this).globalObjectAllocator = new GlobalObjectAllocator(this.context, this.globalObjects);
-
+        (<Mutable<this>>this).staticObjectAllocator = new GlobalObjectAllocator(this.context, this.staticObjects);
+        
+        if (this.mainFunction) {
+            // Map from definitions to entities below to avoid any duplicates
+            // (this.linkedObjectEntities might have duplicates)
+            (<Mutable<this>>this).staticObjectDeallocator = createStaticDeallocator(this.mainFunction.context, this.staticObjects.map(def => def.declaredEntity));
+        }
     }
 
     private defineIntrinsics() {
@@ -142,7 +151,7 @@ export class Program {
     public registerGlobalObjectDefinition(qualifiedName: QualifiedName, def: GlobalVariableDefinition) {
         if (!this.linkedObjectDefinitions[qualifiedName.str]) {
             this.linkedObjectDefinitions[qualifiedName.str] = def;
-            asMutable(this.globalObjects).push(def);
+            asMutable(this.staticObjects).push(def);
         }
         else {
             // One definition rule violation
@@ -244,8 +253,9 @@ export class Program {
 
 export interface CompiledProgram extends Program {
     readonly mainFunction?: CompiledFunctionDefinition;
-    readonly globalObjects: readonly CompiledGlobalVariableDefinition[];
-    readonly globalObjectAllocator: CompiledGlobalObjectAllocator;
+    readonly staticObjects: readonly CompiledGlobalVariableDefinition[];
+    readonly staticObjectAllocator: CompiledGlobalObjectAllocator;
+    readonly staticObjectDeallocator: CompiledObjectDeallocator;
 }
 
 export interface RunnableProgram extends CompiledProgram {
@@ -524,10 +534,6 @@ class PreprocessedSource {
 }
 
 
-export interface TranslationUnitAST {
-    readonly construct_type: "translation_unit";
-    readonly declarations: readonly TopLevelDeclarationASTNode[];
-}
 
 /**
  * TranslationUnit

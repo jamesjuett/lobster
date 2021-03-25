@@ -688,9 +688,10 @@ export class MemoryFrame {
         return <AutoObject<T>>this.localObjectsByEntityId[entity.entityId];
     }
 
-    public initializeLocalObject<T extends AtomicType>(entity: LocalObjectEntity<T>, newValue: Value<T>) {
-        this.localObjectLookup(entity).writeValue(newValue);
-    }
+    // TODO: apparently this is not used
+    // public initializeLocalObject<T extends AtomicType>(entity: LocalObjectEntity<T>, newValue: Value<T>) {
+    //     this.localObjectLookup(entity).writeValue(newValue);
+    // }
 
     public localReferenceLookup<T extends CompleteObjectType>(entity: LocalReferenceEntity<ReferenceType<T>>) {
         return <CPPObject<T> | undefined>this.localReferencesByEntityId[entity.entityId];

@@ -29,6 +29,8 @@ abstract class ObjectData<T extends CompleteObjectType> {
     // public abstract setRawValue(newValue: RawValueType, write: boolean) : void;
 
     public abstract kill(rt?: RuntimeConstruct): void;
+
+    public abstract zeroInitialize(): void;
 };
 
 class AtomicObjectData<T extends AtomicType> extends ObjectData<T> {
@@ -44,6 +46,10 @@ class AtomicObjectData<T extends AtomicType> extends ObjectData<T> {
 
     public setRawValue(newValue: RawValueType, write: boolean) {
         this.memory.writeBytes(this.address, this.object.type.valueToBytes(newValue));
+    }
+
+    public zeroInitialize() {
+        this.setRawValue(0, false);
     }
 
     public kill() {
@@ -92,6 +98,10 @@ class ArrayObjectData<Elem_type extends ArrayElemType> extends ObjectData<Bounde
         return this.elemObjects;
     }
 
+    public numArrayElemSubobjects(): number {
+        return this.elemObjects.length;
+    }
+
     public getValue() {
         return this.elemObjects.map((elemObj) => { return elemObj.getValue(); });
     }
@@ -106,6 +116,10 @@ class ArrayObjectData<Elem_type extends ArrayElemType> extends ObjectData<Bounde
     //         this.elemObjects[i].setValue(newValue[i], write);
     //     }
     // }
+
+    public zeroInitialize() {
+        this.elemObjects.forEach(elemObj => elemObj.zeroInitialize());
+    }
 
     public kill(rt?: RuntimeConstruct) {
         this.elemObjects.forEach(elemObj => elemObj.kill(rt));
@@ -135,8 +149,8 @@ class ClassObjectData<T extends CompleteClassType> extends ObjectData<T> {
         //     return subObj;
         // });
         this.baseSubobjects = [];
-        if (classDef.baseClass) {
-            let baseObj = new BaseSubobject(this.object, classDef.baseClass, memory, subAddr);
+        if (classDef.baseType) {
+            let baseObj = new BaseSubobject(this.object, classDef.baseType, memory, subAddr);
             asMutable(this.baseSubobjects).push(baseObj);
             subAddr += baseObj.size;
         }
@@ -191,6 +205,10 @@ class ClassObjectData<T extends CompleteClassType> extends ObjectData<T> {
 
     public rawValue(): never {
         throw new Error("Not implemented");
+    }
+
+    public zeroInitialize() {
+        this.subobjects.forEach(subobj => subobj.zeroInitialize());
     }
     
     public kill(rt?: RuntimeConstruct) {
@@ -314,7 +332,10 @@ export abstract class CPPObject<T extends CompleteObjectType = CompleteObjectTyp
 
         this.address = address;
 
-        this.isAlive = true;
+        // Object is not alive until it is initialized
+        this.isAlive = false;
+
+        // Validity is determined by the data this object currently holds
         this._isValid = false;
     }
 
@@ -326,6 +347,11 @@ export abstract class CPPObject<T extends CompleteObjectType = CompleteObjectTyp
     // Only allowed if receiver matches CPPObject<ArrayType<Elem_type>>
     public getArrayElemSubobjects<AT extends BoundedArrayType>(this: CPPObject<AT>): readonly ArraySubobject<AT["elemType"]>[] {
         return this.data.getArrayElemSubobjects();
+    }
+
+    // Only allowed if receiver matches CPPObject<ArrayType<Elem_type>>
+    public numArrayElemSubobjects<AT extends BoundedArrayType>(this: CPPObject<AT>): number {
+        return this.data.numArrayElemSubobjects();
     }
 
     // Only allowed if receiver matches CPPObject<ArrayType<Elem_type>>
@@ -362,6 +388,11 @@ export abstract class CPPObject<T extends CompleteObjectType = CompleteObjectTyp
         return "@" + this.address;
     }
 
+    public beginLifetime() {
+        assert(!this.isAlive);
+        asMutable(this).isAlive = true;
+    }
+
     public kill(rt?: RuntimeConstruct) {
 
         // kill subobjects
@@ -375,8 +406,13 @@ export abstract class CPPObject<T extends CompleteObjectType = CompleteObjectTyp
         this.observable.send("deallocated");
     }
 
-    public getPointerTo(): Value<PointerType<T>> { // More general return type, is overridden by arrays differently
+    public getPointerTo(): Value<PointerType<T>> {
         return new Value(this.address, new ObjectPointerType(this));
+    }
+
+    // Only allowed if receiver matches CPPObject<ArrayType<Elem_type>>
+    public decayToPointer<AT extends BoundedArrayType>(this: CPPObject<AT>) : Value<ArrayPointerType<AT["elemType"]>> {
+        return this.getArrayElemSubobject(0).getPointerTo();
     }
 
     public getValue(read: boolean = false): ObjectValueRepresentation<T> {
@@ -418,6 +454,22 @@ export abstract class CPPObject<T extends CompleteObjectType = CompleteObjectTyp
 
     public writeValue<T_Atomic extends AtomicType>(this: CPPObject<T_Atomic>, newValue: Value<T_Atomic>) {
         this.setValue(newValue, true);
+    }
+
+    /**
+     * Begins this object's lifetime and initializes its value.
+     * May only be called on objects of atomic type.
+     * @param this 
+     * @param newValue 
+     */
+    public initializeValue<T_Atomic extends AtomicType>(this: CPPObject<T_Atomic>, newValue: Value<T_Atomic>) {
+        this.beginLifetime();
+        this.writeValue(newValue);
+    }
+
+    public zeroInitialize() {
+        this.data.zeroInitialize();
+        this.setValidity(true);
     }
 
     public isValueValid<T_Atomic extends AtomicType>(this: CPPObject<T_Atomic>): boolean {
@@ -822,7 +874,7 @@ abstract class Subobject<T extends CompleteObjectType = CompleteObjectType> exte
 
 export class ArraySubobject<T extends ArrayElemType = ArrayElemType> extends Subobject<T> {
 
-    public readonly containingObject!: CPPObject<BoundedArrayType<T>>; // Handled by parent (TODO: is this a good idea?)
+    public readonly containingObject!: CPPObject<BoundedArrayType<T>>; // Handled by parent (TODO: is this a good idea?) lol no i don't think so
     public readonly index: number;
 
     public constructor(arrObj: CPPObject<BoundedArrayType<T>>, index: number, memory: Memory, address: number) {

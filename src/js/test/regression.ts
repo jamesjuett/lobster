@@ -4,6 +4,8 @@ import { CompilationNotesOutlet } from "../view/editors";
 import "../lib/standard"
 import { checkLocalAtomicVariableValues } from "../analysis/runtime";
 import { createCinTests } from "./tests_cin";
+import { createDynamicMemoryTests } from "./tests_dynamic_memory";
+import { createObjectLifetimeTests } from "./tests_object_lifetime";
 
 $(() => {
     var numTests = 0;
@@ -1145,9 +1147,10 @@ int main() {
         ]
     );
     
-      // ---------- 183 Cin Tests ----------
 
         createCinTests();
+        createObjectLifetimeTests();
+        createDynamicMemoryTests();
 
     // string test
     

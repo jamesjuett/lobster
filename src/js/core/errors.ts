@@ -1,11 +1,13 @@
-import { TranslationUnitConstruct, CPPConstruct } from "./constructs";
-import { SourceReference } from "./Program";
-import { ReferenceType, CompleteObjectType, Type, BoundedArrayType, ArrayOfUnknownBoundType, AtomicType, sameType, PotentialParameterType, CompleteClassType, PointerType, PotentiallyCompleteObjectType, IncompleteObjectType, PotentialReturnType, ExpressionType, PotentiallyCompleteArrayType, FunctionType, VoidType, PotentiallyCompleteClassType } from "./types";
-import { CPPEntity, DeclaredEntity, ObjectEntity, LocalObjectEntity, TemporaryObjectEntity, FunctionEntity, GlobalObjectEntity, ClassEntity } from "./entities";
-import { VoidDeclaration, StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName, FunctionDeclaration, ClassDefinition, ClassDeclaration, StorageSpecifier, FunctionDefinition, VariableDefinition, ParameterDefinition, SimpleDeclaration, BaseSpecifier, IncompleteTypeVariableDefinition, IncompleteTypeMemberVariableDeclaration } from "./declarations";
-import { Expression, TypedExpression } from "./expressionBase";
+import { StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName } from "../ast/ast_declarations";
 import { Mutable } from "../util/util";
-import { IdentifierExpression, PointerDifferenceExpression, t_OverloadableOperators } from "./expressions";
+import { TranslationUnitConstruct, CPPConstruct } from "./constructs";
+import { BaseSpecifier, SimpleDeclaration, FunctionDefinition, VariableDefinition, ParameterDefinition, ClassDefinition, StorageSpecifier, VoidDeclaration, IncompleteTypeVariableDefinition, IncompleteTypeMemberVariableDeclaration, FunctionDeclaration, ClassDeclaration } from "./declarations";
+import { LocalObjectEntity, TemporaryObjectEntity, ObjectEntity, DeclaredEntity, CPPEntity, FunctionEntity, ClassEntity, GlobalObjectEntity, NamedEntity, ArraySubobjectEntity } from "./entities";
+import { Expression, TypedExpression } from "./expressionBase";
+import { t_OverloadableOperators } from "./expressions";
+import { CPPObject } from "./objects";
+import { SourceReference } from "./Program";
+import { CompleteObjectType, ReferenceType, CompleteClassType, Type, AtomicType, PotentiallyCompleteArrayType, PotentiallyCompleteClassType, FunctionType, VoidType, PointerType, ExpressionType, sameType, PotentialParameterType, PotentialReturnType, IncompleteObjectType, BoundedArrayType } from "./types";
 
 export enum NoteKind {
     ERROR = "error",
@@ -297,8 +299,17 @@ export const CPPError = {
             },
         },
         dtor: {
+            no_destructor: function (construct: TranslationUnitConstruct, entity: ObjectEntity<CompleteClassType>) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.no_destructor", "The object " + entity.describe().name + " needs to be destroyed, but I can't find a destructor for the " + entity.type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor.");
+            },
             no_destructor_local: function (construct: TranslationUnitConstruct, entity: LocalObjectEntity) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.no_destructor_local", "The local variable " + entity.name + " needs to be destroyed when it \"goes out of scope\", but I can't find a destructor for the " + entity.type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor.");
+            },
+            no_destructor_static: function (construct: TranslationUnitConstruct, entity: NamedEntity) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.no_destructor_local", "The variable " + entity.name + " needs to be destroyed when the program ends, but I can't find a destructor for the " + entity.type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor.");
+            },
+            no_destructor_array: function (construct: TranslationUnitConstruct, entity: ArraySubobjectEntity) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.no_destructor_array", "The elements of " + entity.arrayEntity + " need to be destroyed with the overall array, but I can't find a destructor for the " + entity.type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor.");
             },
             // no_destructor_member : function(construct: TranslationUnitConstruct, entity: ObjectEntity, containingClass) {
             //     return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.no_destructor_member", "The member variable " + entity.name + " needs to be destroyed as part of the " + containingClass.className + " destructor, but I can't find a destructor for the " + entity.type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor.");
@@ -512,6 +523,9 @@ export const CPPError = {
             array_default_init: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.WARNING, "declaration.init.array_default_init", "Note: Default initialization of an array requires default initialization of each of its elements.");
             },
+            array_value_init: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.WARNING, "declaration.init.array_value_init", "Note: Value initialization of an array requires value initialization of each of its elements.");
+            },
             array_direct_init: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.OTHER, "declaration.init.array_direct_init", "Note: initialization of an array requires initialization of each of its elements.");
             }
@@ -693,8 +707,19 @@ export const CPPError = {
         },
         new: {
             unsupported_type: function (construct: TranslationUnitConstruct, type: Type) {
-                return new CompilerNote(construct, NoteKind.ERROR, "expr.input.unsupported_type", `The new operator cannot be used to create an object of type: ${type}`);
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.new.unsupported_type", `The new operator cannot be used to create an object of type: ${type}`);
             }
+        },
+        new_array: {
+            length_required: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.new.length_required", `A length must be specified when creating a dynamically allocated array.`);
+            },
+            integer_length_required: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.new.integer_length_required", `The expression specifying the length of a dynamically allocated array must yield an integer.`);
+            },
+            direct_initialization_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.new.direct_initialization_prohibited", `A dynamically allocated array may not be initialized with (). (Try {} if you want to initialize individual elements.)`);
+            },
         },
         delete: {
             no_destructor: function (construct: TranslationUnitConstruct, type: CompleteClassType) {
@@ -705,6 +730,9 @@ export const CPPError = {
             },
             pointerToObjectType: function (construct: TranslationUnitConstruct, type: Type) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.delete.pointerToObjectType", "The delete operator cannot be used with a pointer to a non-object type (e.g. void pointers, function pointers). (Current operand is " + type + " ).");
+            },
+            pointerToArrayElemType: function (construct: TranslationUnitConstruct, type: Type) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.delete.pointerToObjectType", "The delete [] operator cannot be used with a pointer to a type that cannot be stored in an array (e.g. void pointers, function pointers). (Current operand is " + type + " ).");
             }
         },
         dereference: {

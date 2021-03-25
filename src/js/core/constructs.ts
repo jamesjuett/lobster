@@ -5,11 +5,13 @@ import { asMutable, Mutable, assertFalse, assert } from "../util/util";
 import { Simulation } from "./Simulation";
 import { Observable } from "../util/observe";
 import { CompleteObjectType, ReferenceType, PeelReference, VoidType, PotentialReturnType, Type, AtomicType, FunctionType, CompleteClassType, ExpressionType, isCompleteClassType } from "./types";
-import { GlobalVariableDefinition, CompiledGlobalVariableDefinition, CompiledFunctionDefinition, ClassDefinition, Declarator, FunctionDefinition, ClassDeclaration, AccessSpecifier } from "./declarations";
+import { GlobalVariableDefinition, CompiledGlobalVariableDefinition, CompiledFunctionDefinition, ClassDefinition, Declarator, FunctionDefinition, ClassDeclaration } from "./declarations";
 import { RuntimeFunction } from "./functions";
 import { CPPObject, TemporaryObject } from "./objects";
 import { ForStatement, WhileStatement } from "./statements";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
+import { ASTNode } from "../ast/ASTNode";
+import { AccessSpecifier } from "../ast/ast_declarations";
 
 
 
@@ -24,19 +26,6 @@ export interface Explanation {
 }
 
 export const EMPTY_SOURCE = { line: 0, column: 0, start: 0, end: 0, text: ""};
-
-export interface ASTNode {
-    // readonly construct_type: string;
-    readonly source: {
-        readonly start: number;
-        readonly end: number;
-        readonly text: string;
-        readonly line: number;
-        readonly column: number;
-    };
-    readonly library_id?: number;
-    readonly library_unsupported?: boolean;
-};
 
 export interface ProgramContext {
     readonly program: Program;
@@ -113,9 +102,9 @@ export interface BlockContext extends FunctionContext {
     readonly withinLoop?: true;
 }
 
-export function createBlockContext(parentContext: FunctionContext): BlockContext {
+export function createBlockContext(parentContext: FunctionContext, sharedScope?: BlockScope): BlockContext {
     return Object.assign({}, parentContext, {
-        contextualScope: new BlockScope(parentContext.translationUnit, parentContext.contextualScope),
+        contextualScope: sharedScope || new BlockScope(parentContext.translationUnit, parentContext.contextualScope),
         blockLocals: new ContextualLocals()
     });
 }
@@ -339,7 +328,6 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
     }
 }
 
-export type TranslationUnitConstruct<ASTType extends ASTNode = ASTNode> = CPPConstruct<TranslationUnitContext, ASTType>;
 
 export interface SuccessfullyCompiled {
 
@@ -356,12 +344,14 @@ export interface CompiledConstruct extends CPPConstruct, SuccessfullyCompiled {
 
 
 
+export type TranslationUnitConstruct<ASTType extends ASTNode = ASTNode> = CPPConstruct<TranslationUnitContext, ASTType>;
 
 
 
 
 
-export type StackType = "statement" | "expression" | "function" | "initializer" | "call" | "ctor-initializer";
+
+export type StackType = "statement" | "expression" | "function" | "initializer" | "call" | "ctor-initializer" | "cleanup";
 
 export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledConstruct> {
 
@@ -498,7 +488,7 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
         this.observable.send("pushed");
     }
 
-    protected setCleanupConstruct(cleanupConstruct: RuntimeConstruct) {
+    public setCleanupConstruct(cleanupConstruct: RuntimeConstruct) {
         this.cleanupConstruct = cleanupConstruct;
     }
 

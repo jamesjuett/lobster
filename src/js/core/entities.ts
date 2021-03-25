@@ -1,8 +1,9 @@
-import { PotentialParameterType, Type, CompleteObjectType, sameType, ReferenceType, BoundedArrayType, Char, ArrayElemType, FunctionType, referenceCompatible, createClassType, PotentiallyCompleteClassType, CompleteClassType, PotentiallyCompleteObjectType, PeelReference, Completed, VoidType, CompleteReturnType, PointerType } from "./types";
+import { PotentialParameterType, Type, CompleteObjectType, sameType, ReferenceType, BoundedArrayType, Char, ArrayElemType, FunctionType, referenceCompatible, createClassType, PotentiallyCompleteClassType, CompleteClassType, PotentiallyCompleteObjectType, PeelReference, Completed, VoidType, CompleteReturnType, PointerType, ArrayOfUnknownBoundType, PotentiallyCompleteArrayType } from "./types";
 import { assert, Mutable, unescapeString, assertFalse, asMutable, assertNever } from "../util/util";
 import { Observable } from "../util/observe";
 import { RuntimeConstruct, isClassContext } from "./constructs";
-import { FunctionCall, PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
+import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
+import { FunctionCall } from "./FunctionCall";
 import { LocalVariableDefinition, ParameterDefinition, GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, ParameterDeclaration, FunctionDeclaration, ClassDefinition, FunctionDefinitionGroup, ClassDeclaration, MemberVariableDeclaration, SimpleDeclaration, CompiledClassDefinition } from "./declarations";
 import { CPPObject, AutoObject, StaticObject, StringLiteralObject, TemporaryObject, ObjectDescription, MemberSubobject, ArraySubobject, BaseSubobject, DynamicObject } from "./objects";
 import { CPPError, CompilerNote } from "./errors";
@@ -10,7 +11,7 @@ import { Memory } from "./runtimeEnvironment";
 import { Expression } from "./expressionBase";
 import { TranslationUnit } from "./Program";
 import { RuntimeFunction } from "./functions";
-import { NewObjectType, RuntimeNewExpression } from "./expressions";
+import { NewObjectType, RuntimeNewArrayExpression, RuntimeNewExpression } from "./new_delete";
 import { QualifiedName, UnqualifiedName } from "./lexical";
 
 
@@ -505,6 +506,7 @@ export abstract class CPPEntity<T extends Type = Type> {
         this.type = type;
     }
 
+    public abstract isTyped<NarrowedT extends CompleteObjectType>(this: ObjectEntity, predicate: (t:Type) => t is NarrowedT) : this is ObjectEntity<NarrowedT>;
     public abstract isTyped<NarrowedT extends Type>(predicate: (t:Type) => t is NarrowedT) : this is CPPEntity<NarrowedT>;
 
     public abstract describe(): EntityDescription;
@@ -1140,10 +1142,6 @@ export class NewObjectEntity<T extends NewObjectType = NewObjectType> extends CP
 
     public readonly variableKind = "object";
 
-    public toString() {
-        return "object (" + this.type + ")";
-    }
-
     public runtimeLookup(rtConstruct: RuntimeConstruct) {
         // no additional runtimeLookup() needed on the object since it will never be a reference
         while (rtConstruct.model.construct_type !== "new_expression" && rtConstruct.parent) {
@@ -1151,7 +1149,8 @@ export class NewObjectEntity<T extends NewObjectType = NewObjectType> extends CP
         }
         assert(rtConstruct.model.construct_type === "new_expression");
         let newRtConstruct = <RuntimeNewExpression<PointerType<T>>>rtConstruct;
-        return <DynamicObject<T>>newRtConstruct.allocatedObject;
+        assert(newRtConstruct.allocatedObject);
+        return newRtConstruct.allocatedObject;
     }
 
     public isTyped<NarrowedT extends NewObjectType>(predicate: (t:NewObjectType) => t is NarrowedT) : this is NewObjectEntity<NarrowedT>;
@@ -1162,6 +1161,31 @@ export class NewObjectEntity<T extends NewObjectType = NewObjectType> extends CP
 
     public describe() {
         return {name: "a new heap object", message: "the dynamically allocated object (of type "+this.type+") created by new"};
+    }
+
+};
+
+export class NewArrayEntity<T extends PotentiallyCompleteArrayType = PotentiallyCompleteArrayType> extends CPPEntity<T> {
+
+    public readonly variableKind = "object";
+
+    public runtimeLookup(rtConstruct: RuntimeConstruct) {
+        while (rtConstruct.model.construct_type !== "new_array_expression" && rtConstruct.parent) {
+            rtConstruct = rtConstruct.parent;
+        }
+        assert(rtConstruct.model.construct_type === "new_array_expression");
+        let newRtConstruct = <RuntimeNewArrayExpression<PointerType<T["elemType"]>>>rtConstruct;
+        return newRtConstruct.allocatedObject;
+    }
+
+    public isTyped<NarrowedT extends PotentiallyCompleteArrayType>(predicate: (t:PotentiallyCompleteArrayType) => t is NarrowedT) : this is NewArrayEntity<NarrowedT>;
+    public isTyped<NarrowedT extends Type>(predicate: (t:Type) => t is NarrowedT) : this is never;
+    public isTyped<NarrowedT extends PotentiallyCompleteArrayType>(predicate: (t:PotentiallyCompleteArrayType) => t is NarrowedT) : this is NewArrayEntity<NarrowedT> {
+        return predicate(this.type);
+    }
+
+    public describe() {
+        return {name: "a new dynamically sized array", message: "the dynamically allocated/sized array (of element type "+this.type+") created by new"};
     }
 
 };
@@ -1197,6 +1221,41 @@ export class ArraySubobjectEntity<T extends ArrayElemType = ArrayElemType> exten
     }
 }
 
+
+export class DynamicLengthArrayNextElementEntity<T extends ArrayElemType = ArrayElemType> extends CPPEntity<T> implements ObjectEntity<T> {
+    public readonly variableKind = "object";
+
+    public readonly arrayEntity: NewArrayEntity<ArrayOfUnknownBoundType<T>>;
+
+    constructor(arrayEntity: NewArrayEntity<ArrayOfUnknownBoundType<T>>) {
+        super(arrayEntity.type.elemType);
+        this.arrayEntity = arrayEntity;
+    }
+
+    public runtimeLookup(rtConstruct: RuntimeConstruct) {
+        while (rtConstruct.model.construct_type !== "new_array_expression" && rtConstruct.parent) {
+            rtConstruct = rtConstruct.parent;
+        }
+        assert(rtConstruct.model.construct_type === "new_array_expression");
+        let newRtConstruct = <RuntimeNewArrayExpression<PointerType<T>>>rtConstruct;
+        return newRtConstruct.nextElemToInit!;
+    }
+
+    public isTyped<NarrowedT extends ArrayElemType>(predicate: (t:ArrayElemType) => t is NarrowedT) : this is ArraySubobjectEntity<NarrowedT>;
+    public isTyped<NarrowedT extends Type>(predicate: (t:Type) => t is NarrowedT) : this is never;
+    public isTyped<NarrowedT extends ArrayElemType>(predicate: (t:ArrayElemType) => t is NarrowedT) : this is ArraySubobjectEntity<NarrowedT> {
+        return predicate(this.type);
+    }
+
+    public describe() {
+        let arrDesc = this.arrayEntity.describe();
+        return {
+            name: arrDesc.name + "[?]",
+            message: "the next element of " + arrDesc.message + " to be initialized"
+        };
+    }
+}
+
 export class BaseSubobjectEntity extends CPPEntity<CompleteClassType> implements ObjectEntity<CompleteClassType> {
     public readonly variableKind = "object";
 
@@ -1207,7 +1266,7 @@ export class BaseSubobjectEntity extends CPPEntity<CompleteClassType> implements
         this.containingEntity = containingEntity;
 
         // This should always be true as long as we don't allow multiple inheritance
-        assert(this.containingEntity.type.classDefinition.baseClass?.similarType(type))
+        assert(this.containingEntity.type.classDefinition.baseType?.similarType(type))
     }
 
     public runtimeLookup(rtConstruct: RuntimeConstruct) {
@@ -1623,7 +1682,7 @@ export class FunctionEntity<T extends FunctionType = FunctionType> extends Decla
             let finalOverrider: FunctionEntity | undefined;
             while (!finalOverrider && dynamicType) {
                 finalOverrider = this.overriders[dynamicType.qualifiedName.str];
-                dynamicType = dynamicType.classDefinition.baseClass;
+                dynamicType = dynamicType.classDefinition.baseType;
             }
             return finalOverrider?.definition || this.definition;
         }

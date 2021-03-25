@@ -216,7 +216,7 @@ export class Simulation {
         // in this.callMain()
 
         this.callMain();
-        (<Mutable<this>>this).globalAllocator = this.program.globalObjectAllocator.createRuntimeConstruct(this);
+        (<Mutable<this>>this).globalAllocator = this.program.staticObjectAllocator.createRuntimeConstruct(this);
         this.push(this.globalAllocator);
 
         this.observable.send("started");
@@ -230,6 +230,7 @@ export class Simulation {
         (<Mutable<this>>this).mainFunction = new RuntimeFunction(this.program.mainFunction, this, null);
         this.mainFunction.setReturnObject(this.mainReturnObject);
         this.mainFunction.pushStackFrame();
+        this.mainFunction.setCleanupConstruct(this.program.staticObjectDeallocator.createRuntimeConstruct(this));
         this.push(this.mainFunction);
         this.observable.send("mainCalled", this.mainFunction);
         this.mainFunction.gainControl();
