@@ -1,5 +1,6 @@
+import { FunctionDefinitionASTNode } from "../ast/ast_declarations";
+import { DeclaratorASTNode } from "../ast/ast_declarators";
 import { parse as cpp_parse } from "../parse/cpp_parser";
-import { DeclaratorASTNode, DeclarationASTNode, FunctionDefinitionASTNode } from "../core/declarations";
 
 export function parseDeclarator(text: string) {
     return <DeclaratorASTNode>cpp_parse(text, {startRule: "declarator"});

@@ -720,7 +720,7 @@ new_declarator_postfixes
 
 new_declarator_postfix
   = "[" ws size:exp_assn? ws "]"
-    { return {type:"array", size:size}; }
+    { return {kind:"array", size:size}; }
 
 
 new_initializer

@@ -1257,7 +1257,7 @@ registerOpaqueExpression(
             
             let orig = extractCharsFromCString(rt, getDataPtr(rt.contextualReceiver).getValue());
             rt.sim.memory.heap.deleteByAddress(getDataPtr(rec).getValue().rawValue);
-            copyFromCString(rt, rt.contextualReceiver, [...orig.charValues, c.getValue(), Char.NULL_CHAR], orig.validLength);
+            copyFromCString(rt, rt.contextualReceiver, [...orig.charValues.slice(0, -1), c.getValue(), Char.NULL_CHAR], orig.validLength);
             return rt.contextualReceiver;
         }
     }
@@ -1309,7 +1309,8 @@ function allocateNewArray(rt: RuntimeExpression, rec: CPPObject<CompleteClassTyp
     let arrObj = rt.sim.memory.heap.allocateNewObject(new BoundedArrayType(Char.CHAR, newCapacity));
     let arrElems = arrObj.getArrayElemSubobjects();
 
-    values.forEach((val, i) => arrElems[i].writeValue(val));
+    arrElems.forEach((elem, i) => i < values.length ? elem.initializeValue(values[i]) : elem.beginLifetime());
+    arrObj.beginLifetime();
 
     // store pointer to new array
     getDataPtr(rec).writeValue(arrElems[0].getPointerTo());
