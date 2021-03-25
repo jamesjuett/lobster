@@ -12,6 +12,7 @@ import { ForStatement, WhileStatement } from "./statements";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { ASTNode } from "../ast/ASTNode";
 import { AccessSpecifier } from "../ast/ast_declarations";
+import { AnalyticConstruct } from "./predicates";
 
 
 
@@ -190,6 +191,20 @@ export function createMemberSpecificationContext(classContext: ClassContext, acc
     });
 }
 
+export type SemanticContext = {
+
+};
+
+export function areAllSemanticallyEquivalent(constructs: readonly CPPConstruct[], others: readonly CPPConstruct[], equivalenceContext: SemanticContext) : boolean{
+    return constructs.length === others.length
+        && constructs.every((c, i) => c.isSemanticallyEquivalent(others[i], equivalenceContext));
+}
+
+export function areSemanticallyEquivalent(construct: CPPConstruct | undefined, other: CPPConstruct | undefined, equivalenceContext: SemanticContext) : boolean{
+    return !!(construct === other // also handles case of both undefined
+        || construct && other && construct.isSemanticallyEquivalent(other, equivalenceContext));
+}
+
 export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramContext, ASTType extends ASTNode = ASTNode> {
     public abstract readonly construct_type: string;
     private static NEXT_ID = 0;
@@ -325,6 +340,17 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
 
     public isSuccessfullyCompiled(): this is CompiledConstruct {
         return !this.getContainedNotes().hasErrors;
+    }
+
+    public isSemanticallyEquivalent(other: CPPConstruct, equivalenceContext: SemanticContext) : boolean {
+        return this.isSemanticallyEquivalent_impl(<AnalyticConstruct>other, equivalenceContext);
+    };
+
+    public abstract isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext) : boolean;
+
+    public areChildrenSemanticallyEquivalent(other: CPPConstruct, equivalenceContext: SemanticContext) : boolean{
+        return this.children.length === other.children.length
+            && this.children.every((c, i) => c.isSemanticallyEquivalent(other.children[i], equivalenceContext));
     }
 }
 
@@ -582,6 +608,11 @@ export class InvalidConstruct extends BasicCPPConstruct<TranslationUnitContext, 
         children?.forEach(child => this.attach(child));
     }
 
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext) : boolean {
+        return other.construct_type === "invalid_construct"
+            && other.note.id === this.note.id
+            && this.areChildrenSemanticallyEquivalent(other, equivalenceContext);
+    }
 }
 
 export class ContextualLocals {
@@ -755,6 +786,12 @@ export class GlobalObjectAllocator extends CPPConstruct {
     // public isTailChild(child: ExecutableConstruct) {
     //     return {isTail: true};
     // }
+
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
+        return other.construct_type === "GlobalObjectAllocator"
+            && areAllSemanticallyEquivalent(this.globalObjects, other.globalObjects, equivalenceContext);
+    }
+    
 }
 
 export interface CompiledGlobalObjectAllocator extends GlobalObjectAllocator, SuccessfullyCompiled {
