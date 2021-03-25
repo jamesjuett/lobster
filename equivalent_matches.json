@@ -1,0 +1,22 @@
+[
+  "int main() { int count = 0;\nif (!first) {\n    return 0;\n}\n\nfor(Node *n = first; n; n = n->next) {\n    count++;\n}\n\nreturn count;\n}",
+  "int main() { int runningSum = 0;\nif(first == 0) { return 0; }\nfor(Node *curr = first; curr; curr=curr->next) {\n    runningSum += curr->datum;\n}\nreturn runningSum;}",
+  "int main() { int sum = 0;\nif(!first && !last){\n    return sum;\n}\nfor(Node *ptr = first; ptr; ptr = ptr->next) {\n    sum += ptr->datum;\n}\nreturn sum;\n}",
+  "int main() { int sum = 0;\nif(!first) {\n    return sum;\n}\nfor(Node *p = first; p; p = p->next) {\n    sum += p->datum;\n}\nreturn sum;}",
+  "int main() { int s=0;\nif(first==0&&last==0){\n    return 0;\n}\nfor (Node *node_ptr = first; node_ptr; node_ptr = node_ptr->next) {\n    s+=node_ptr->datum;\n}\nreturn s;}",
+  "int main() { int sum = 0;\nif(!first){\n    return 0;\n}\nfor(Node *n = first; n; n = n->next){\n    sum += n->datum;\n}\nreturn sum;}",
+  "int main() { int sum = 0;\nif (first == 0) {\nreturn 0;\n}\nfor (Node *n = first; n!=last; n->next) {\nsum+= n->datum;\n}\nreturn sum;}",
+  "int main() { int total = 0;\nif (first == 0) {\n    return 0;\n}\nfor (Node* s = first; s != 0; s = s->next) {\n    total += s->datum;\n}\nreturn total;}",
+  "int main() { int sum = 0;\nif (!first && !last){\n    return sum; \n}\nfor (Node *ptr = first; ptr; ptr = ptr->next){\n    sum += ptr->datum; \n}\nreturn sum; }",
+  "int main() { int sum = 0;\nif(!first) {\n    return sum;\n}\nfor(Node *it = first; it->next; it = it->next) {\n    sum += it->datum;\n}\nreturn sum;}",
+  "int main() { int sum = 0;\nif (!first && !last) { return sum; }\nfor (Node* np = first; !np; np = np->next) {\n    sum += np->datum;\n}\nreturn sum;}",
+  "int main() { int count = 0;\nif(first == 0) { return count;}\nfor(Node *ca = first; ca; ca =ca->next)\n{\n    count = count + ca->datum;\n}\nreturn count;}",
+  "int main() { int sum = 0;\nif (first == 0) {\n    return sum;\n}\nfor (Node *n_ptr = first; n_ptr; n_ptr = n_ptr->next) {\n    sum += n_ptr->datum;\n}\nreturn sum;}",
+  "int main() { int totalSum = 0;\nif(first == 0 || first == last){\n    return totalSum;\n}\nfor(Node * nodeptr = first; nodeptr; nodeptr->next){\n    totalSum = totalSum + nodeptr->datum;\n}\nreturn totalSum;}",
+  "int main() { int sum = 0;\nif (first == 0) {\n    return sum; \n}\nfor( Node *n = first; n; n= n->next) {\n    sum+= n->datum;\n }\n    return sum;}",
+  "int main() { int sum = 0;\nif (!Node) {return 0;}\nfor (Node *node_ptr = first; node_ptr; node_ptr = node_ptr->next) {\n    sum++;\n  }\nreturn sum; }",
+  "int main() { int sum = 0;\nif(!first){return 0;}\nfor(Node *ptr = first; ptr; ptr->next){\nsum += *ptr;\n}\nreturn sum;}",
+  "int main() { int sum = 0;\nif(first == 0){\n    return sum;\n}\nfor (Node *node_ptr = first; node_ptr; node_ptr = node_ptr->next) {\n    sum += node_ptr->datum;\n}\n\nreturn sum;\n}",
+  "int main() { int s=0;\nif (!first) {\n    return 0; \n}\nfor (Node *n = first; n; n = n->next) {\n    s=s+(n->datum);\n}\nreturn s;}",
+  "int main() { int total = 0;\nif (!first) {\n    return 0;\n}\nfor (Node *n = first; n != 0; n = n->next) {\n    total += n->datum;\n}\nreturn total;}"
+]

@@ -1,14 +1,15 @@
-import { FunctionEntity, PassByReferenceParameterEntity, PassByValueParameterEntity, TemporaryObjectEntity } from "./entities";
+import { areEntitiesSemanticallyEquivalent, FunctionEntity, PassByReferenceParameterEntity, PassByValueParameterEntity, TemporaryObjectEntity } from "./entities";
 import { Mutable, assert } from "../util/util";
 import { AtomicType, CompleteClassType, CompleteReturnType, FunctionType, ReferenceType, VoidType } from "./types";
 import { CPPObject } from "./objects";
-import { TranslationUnitContext, SuccessfullyCompiled, RuntimeConstruct } from "./constructs";
+import { TranslationUnitContext, SuccessfullyCompiled, RuntimeConstruct, areSemanticallyEquivalent, SemanticContext, areAllSemanticallyEquivalent } from "./constructs";
 import { CPPError } from "./errors";
 import { CompiledDirectInitializer, DirectInitializer, RuntimeDirectInitializer } from "./initializers";
 import { CompiledExpression, Expression, TypedExpression } from "./expressionBase";
 import { CompiledFunctionDefinition } from "./declarations";
 import { RuntimeFunction } from "./functions";
 import { PotentialFullExpression, CompiledTemporaryDeallocator, RuntimePotentialFullExpression } from "./PotentialFullExpression";
+import { AnalyticConstruct } from "./predicates";
 
 
 
@@ -172,6 +173,12 @@ export class FunctionCall extends PotentialFullExpression {
 
     public isReturnVoid(): this is TypedFunctionCall<FunctionType<VoidType>> {
         return this.func.type.returnType.isVoidType();
+    }
+    
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
+        return other.construct_type === this.construct_type
+            && areEntitiesSemanticallyEquivalent(this.func, other.func, equivalenceContext)
+            && areAllSemanticallyEquivalent(this.args, other.args, equivalenceContext);
     }
 }
 

@@ -1,4 +1,4 @@
-import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, TranslationUnitContext, BlockContext } from "./constructs";
+import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, TranslationUnitContext, BlockContext, SemanticContext } from "./constructs";
 import { ASTNode } from "../ast/ASTNode";
 import { CPPError } from "./errors";
 import { isReferenceToCompleteType, isCompleteClassType, CompleteClassType, isBoundedArrayType, BoundedArrayType } from "./types";
@@ -8,6 +8,7 @@ import { CompiledFunctionCall, FunctionCall } from "./FunctionCall";
 import { CPPObject } from "./objects";
 import { RuntimeBlock, RuntimeForStatement } from "./statements";
 import { Simulation } from "./Simulation";
+import { AnalyticConstruct } from "./predicates";
 
 
 
@@ -64,6 +65,10 @@ export abstract class ObjectDeallocator extends BasicCPPConstruct<TranslationUni
         this.addNote(CPPError.declaration.dtor.no_destructor(this, obj));
     }
 
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
+        return other.construct_type === this.construct_type;
+        // TODO semantic equivalence
+    }
 }
 
 export interface CompiledObjectDeallocator extends ObjectDeallocator, SuccessfullyCompiled {

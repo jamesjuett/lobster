@@ -138,7 +138,7 @@ export class UnsupportedStatement extends Statement {
     }
     
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return other.construct_type === "unsupported_statement";
+        return other.construct_type === this.construct_type;
     }
 }
 
@@ -168,7 +168,7 @@ export class ExpressionStatement extends Statement<ExpressionStatementASTNode> {
     }
     
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return other.construct_type === "expression_statement"
+        return other.construct_type === this.construct_type
             && areSemanticallyEquivalent(this.expression, other.expression, equivalenceContext);
     }
 }
@@ -218,7 +218,7 @@ export class NullStatement extends Statement<NullStatementASTNode> {
     }
     
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return other.construct_type === "null_statement";
+        return other.construct_type === this.construct_type;
     }
 }
 
@@ -286,7 +286,8 @@ export class DeclarationStatement extends Statement<DeclarationStatementASTNode>
     }
     
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return other.construct_type === "declaration_statement"
+        return other.construct_type === this.construct_type
+            && Array.isArray(this.declarations) && Array.isArray(other.declarations)
             && areAllSemanticallyEquivalent(this.declarations, other.declarations, equivalenceContext);
     }
 }
@@ -357,7 +358,7 @@ export class BreakStatement extends Statement<BreakStatementASTNode> {
     // }
     
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return other.construct_type === "break_statement";
+        return other.construct_type === this.construct_type;
     }
 }
 
@@ -459,7 +460,7 @@ export class ReturnStatement extends Statement<ReturnStatementASTNode> {
     // }
     
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return other.construct_type === "return_statement"
+        return other.construct_type === this.construct_type
             && areSemanticallyEquivalent(this.expression, other.expression, equivalenceContext);
     }
 }
@@ -563,8 +564,8 @@ export class Block extends Statement<BlockASTNode> {
     
     
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return other.construct_type === "block"
-            && areSemanticallyEquivalent(this.statements, other.statements, equivalenceContext)
+        return other.construct_type === this.construct_type
+            && areAllSemanticallyEquivalent(this.statements, other.statements, equivalenceContext)
             && areSemanticallyEquivalent(this.localDeallocator, other.localDeallocator, equivalenceContext);
     }
 
@@ -957,7 +958,7 @@ export class IfStatement extends Statement<IfStatementASTNode> {
 
     
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return other.construct_type === "if_statement"
+        return other.construct_type === this.construct_type
             && areSemanticallyEquivalent(this.condition, other.condition, equivalenceContext)
             && areSemanticallyEquivalent(this.then, other.then, equivalenceContext)
             && areSemanticallyEquivalent(this.otherwise, other.otherwise, equivalenceContext);
@@ -1060,7 +1061,7 @@ export class WhileStatement extends Statement<WhileStatementASTNode> {
     }
 
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return other.construct_type === "if_statement"
+        return other.construct_type === this.construct_type
             && areSemanticallyEquivalent(this.condition, other.condition, equivalenceContext)
             && areSemanticallyEquivalent(this.body, other.body, equivalenceContext);
     }
@@ -1290,7 +1291,7 @@ export class ForStatement extends Statement<ForStatementASTNode> {
     }
   
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return other.construct_type === "for_statement"
+        return other.construct_type === this.construct_type
             && areSemanticallyEquivalent(this.initial, other.initial, equivalenceContext)
             && areSemanticallyEquivalent(this.condition, other.condition, equivalenceContext)
             && areSemanticallyEquivalent(this.body, other.body, equivalenceContext)
