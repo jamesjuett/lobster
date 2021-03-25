@@ -825,7 +825,8 @@ export class AssignmentExpression extends Expression<AssignmentExpressionASTNode
 
         // Consider an assignment operator overload if the LHS is class type
         if (Predicates.isTypedExpression(lhs, isPotentiallyCompleteClassType)) {
-            return selectOperatorOverload(context, ast, "=", [lhs, rhs]);
+            return selectOperatorOverload(context, ast, "=", [lhs, rhs]) ??
+                new InvalidOperatorOverloadExpression(context, ast, ast.operator, [lhs, rhs]);
         }
 
         return new AssignmentExpression(context, ast, lhs, rhs);
@@ -961,7 +962,8 @@ export class CompoundAssignmentExpression extends Expression<CompoundAssignmentE
 
         // Consider a compound assignment operator overload if the LHS is class type
         if (Predicates.isTypedExpression(lhs, isPotentiallyCompleteClassType)) {
-            return selectOperatorOverload(context, ast, ast.operator, [lhs, rhs]);
+            return selectOperatorOverload(context, ast, ast.operator, [lhs, rhs]) ??
+                new InvalidOperatorOverloadExpression(context, ast, ast.operator, [lhs, rhs]);
         }
 
         return new CompoundAssignmentExpression(context, ast, lhs, rhs);
@@ -1294,7 +1296,7 @@ export class ArithmeticBinaryOperatorExpression extends BinaryOperatorExpression
         // be implemented as overloaded operators. 
         if (Predicates.isTypedExpression(left, isPotentiallyCompleteClassType) && Predicates.isTypedExpression(right, isPotentiallyCompleteClassType)) {
             let overload = selectOperatorOverload(context, ast, op, [left, right]);
-            if (overload.construct_type !== "invalid_operator_overload_expression") {
+            if (overload) {
                 return overload;
             }
         }
@@ -1901,7 +1903,10 @@ export class RelationalBinaryOperatorExpression extends BinaryOperatorExpression
 
         // If either one is a class type, we consider operator overloads
         if (Predicates.isTypedExpression(left, isPotentiallyCompleteClassType) || Predicates.isTypedExpression(right, isPotentiallyCompleteClassType)) {
-            return selectOperatorOverload(context, ast, op, [left, right]);
+            let overload = selectOperatorOverload(context, ast, op, [left, right]);
+            if (overload) {
+                return overload;
+            }
         }
 
         if (Predicates.isTypedExpression(left, isPointerType) || Predicates.isTypedExpression(left, isBoundedArrayType, "lvalue")) {
@@ -3028,10 +3033,8 @@ export class SubscriptExpression extends Expression<SubscriptExpressionASTNode> 
 
         // Consider an assignment operator overload if the LHS is class type
         if (Predicates.isTypedExpression(operand, isPotentiallyCompleteClassType)) {
-            let overload = selectOperatorOverload(context, ast, "[]", [operand, offset]);
-            if (overload) {
-                return overload;
-            }
+            return selectOperatorOverload(context, ast, "[]", [operand, offset]) ??
+                new InvalidOperatorOverloadExpression(context, ast, "[]", [operand, offset]);;
         }
 
         return new SubscriptExpression(context, ast, operand, offset);
@@ -5625,7 +5628,7 @@ export function usualArithmeticConversions(leftOrig: SpecificTypedExpression<Ari
 export function selectOperatorOverload(context: ExpressionContext, ast: ExpressionASTNode, operator: t_OverloadableOperators, originalArgs: Expression[]) {
 
     if (!allWellTyped(originalArgs)) {
-        return new InvalidOperatorOverloadExpression(context, ast, operator, originalArgs);
+        return undefined;
     }
 
     let leftmost = originalArgs[0];
@@ -5651,7 +5654,7 @@ export function selectOperatorOverload(context: ExpressionContext, ast: Expressi
 
     // If we still don't have anything
     if (!lookupResult || !adjustedArgs) {
-        return new InvalidOperatorOverloadExpression(context, ast, operator, originalArgs);
+        return undefined;
     }
 
     // These are not possible since you can't have a variable or
@@ -5670,7 +5673,7 @@ export function selectOperatorOverload(context: ExpressionContext, ast: Expressi
         }
     }
     else {
-        return new InvalidOperatorOverloadExpression(context, ast, operator, originalArgs);
+        return undefined;
     }
 }
 
@@ -5700,7 +5703,7 @@ export class NonMemberOperatorOverloadExpression extends Expression<ExpressionAS
 
     public constructor(context: ExpressionContext, ast: ExpressionASTNode | undefined,
                        operator: t_OverloadableOperators, args: readonly Expression[],
-                       selectedFunctionEntity: FunctionEntity | undefined) {
+                       selectedFunctionEntity: FunctionEntity) {
         super(context, ast);
 
         this.operator = operator;
@@ -5709,13 +5712,6 @@ export class NonMemberOperatorOverloadExpression extends Expression<ExpressionAS
         // If any arguments are not well typed, we can't select a function.
         if (!allWellTyped(args)) {
             // type, valueCategory, and call remain undefined
-            this.attachAll(args);
-            return;
-        }
-
-        if (!selectedFunctionEntity) {
-            // type, valueCategory, and call remain undefined
-            this.addNote(CPPError.expr.operatorOverload.no_such_overload(this, this.operator));
             this.attachAll(args);
             return;
         }
@@ -5836,7 +5832,7 @@ export class MemberOperatorOverloadExpression extends Expression<ExpressionASTNo
 
     public constructor(context: ExpressionContext, ast: ExpressionASTNode | undefined, operator: t_OverloadableOperators,
                        receiverExpression: TypedExpression<CompleteClassType>, args: readonly Expression[],
-                       selectedFunctionEntity: FunctionEntity | undefined) {
+                       selectedFunctionEntity: FunctionEntity) {
         super(context, ast);
 
         this.operator = operator;
@@ -5846,13 +5842,6 @@ export class MemberOperatorOverloadExpression extends Expression<ExpressionASTNo
         // If any arguments are not well typed, we can't select a function.
         if (!receiverExpression.isWellTyped() || !allWellTyped(args)) {
             // type, valueCategory, and call remain undefined
-            this.attachAll(args);
-            return;
-        }
-
-        if (!selectedFunctionEntity) {
-            // type, valueCategory, and call remain undefined
-            this.addNote(CPPError.expr.operatorOverload.no_such_overload(this, this.operator));
             this.attachAll(args);
             return;
         }
