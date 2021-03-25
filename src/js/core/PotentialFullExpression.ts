@@ -2,10 +2,11 @@ import { TemporaryObjectEntity } from "./entities";
 import { Mutable, assertFalse, assert } from "../util/util";
 import { CompleteClassType, CompleteObjectType, isCompleteClassType } from "./types";
 import { TemporaryObject } from "./objects";
-import { TranslationUnitContext, BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, StackType, CPPConstruct } from "./constructs";
+import { TranslationUnitContext, BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, StackType, CPPConstruct, SemanticContext } from "./constructs";
 import { ASTNode } from "../ast/ASTNode";
 import { CPPError } from "./errors";
 import { FunctionCall, CompiledFunctionCall } from "./FunctionCall";
+import { AnalyticConstruct } from "./predicates";
 
 export abstract class PotentialFullExpression<ContextType extends TranslationUnitContext = TranslationUnitContext, ASTType extends ASTNode = ASTNode> extends BasicCPPConstruct<ContextType, ASTType> {
     public readonly temporaryObjects: TemporaryObjectEntity[] = [];
@@ -129,6 +130,10 @@ export class TemporaryDeallocator extends BasicCPPConstruct<TranslationUnitConte
         return new RuntimeTemporaryDeallocator(this, parent);
     }
 
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
+        return other.construct_type === this.construct_type;
+        // TODO semantic equivalence
+    }
 }
 
 export interface CompiledTemporaryDeallocator extends TemporaryDeallocator, SuccessfullyCompiled {

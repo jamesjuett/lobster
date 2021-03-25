@@ -84,7 +84,7 @@ export class StorageSpecifier extends BasicCPPConstruct<TranslationUnitContext, 
     }
     
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return other.construct_type === "storage_specifier"
+        return other.construct_type === this.construct_type
             && this.register === other.register 
             && this.static === other.static 
             && this.thread_local === other.thread_local 
@@ -113,7 +113,7 @@ export class TypeSpecifier extends BasicCPPConstruct<TranslationUnitContext, AST
 
 
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return other.construct_type === "type_specifier"
+        return other.construct_type === this.construct_type
             && this.const === other.const
             && this.volatile === other.volatile
             && this.signed === other.signed
@@ -476,6 +476,7 @@ export type TypedDeclarationKinds<T extends Type> = {
     "unknown_type_declaration": T extends undefined ? UnknownTypeDeclaration : never;
     "void_declaration": T extends VoidType ? VoidDeclaration : never;
     "storage_specifier": never;
+    "typedef_declaration": never;
     "friend_declaration": never;
     "unknown_array_bound_declaration": T extends ArrayOfUnknownBoundType ? TypedUnknownBoundArrayDeclaration<T> : never;
     "function_declaration": T extends FunctionDeclaration["type"] ? TypedFunctionDeclaration<T> : never;
@@ -499,6 +500,7 @@ export type CompiledDeclarationKinds<T extends Type> = {
     "unknown_type_declaration": never; // these never compile
     "void_declaration": never; // these never compile
     "storage_specifier": never; // currently unsupported
+    "typedef_declaration": never; // currently unsupported
     "friend_declaration": never; // currently unsupported
     "unknown_array_bound_declaration": never;  // TODO: should this ever be supported? Can you ever have one of these compile?
     "function_declaration": T extends FunctionDeclaration["type"] ? CompiledFunctionDeclaration<T> : never;
@@ -517,8 +519,6 @@ export type CompiledDeclarationKinds<T extends Type> = {
 
 export type AnalyticTypedDeclaration<C extends AnalyticDeclaration, T extends Type = NonNullable<C["type"]>> = TypedDeclarationKinds<T>[C["construct_type"]];
 export type AnalyticCompiledDeclaration<C extends AnalyticDeclaration, T extends Type = NonNullable<C["type"]>> = CompiledDeclarationKinds<T>[C["construct_type"]];
-
-
 
 
 export abstract class SimpleDeclaration<ContextType extends TranslationUnitContext = TranslationUnitContext> extends BasicCPPConstruct<ContextType, SimpleDeclarationASTNode> {
@@ -599,7 +599,7 @@ export class UnknownTypeDeclaration extends SimpleDeclaration {
     }
 
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return other.construct_type === "unknown_type_declaration";
+        return other.construct_type === this.construct_type;
     }
 
 }
@@ -618,7 +618,7 @@ export class VoidDeclaration extends SimpleDeclaration {
     }
 
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return other.construct_type === "void_declaration";
+        return other.construct_type === this.construct_type;
     }
 }
 
@@ -642,7 +642,7 @@ export class TypedefDeclaration extends SimpleDeclaration {
     }
 
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return other.construct_type === "typedef_declaration";
+        return other.construct_type === this.construct_type;
     }
 
 }
@@ -670,7 +670,7 @@ export class FriendDeclaration extends SimpleDeclaration {
     }
 
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return other.construct_type === "friend_declaration";
+        return other.construct_type === this.construct_type;
     }
 
 }
@@ -691,7 +691,7 @@ export class UnknownBoundArrayDeclaration extends SimpleDeclaration {
     }
 
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return other.construct_type === "unknown_array_bound_declaration";
+        return other.construct_type === this.construct_type;
     }
 }
 
@@ -848,7 +848,7 @@ export class FunctionDeclaration extends SimpleDeclaration {
     // },
     
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return other.construct_type === "function_declaration" 
+        return other.construct_type === this.construct_type 
             && this.declaredEntity.isSemanticallyEquivalent(other.declaredEntity, equivalenceContext);
     }
 
@@ -963,8 +963,8 @@ abstract class VariableDefinitionBase<ContextType extends TranslationUnitContext
     }
     
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return other.construct_type === "local_variable_definition"
-            && this.declaredEntity.isSemanticallyEquivalent(other.declaredEntity, equivalenceContext)
+        return other instanceof VariableDefinitionBase
+            && areEntitiesSemanticallyEquivalent(this.declaredEntity, other.declaredEntity, equivalenceContext)
             && areSemanticallyEquivalent(this.initializer, other.initializer, equivalenceContext);
     }
 }
@@ -1200,7 +1200,7 @@ export class ParameterDeclaration extends BasicCPPConstruct<TranslationUnitConte
     }
     
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return other.construct_type === "parameter_declaration"
+        return other.construct_type === this.construct_type
             && areEntitiesSemanticallyEquivalent(this.declaredEntity, other.declaredEntity, equivalenceContext);
     }
 }
@@ -1264,7 +1264,7 @@ export class IncompleteTypeVariableDefinition extends SimpleDeclaration<Translat
     }
 
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return other.construct_type === "incomplete_type_variable_definition"
+        return other.construct_type === this.construct_type
             && sameType(this.type, other.type);
     }
 }
@@ -1283,7 +1283,7 @@ export interface TypedIncompleteTypeVariableDefinition<T extends IncompleteObjec
 export class Declarator extends BasicCPPConstruct<TranslationUnitContext, DeclaratorASTNode> {
 
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return other.construct_type === "declarator"
+        return other.construct_type === this.construct_type
             && sameType(this.type, other.type);
     }
 
@@ -1734,7 +1734,7 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, Funct
     }
 
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return other.construct_type === "function_definition"
+        return other.construct_type === this.construct_type
             && areSemanticallyEquivalent(this.declaration, other.declaration, equivalenceContext)
             && areAllSemanticallyEquivalent(this.parameters, other.parameters, equivalenceContext)
             && areSemanticallyEquivalent(this.ctorInitializer, other.ctorInitializer, equivalenceContext)
@@ -2055,7 +2055,7 @@ export class ClassDeclaration extends BasicCPPConstruct<TranslationUnitContext, 
     }
     
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return false;
+        return true;
         // TODO: semantic equivalence
     }
 }
@@ -2712,7 +2712,7 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
     }
     
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return false;
+        return true;
         // TODO semantic equivalence
     }
 }
@@ -2731,7 +2731,7 @@ export interface CompiledClassDefinition<T extends CompleteClassType = CompleteC
 export class BaseSpecifier extends BasicCPPConstruct<TranslationUnitContext, BaseSpecifierASTNode> {
 
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return other.construct_type === "base_specifier"
+        return other.construct_type === this.construct_type
             && this.accessLevel === other.accessLevel
             && this.virtual === other.virtual
             && areEntitiesSemanticallyEquivalent(this.baseEntity, other.baseEntity, equivalenceContext);
@@ -2825,7 +2825,7 @@ export class MemberVariableDeclaration extends VariableDefinitionBase<MemberSpec
     }
 
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return false;
+        return true;
         // TODO semantic equivalence
     }
 }
@@ -2872,7 +2872,7 @@ export class IncompleteTypeMemberVariableDeclaration extends SimpleDeclaration<T
     }
 
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return other.construct_type === "incomplete_type_member_variable_declaration"
+        return other.construct_type === this.construct_type
             && sameType(this.type, other.type);
     }
 }

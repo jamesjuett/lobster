@@ -609,7 +609,7 @@ export class InvalidConstruct extends BasicCPPConstruct<TranslationUnitContext, 
     }
 
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext) : boolean {
-        return other.construct_type === "invalid_construct"
+        return other.construct_type === this.construct_type
             && other.note.id === this.note.id
             && this.areChildrenSemanticallyEquivalent(other, equivalenceContext);
     }
@@ -788,7 +788,7 @@ export class GlobalObjectAllocator extends CPPConstruct {
     // }
 
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return other.construct_type === "GlobalObjectAllocator"
+        return other.construct_type === this.construct_type
             && areAllSemanticallyEquivalent(this.globalObjects, other.globalObjects, equivalenceContext);
     }
     

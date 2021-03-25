@@ -523,7 +523,10 @@ export abstract class CPPEntity<T extends Type = Type> {
 
     //TODO: function for isOdrUsed()?
 
-    public abstract isSemanticallyEquivalent(other: CPPEntity, equivalenceContext: SemanticContext): boolean;
+    public isSemanticallyEquivalent(other: CPPEntity, equivalenceContext: SemanticContext): boolean {
+        return true;
+        // TODO semantic equivalence
+    }
 }
 
 export function areEntitiesSemanticallyEquivalent(entity: CPPEntity | undefined, other: CPPEntity | undefined, equivalenceContext: SemanticContext) {

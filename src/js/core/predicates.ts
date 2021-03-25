@@ -7,7 +7,7 @@ import { DiscriminateUnion } from "../util/util";
 import { AnalyticStatement } from "./statements";
 import { CPPConstruct, GlobalObjectAllocator } from "./constructs";
 import { FunctionCallExpression } from "./FunctionCallExpression";
-import { DirectInitializer, AtomicDirectInitializer } from "./initializers";
+import { DirectInitializer, AtomicDirectInitializer, CtorInitializer } from "./initializers";
 import { containsConstruct, findFirstConstruct } from "../analysis/analysis";
 import { VariableEntity } from "./entities";
 import { FunctionCall } from "./FunctionCall";
@@ -27,7 +27,9 @@ export type AnalyticConstruct =
     GlobalObjectAllocator |
     ObjectDeallocator |
     TemporaryDeallocator |
-    BaseSpecifier;
+    BaseSpecifier |
+    FunctionCall |
+    CtorInitializer;
 
 // type TypedKinds<T extends Type> = TypedDeclarationKinds<T> & TypedExpressionKinds<T, ValueCategory>;
 // export type AnalyticTyped<C extends AnalyticConstruct, T extends Type = Type> =

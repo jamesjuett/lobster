@@ -1,4 +1,4 @@
-import { SuccessfullyCompiled, TranslationUnitContext, RuntimeConstruct, CPPConstruct, ExpressionContext, BlockContext, ClassContext, MemberFunctionContext, MemberBlockContext, BasicCPPConstruct, createImplicitContext, InvalidConstruct } from "./constructs";
+import { SuccessfullyCompiled, TranslationUnitContext, RuntimeConstruct, CPPConstruct, ExpressionContext, BlockContext, ClassContext, MemberFunctionContext, MemberBlockContext, BasicCPPConstruct, createImplicitContext, InvalidConstruct, SemanticContext } from "./constructs";
 import { ASTNode } from "../ast/ASTNode";
 import { CompiledTemporaryDeallocator, PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { CompiledFunctionCall, FunctionCall, RuntimeFunctionCall } from "./FunctionCall";
@@ -16,6 +16,7 @@ import { Value } from "./runtimeEnvironment";
 import { Statement, UnsupportedStatement } from "./statements";
 import { lookupTypeInContext, OpaqueExpression } from "./opaqueExpression";
 import { CtorInitializerASTNode } from "../ast/ast_declarations";
+import { AnalyticConstruct } from "./predicates";
 
 export type InitializerKind = "default" | "value" | DirectInitializerKind | "list";
 
@@ -33,6 +34,10 @@ export abstract class Initializer extends PotentialFullExpression {
 
     public abstract readonly kind: InitializerKind;
 
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
+        return other.construct_type === this.construct_type;
+        // TODO semantic equivalence
+    }
 }
 
 export interface CompiledInitializer<T extends ObjectEntityType = ObjectEntityType> extends Initializer, SuccessfullyCompiled {
@@ -1578,6 +1583,10 @@ export class CtorInitializer extends BasicCPPConstruct<MemberBlockContext, CtorI
         return new CtorInitializerOutlet(element, this, parent);
     }
 
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
+        return other.construct_type === this.construct_type;
+        // TODO semantic equivalence
+    }
 }
 
 export interface CompiledCtorInitializer extends CtorInitializer, SuccessfullyCompiled {
