@@ -1,7 +1,7 @@
 import { StringLiteralExpression, AnalyticExpression, CompiledExpressionKinds, AnalyticTypedExpression } from "./expressions";
 import { ExpressionASTNode } from "../ast/ast_expressions";
 
-import { ExpressionContext, RuntimeConstruct, CPPConstruct, ConstructDescription, SuccessfullyCompiled, SemanticContext } from "./constructs";
+import { ExpressionContext, RuntimeConstruct, CPPConstruct, ConstructDescription, SuccessfullyCompiled, SemanticContext, areAllSemanticallyEquivalent } from "./constructs";
 import { CompiledTemporaryDeallocator, PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 
 import { Type, CompleteObjectType, AtomicType, ArithmeticType, IntegralType, FloatingPointType, PointerType, ReferenceType, BoundedArrayType, ArrayOfUnknownBoundType, FunctionType, PotentiallyCompleteClassType, CompleteClassType, isAtomicType, isCompleteObjectType, ExpressionType } from "./types";
@@ -61,9 +61,9 @@ export abstract class Expression<ASTType extends ExpressionASTNode = ExpressionA
 
     public abstract describeEvalResult(depth: number): ConstructDescription;
 
-    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return other instanceof Expression;
-        // TODO semantic equivalence
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, ec: SemanticContext): boolean {
+        return other.construct_type === this.construct_type
+            && areAllSemanticallyEquivalent(this.children, other.children, ec);
     }
 }
 
@@ -131,6 +131,7 @@ export type VCResultTypes<T extends Type, V extends ValueCategory> =
 //     readonly xvalue: number;
 //     readonly lvalue: number;
 // };
+
 
 export abstract class RuntimeExpression<T extends ExpressionType = ExpressionType, V extends ValueCategory = ValueCategory, C extends CompiledExpression<T, V> = CompiledExpression<T, V>> extends RuntimePotentialFullExpression<C> {
 

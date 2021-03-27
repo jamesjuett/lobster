@@ -142,3 +142,7 @@ export function isUnqualifiedIdentifier(id: LexicalIdentifier) : id is string {
 export function isQualifiedIdentifier(id: LexicalIdentifier) : id is QualifiedName {
     return typeof id !== "string";
 }
+
+export function qualifiedNamesEq(qid1: QualifiedName, qid2: QualifiedName) {
+    return identifierToString(qid1) === identifierToString(qid2);
+}

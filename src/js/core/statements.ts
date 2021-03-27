@@ -563,12 +563,69 @@ export class Block extends Statement<BlockASTNode> {
     // }
     
     
-    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return other.construct_type === this.construct_type
-            && areAllSemanticallyEquivalent(this.statements, other.statements, equivalenceContext)
-            && areSemanticallyEquivalent(this.localDeallocator, other.localDeallocator, equivalenceContext);
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, ec: SemanticContext): boolean {
+        if (other.construct_type === this.construct_type
+            && areAllSemanticallyEquivalent(this.statements, other.statements, ec)
+            && areSemanticallyEquivalent(this.localDeallocator, other.localDeallocator, ec)) {
+            return true;
+        }
+
+
+        if (other.construct_type === this.construct_type) {
+
+            // Try identifying chunks that can be rearranged
+            let chunks = this.getChunks();
+            let otherChunks = other.getChunks();
+    
+            // Now our condition is just that each chunk is equivalent
+            if (chunks.length === otherChunks.length && chunks.every((c, i) => areChunksEquivalent(c, otherChunks[i], ec))
+                && areSemanticallyEquivalent(this.localDeallocator, other.localDeallocator, ec)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
+
+    private getChunks() {
+        let chunks: Statement[][] = [];
+        let currentChunk: { stmts: Statement[]; entitiesUsed: Set<number>; } | undefined;
+        (<AnalyticStatement[]>this.statements).forEach(stmt => {
+            if (stmt.construct_type === "declaration_statement" || stmt.construct_type === "expression_statement") {
+                if (currentChunk) {
+                    if (stmt.entitiesUsed().some(e => currentChunk!.entitiesUsed.has(e.entityId))) {
+                        // some entity was used, start a new chunk
+                        chunks.push(currentChunk.stmts);
+                        currentChunk = { stmts: [stmt], entitiesUsed: new Set(stmt.entitiesUsed().map(e => e.entityId)) };
+                    }
+                    else {
+                        currentChunk.stmts.push(stmt);
+                        stmt.entitiesUsed().forEach(e => currentChunk!.entitiesUsed.add(e.entityId));
+                    }
+                }
+                else {
+                    currentChunk = { stmts: [stmt], entitiesUsed: new Set(stmt.entitiesUsed().map(e => e.entityId)) };
+                }
+            }
+            else {
+                // control flow statements
+                if (currentChunk) {
+                    chunks.push(currentChunk.stmts);
+                    currentChunk = undefined;
+                }
+                chunks.push([stmt]);
+            }
+        });
+        if (currentChunk) {
+            chunks.push(currentChunk.stmts);
+        }
+        return chunks;
+    }
+}
+
+function areChunksEquivalent(chunk1: Statement[], chunk2: Statement[], ec: SemanticContext) {
+    return areAllSemanticallyEquivalent(chunk1, chunk2, ec) || areAllSemanticallyEquivalent(chunk1, chunk2.slice().reverse(), ec);
 }
 
 export interface CompiledBlock extends Block, SuccessfullyCompiled {
@@ -877,8 +934,8 @@ export class IfStatement extends Statement<IfStatementASTNode> {
     public readonly construct_type = "if_statement";
 
     public readonly condition: Expression;
-    public readonly then: Statement;
-    public readonly otherwise?: Statement;
+    public readonly then: Block;
+    public readonly otherwise?: Block;
 
     public static createFromAST(ast: IfStatementASTNode, context: BlockContext): IfStatement {
 
@@ -888,7 +945,11 @@ export class IfStatement extends Statement<IfStatementASTNode> {
         // (If the substatement is a block, it creates its own block context, so we don't do that here.)
         let then = ast.then.construct_type === "block" ?
             createStatementFromAST(ast.then, context) :
-            createStatementFromAST(ast.then, createBlockContext(context));
+            createStatementFromAST({
+                construct_type: "block",
+                source: ast.then.source,
+                statements: [ast.then]
+            }, context);
 
         if (!ast.otherwise) { // no else branch
             return new IfStatement(context, ast, condition, then);
@@ -897,13 +958,17 @@ export class IfStatement extends Statement<IfStatementASTNode> {
             // See note above about substatement implicit block context
             let otherwise = ast.otherwise.construct_type === "block" ?
                 createStatementFromAST(ast.otherwise, context) :
-                createStatementFromAST(ast.otherwise, createBlockContext(context));
+                createStatementFromAST({
+                    construct_type: "block",
+                    source: ast.then.source,
+                    statements: [ast.otherwise]
+                }, context);
 
             return new IfStatement(context, ast, condition, then, otherwise);
         }
     }
 
-    public constructor(context: BlockContext, ast: IfStatementASTNode, condition: Expression, then: Statement, otherwise?: Statement) {
+    public constructor(context: BlockContext, ast: IfStatementASTNode, condition: Expression, then: Block, otherwise?: Block) {
         super(context, ast);
 
         if (condition.isWellTyped()) {
@@ -967,15 +1032,15 @@ export class IfStatement extends Statement<IfStatementASTNode> {
 
 export interface CompiledIfStatement extends IfStatement, SuccessfullyCompiled {
     readonly condition: CompiledExpression<Bool, "prvalue">;
-    readonly then: CompiledStatement;
-    readonly otherwise?: CompiledStatement;
+    readonly then: CompiledBlock;
+    readonly otherwise?: CompiledBlock;
 }
 
 export class RuntimeIfStatement extends RuntimeStatement<CompiledIfStatement> {
 
     public readonly condition: RuntimeExpression<Bool, "prvalue">;
-    public readonly then: RuntimeStatement;
-    public readonly otherwise?: RuntimeStatement;
+    public readonly then: RuntimeBlock;
+    public readonly otherwise?: RuntimeBlock;
 
     private index = 0;
 

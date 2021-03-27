@@ -118,7 +118,6 @@ export class RuntimeNewExpression<T extends PointerType<NewObjectType> = Pointer
 
     public constructor(model: CompiledNewExpression<T>, parent: RuntimeConstruct) {
         super(model, parent);
-        this.initializer = this.model.initializer?.createRuntimeInitializer(this);
     }
 
     protected upNextImpl() {
@@ -131,6 +130,7 @@ export class RuntimeNewExpression<T extends PointerType<NewObjectType> = Pointer
     protected stepForwardImpl(): void {
         if (this.index === 0) {
             (<Mutable<this>>this).allocatedObject = this.sim.memory.heap.allocateNewObject(this.model.createdType);
+            (<Mutable<this>>this).initializer = this.model.initializer?.createRuntimeInitializer(this);
             ++this.index;
         }
         else {

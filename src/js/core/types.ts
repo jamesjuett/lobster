@@ -7,7 +7,7 @@ import { ClassDefinition } from "./declarations";
 import { ClassScope } from "./entities";
 import { RuntimeExpression } from "./expressionBase";
 import { SimulationEvent } from "./Simulation";
-import { QualifiedName } from "./lexical";
+import { qualifiedNamesEq, QualifiedName } from "./lexical";
 
 
 
@@ -47,6 +47,8 @@ export function isType<T extends Type>(typeOrCtor: Type | Constructor<T>, ctor?:
 };
 
 export function sameType(type1: Type | undefined, type2: Type | undefined) {
+    // console.log(`comparing ${type1} and ${type2}`);
+    // console.log(!!(type1 === type2 || type1 && type2 && type1.sameType(type2)));
     return !!(type1 === type2 || type1 && type2 && type1.sameType(type2));
 };
 
@@ -1560,7 +1562,7 @@ class ClassTypeBase extends TypeBase implements Omit<ObjectTypeInterface, "size"
 function sameClassType(thisClass: ClassTypeBase, otherClass: ClassTypeBase) {
     // Note the any casts are to grant "friend" access to private members of ClassTypeBase
     return (thisClass as any).classId === (otherClass as any).classId
-        || thisClass.qualifiedName === otherClass.qualifiedName
+        || qualifiedNamesEq(thisClass.qualifiedName, otherClass.qualifiedName)
         || (!!(thisClass as any).shared.classDefinition && (thisClass as any).shared.classDefinition === (otherClass as any).shared.classDefinition);
 }
 

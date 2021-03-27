@@ -1,6 +1,6 @@
 import { Simulation, SimulationAction, STEP_FORWARD_ACTION } from "./Simulation";
 import { Mutable } from "../util/util";
-import { setCPP_ANIMATIONS } from "../view/simOutlets";
+import { setCPP_ANIMATIONS } from "../view/CPP_ANIMATIONS";
 import { DirectInitializer, RuntimeDirectInitializer } from "./initializers";
 import { PassByReferenceParameterEntity, PassByValueParameterEntity } from "./entities";
 import { FunctionCall, RuntimeFunctionCall } from "./FunctionCall";
@@ -66,9 +66,14 @@ export class SynchronousSimulationRunner {
     /**
      * Repeatedly steps forward until the simulation has ended.
      */
-    public stepToEnd() {
-        while (!this.simulation.atEnd) {
-            this.simulation.stepForward();
+    public stepToEnd(stepLimit?: number, stopOnCinBlock: boolean = false) {
+        let stepsTaken = 0;
+        while (!this.simulation.atEnd
+            && (!stopOnCinBlock || !this.simulation.isBlockingUntilCin)
+            && (stepLimit === undefined || stepsTaken < stepLimit)) {
+
+            this.stepForward();
+            ++stepsTaken;
         }
     }
     

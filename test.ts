@@ -1,48 +1,216 @@
 
-import { Program, SourceFile } from './src/js/core/Program';
+import { Program, SimpleProgram, SourceFile } from './src/js/core/Program';
 import { readFileSync, writeFileSync } from 'fs';
+import { encode } from 'he';
+import { Simulation } from './src/js/core/Simulation';
+import { SynchronousSimulationRunner } from './src/js/core/simulationRunners';
+
+import "./src/js/lib/standard";
 
 let submissions : string[] = JSON.parse(readFileSync("submissions.json", "utf-8"));
 
-let header = `
-struct Node {
-    Node * next;
+function applyHarness(sub: string) {
+    return  `
+using namespace std;
+
+struct Node
+{
+  Node *next;
+  Node *prev;
+  int datum;
 };
+class List
+{
+  //OVERVIEW: a doubly-linked, double-ended list with Iterator interface
+public:
+  List(int arr[], int n)
+      : first(0), last(0)
+  {
+    for (int i = n - 1; i >= 0; --i)
+    {
+      push_front(arr[i]);
+    }
+  }
 
-Node *first;
-Node *last;
+public:
+  //EFFECTS:  inserts datum into the back of the list
+  void push_front(int datum)
+  {
+    Node *np = new Node;
 
-`
+    if (!first)
+    {
+      np->next = 0;
+      last = np;
+    }
+    else
+    {
+      np->next = first;
+      first->prev = np;
+    }
+    np->prev = 0;
+    np->datum = datum;
+    first = np;
+  }
 
-let p1 = new Program([
-    new SourceFile("test.cpp", header + submissions[0])
-], new Set<string>(["test.cpp"]));
+  int sum()
+  {
+    ${sub}
+  }
 
-console.log(p1.notes.allNotes.map(n => n.id));
+private:
+  //a private type
 
-let matches : string[] = [];
+  Node *first; // points to first Node in list, or nullptr if list is empty
+  Node *last;  // points to last Node in list, or nullptr if list is empty
 
-if (p1.mainFunction) {
-    submissions.forEach((sub, i) => {
-        // console.log("checking: " + sub);
-    
-        let p2 = new Program([
-            new SourceFile("test.cpp", header + sub)
-        ], new Set<string>(["test.cpp"]));
-    
-        if (p2.mainFunction) {
-            if (p1.mainFunction!.isSemanticallyEquivalent(p2.mainFunction, {})) {
-                console.log(`${i}: equivalent`);
-                matches.push(sub);
-            }
-            else {
-                console.log(`${i}: nope`);
-            }
-        }
-        else {
-            console.log(`${i}: didn't parse`);
-        }
-    });
+public:
+  ////////////////////////////////////////
+
+  ~List()
+  {
+    for (Node *n = first; n;)
+    {
+      Node *v = n;
+      n = n->next;
+      delete v;
+    }
+  }
+
+}; //List
+
+////////////////////////////////////////////////////////////////////////////////
+// Add your member function implementations below or in the class above
+// (your choice). Do not change the public interface of List, although you
+// may add the Big Three if needed.  Do add the public member functions for
+// Iterator.
+
+int main()
+{
+  int arr[4] = {1, 2, 3, 4};
+  List list(arr, 4);
+  assert(list.sum() == 10);
+}
+`;
+}
+// let header = `
+
+
+// int MAX_APPS = 5;
+// struct Application {
+// };
+// struct Smartphone {
+//   int numApps;
+//   Application *apps;
+  
+//   Smartphone &operator=(const Smartphone &rhs);
+// };
+// Smartphone &main(const Smartphone &rhs) {
+
+// `;
+
+function getFunc(program: Program, name: string) {
+    return program.linkedFunctionDefinitions[name]?.definitions[0];
 }
 
-writeFileSync("equivalent_matches.json", JSON.stringify(matches, null, 2), "utf8");
+let equivalenceGroups : {
+    submission: string,
+    program: Program,
+    testCasesPassed?: boolean
+    runtimeEvent?: boolean
+}[][] = [];
+
+submissions.forEach((sub, i) => {
+    console.log(i);
+    
+    let p = new SimpleProgram(applyHarness(sub));
+
+    // Try compiling with an extra \n} added at the very end
+    if (!getFunc(p, "List::sum")) {
+        p = new SimpleProgram(applyHarness(sub + "\n}"));
+    }
+
+    // Try compiling with an extra ; added after lines ending in a character or digit
+    if (!getFunc(p, "List::sum")) {
+        p = new SimpleProgram(applyHarness(sub.replace(/(?<=[a-zA-Z0-9])\n/, ";\n")));
+    }
+
+    if (!getFunc(p, "List::sum")) {
+        // Didn't parse or can't find function, make a new group
+        equivalenceGroups.push([{submission: sub, program: p}]);
+        return;
+    }
+
+    let equivGroup = equivalenceGroups.find(group => {
+        let rep = group[0].program;
+        let repFunc = getFunc(rep, "List::sum");
+        return repFunc && getFunc(p, "List::sum")!.isSemanticallyEquivalent(repFunc, {});
+    });
+    
+    let sim: Simulation | undefined;
+    if (p.isRunnable()) {
+        console.log("runnable");
+        sim = new Simulation(p);
+        new SynchronousSimulationRunner(sim).stepToEnd(5000)
+    }
+    else {
+        console.log(p.notes.allNotes.map(n => n.message));
+    }
+
+    let result = {
+        submission: sub,
+        program: p,
+        testCasesPassed: sim && !sim.hasAnyEventOccurred,
+        runtimeEvent: sim?.hasAnyEventOccurred
+    }
+
+    if (equivGroup) {
+        equivGroup.push(result);
+    }
+    else {
+        equivalenceGroups.push([result]);
+    }
+});
+
+equivalenceGroups.sort((a,b) => b.length - a.length);
+
+let out = {
+    num_total: submissions.length,
+    num_groups: equivalenceGroups.length,
+    num_to_grade: equivalenceGroups.filter(eg => !eg[0].testCasesPassed).length,
+    num_parsed: equivalenceGroups.filter(g => getFunc(g[0].program, "List::sum")).length,
+    num_failed: equivalenceGroups.filter(g => !getFunc(g[0].program, "List::sum")).length,
+    num_single: equivalenceGroups.filter(g => g.length === 1).length,
+    num_correct_output: equivalenceGroups.filter(g=>g[0].testCasesPassed).length,
+    num_runtime_event: equivalenceGroups.filter(g=>g[0].runtimeEvent).length,
+    group_lengths: equivalenceGroups.map(eg => eg.length),
+    groups: equivalenceGroups.map((eg,i) => ({
+        group: i,
+        parsed: !!getFunc(eg[0].program, "List::sum"),
+        num: eg.length,
+        testCasesPassed: eg[0].testCasesPassed,
+        runtimeEvent: eg[0].runtimeEvent,
+        submissions: eg.map(g => g.submission)
+    }))
+}
+
+writeFileSync("equivalent_matches.json", JSON.stringify(out, null, 2), "utf8");
+
+let html = `<html><head>
+
+<!-- bootstrap icons -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.3.0/font/bootstrap-icons.css">
+
+<style>
+table {
+    margin: 1em;
+    border: solid 1px black;
+}
+</style>
+</head><body>
+
+${out.groups.map(g => `<table><tr>${g.testCasesPassed ? `<td style="vertical-align: middle; font-size: 48pt; color: green;"><i class="bi bi-check-circle"></i></td>` : ""} ${g.submissions.map(sub => `<td><pre><code>${encode(sub)}</code></pre>${g.testCasesPassed ? `<div style="text-align: center;">CORRECT</div>` : ""}</td>`).join("")}</tr></table>`).join("")}
+
+</body></html>`;
+
+writeFileSync("equiv.html", html, "utf8");
