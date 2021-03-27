@@ -1,5 +1,5 @@
 import { Program, TranslationUnit, SourceReference } from "./Program";
-import { Scope, FunctionEntity, LocalObjectEntity, LocalVariableEntity, LocalReferenceEntity, BlockScope, ClassEntity, MemberVariableEntity, ClassScope, CompleteClassEntity, TemporaryObjectEntity } from "./entities";
+import { Scope, FunctionEntity, LocalObjectEntity, LocalVariableEntity, LocalReferenceEntity, BlockScope, ClassEntity, MemberVariableEntity, ClassScope, CompleteClassEntity, TemporaryObjectEntity, CPPEntity } from "./entities";
 import { Note, NoteKind, CPPError, NoteRecorder } from "./errors";
 import { asMutable, Mutable, assertFalse, assert } from "../util/util";
 import { Simulation } from "./Simulation";
@@ -351,6 +351,12 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
     public areChildrenSemanticallyEquivalent(other: CPPConstruct, equivalenceContext: SemanticContext) : boolean{
         return this.children.length === other.children.length
             && this.children.every((c, i) => c.isSemanticallyEquivalent(other.children[i], equivalenceContext));
+    }
+
+    public entitiesUsed() : CPPEntity[] {
+        let ents : CPPEntity[] = [];
+        this.children.forEach(c => c.entitiesUsed().forEach(e => ents.push(e)));
+        return ents;
     }
 }
 

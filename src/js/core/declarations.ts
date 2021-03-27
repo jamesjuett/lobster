@@ -963,9 +963,13 @@ abstract class VariableDefinitionBase<ContextType extends TranslationUnitContext
     }
     
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return other instanceof VariableDefinitionBase
+        return this.construct_type === other.construct_type && other instanceof VariableDefinitionBase
             && areEntitiesSemanticallyEquivalent(this.declaredEntity, other.declaredEntity, equivalenceContext)
             && areSemanticallyEquivalent(this.initializer, other.initializer, equivalenceContext);
+    }
+    
+    public entitiesUsed() {
+        return [this.declaredEntity];
     }
 }
 

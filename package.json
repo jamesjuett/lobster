@@ -10,6 +10,7 @@
     "devDependencies": {
         "@svgdotjs/svg.js": "^3.0.16",
         "@types/bootstrap": "^4.1.2",
+        "@types/chai": "^4.2.15",
         "@types/codemirror": "0.0.80",
         "@types/gapi": "^0.0.35",
         "@types/gapi.auth2": "^0.0.47",
@@ -17,6 +18,8 @@
         "@types/jquery": "^3.5.2",
         "@types/js-cookie": "^2.2.6",
         "@types/lodash": "^4.14.111",
+        "@types/mocha": "^8.2.2",
+        "chai": "^4.3.4",
         "css-loader": "^3.2.0",
         "style-loader": "^1.0.0",
         "ts-loader": "^6.2.1",
@@ -32,12 +35,14 @@
         "he": "^1.2.0",
         "js-cookie": "^2.2.1",
         "lodash": "^4.17.19",
+        "mocha": "^8.3.2",
         "pegjs": "^0.10.0",
         "ts-node": "^9.1.1",
         "tsc": "^1.20150623.0"
     },
     "scripts": {
         "build": "webpack --config webpack.config.js",
-        "copy-to-backend": "cp -r public/* ../lobster-backend/public"
+        "copy-to-backend": "cp -r public/* ../lobster-backend/public",
+        "test": "TS_NODE_FILES=true mocha -r ts-node/register 'src/test/**/*.spec.ts'"
     }
 }

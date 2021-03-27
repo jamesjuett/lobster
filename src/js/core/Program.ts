@@ -262,6 +262,13 @@ export interface RunnableProgram extends CompiledProgram {
     readonly mainFunction: CompiledFunctionDefinition<FunctionType<Int>>;
 }
 
+export class SimpleProgram extends Program {
+    
+    public constructor(source: string) {
+        super([new SourceFile("main.cpp", source)], new Set<string>(["main.cpp"]));
+    }
+}
+
 /**
  * A simple, immutable object that contains a filename and its text contents.
  * Because it is immutable, don't grab a reference to someone's source file

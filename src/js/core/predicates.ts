@@ -222,4 +222,10 @@ export namespace Predicates {
     export function isIndexingOperation(construct: AnalyticConstruct) : construct is SubscriptExpression | OperatorOverloadExpression {
         return Predicates.byKind("subscript_expression")(construct) || Predicates.byOperatorOverloadCall("[]")(construct);
     }
+
+    export const isBinaryOperatorExpression = Predicates.byKinds([
+        "arithmetic_binary_operator_expression",
+        "relational_binary_operator_expression",
+        "logical_binary_operator_expression"
+    ]);
 }

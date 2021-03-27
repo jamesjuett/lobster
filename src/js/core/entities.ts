@@ -524,7 +524,7 @@ export abstract class CPPEntity<T extends Type = Type> {
     //TODO: function for isOdrUsed()?
 
     public isSemanticallyEquivalent(other: CPPEntity, equivalenceContext: SemanticContext): boolean {
-        return true;
+        return sameType(other.type, this.type);
         // TODO semantic equivalence
     }
 }

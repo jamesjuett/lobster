@@ -86,7 +86,6 @@ export interface ArithmeticBinaryOperatorExpressionASTNode extends ASTNode {
 export type t_ArithmeticBinaryOperators = "+" | "-" | "*" | "/" | "%" | "&" | "^" | "|" | "<<" | ">>";
 
 
-
 export interface RelationalBinaryOperatorExpressionASTNode extends ASTNode {
     readonly construct_type: "relational_binary_operator_expression";
     readonly operator: t_RelationalBinaryOperators;

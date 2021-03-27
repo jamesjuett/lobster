@@ -15,16 +15,11 @@ import { RuntimeDirectInitializer } from "../core/initializers";
 import { RuntimeExpression } from "../core/expressionBase";
 import { RuntimeFunction } from "../core/functions";
 import { Exercise, Project } from "../core/Project";
+import { CPP_ANIMATIONS } from "./CPP_ANIMATIONS";
 
 const FADE_DURATION = 300;
 const SLIDE_DURATION = 400;
 const VALUE_TRANSFER_DURATION = 500;
-
-export var CPP_ANIMATIONS = true;
-
-export function setCPP_ANIMATIONS(onOff: boolean) {
-    CPP_ANIMATIONS = onOff;
-}
 
 // export class CodeList {
     
