@@ -781,7 +781,7 @@ export class RuntimeTernary<T extends ExpressionType = ExpressionType, V extends
     }
 
     protected stepForwardImpl() {
-        this.setEvalResult(this.then ? this.then.evalResult : this.otherwise.evalResult);
+        this.setEvalResult(this.condition.evalResult.rawValue ? this.then.evalResult : this.otherwise.evalResult);
         this.startCleanup();
     }
 }
@@ -867,13 +867,13 @@ export class AssignmentExpression extends Expression<AssignmentExpressionASTNode
         throw new Error("Method not implemented.");
     }
 
-    public isTailChild(child: CPPConstruct) {
-        return {
-            isTail: false,
-            reason: "The assignment itself will happen after the recursive call returns.",
-            others: [this]
-        };
-    }
+    // public isTailChild(child: CPPConstruct) {
+    //     return {
+    //         isTail: false,
+    //         reason: "The assignment itself will happen after the recursive call returns.",
+    //         others: [this]
+    //     };
+    // }
 
     public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
         var lhs = this.lhs.describeEvalResult(0);
@@ -1018,13 +1018,13 @@ export class CompoundAssignmentExpression extends Expression<CompoundAssignmentE
         throw new Error("Method not implemented.");
     }
 
-    public isTailChild(child: CPPConstruct) {
-        return {
-            isTail: false,
-            reason: "The compound assignment itself will happen after the recursive call returns.",
-            others: [this]
-        };
-    }
+    // public isTailChild(child: CPPConstruct) {
+    //     return {
+    //         isTail: false,
+    //         reason: "The compound assignment itself will happen after the recursive call returns.",
+    //         others: [this]
+    //     };
+    // }
 
     public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
         var lhs = this.lhs.describeEvalResult(0);
