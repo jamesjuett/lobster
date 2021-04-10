@@ -419,7 +419,7 @@
 
 .code-simulation {
     /*border: solid 1px black;*/
-    background: #272822;
+    background: #1e1e1e;
     color: #f8f8f2;
     /*height: 300px;*/
     overflow-y: auto;
@@ -467,7 +467,7 @@
 .code-stackFrame{
     padding: 2px;
     border: solid 1px rgba(0,0,0,0.3);
-    background: #272822;
+    background: #1e1e1e;
     color: #f8f8f2;
     margin-bottom: 4px;
 }
@@ -502,7 +502,7 @@
     margin-bottom: 4px;
     padding: 2px;
     border: solid 1px rgba(0,0,0,0.3);
-    background: #272822;
+    background: #1e1e1e;
     color: #f8f8f2;
 }
 
@@ -511,7 +511,7 @@
     margin-bottom: 4px;
     padding: 2px;
     border: solid 1px rgba(0,0,0,0.3);
-    background: #272822;
+    background: #1e1e1e;
     color: #f8f8f2;
 }
 

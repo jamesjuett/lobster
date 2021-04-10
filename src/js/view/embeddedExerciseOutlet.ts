@@ -30,7 +30,7 @@ export function createRunestoneExerciseOutlet(id: string) {
                         </div>
                     </div>
                     <div style="height: 100%; display: flex; flex-direction: row; overflow: hidden;">
-                        <div class="codeMirrorEditor" style = "flex-grow: 1; position: relative; overflow-y: hidden; height: 100%; background-color: #272822"></div>
+                        <div class="codeMirrorEditor" style = "flex-grow: 1; position: relative; overflow-y: hidden; height: 100%; background-color: #1e1e1e"></div>
                         <div class="lobster-instant-memory-diagram" style="display: none; height: 100%; flex: 0 1 300px;"></div>
                     </div>
                     <div class="annotationMessagesContainer" style="position: absolute; bottom: 0; left: 0px; right: 0px; overflow: hidden; text-align: center; pointer-events: none">

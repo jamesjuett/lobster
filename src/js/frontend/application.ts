@@ -66,7 +66,7 @@ export class LobsterApplication {
         this.activeProject = this.setProject(defaultProject, false);
 
         this.logInButtonElem = $(".lobster-log-in-button");
-        assert(this.logInButtonElem.length > 0);
+        //assert(this.logInButtonElem.length > 0);
 
         listenTo(this, this.myProjectsList);
         listenTo(this, this.courseProjectsList);

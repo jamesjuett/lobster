@@ -1,11 +1,11 @@
 /* Based on Sublime Text's Monokai theme */
 /* Altered slightly from CodeMirror's monokai.css */
 
-.cm-s-lobster.CodeMirror { background: #272822; color: #f8f8f2; }
+.cm-s-lobster.CodeMirror { background: #1e1e1e; color: #f8f8f2; }
 .cm-s-lobster div.CodeMirror-selected { background: #49483E; }
 .cm-s-lobster .CodeMirror-line::selection, .cm-s-lobster .CodeMirror-line > span::selection, .cm-s-lobster .CodeMirror-line > span > span::selection { background: rgba(73, 72, 62, .99); }
 .cm-s-lobster .CodeMirror-line::-moz-selection, .cm-s-lobster .CodeMirror-line > span::-moz-selection, .cm-s-lobster .CodeMirror-line > span > span::-moz-selection { background: rgba(73, 72, 62, .99); }
-.cm-s-lobster .CodeMirror-gutters { background: #272822; border-right: 0px; }
+.cm-s-lobster .CodeMirror-gutters { background: #1e1e1e; border-right: 0px; }
 .cm-s-lobster .CodeMirror-guttermarker { color: white; }
 .cm-s-lobster .CodeMirror-guttermarker-subtle { color: #d0d0d0; }
 .cm-s-lobster .CodeMirror-linenumber { color: #d0d0d0; }
