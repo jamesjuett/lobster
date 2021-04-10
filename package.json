@@ -3,13 +3,22 @@
     "version": "1.0.0",
     "description": "A C++ Program Visualization Tool",
     "private": true,
-    "main": "index.js",
+    "main": "dist/lobster.js",
+    "types": "dist/lobster.d.ts",
     "keywords": [],
     "author": "James Juett",
-    "license": "",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/jamesjuett/lobster.git"
+    },
+    "bugs": {
+        "url": "https://github.com/jamesjuett/lobster/issues"
+    },
+    "homepage": "https://github.com/jamesjuett/lobster#readme",
     "devDependencies": {
         "@svgdotjs/svg.js": "^3.0.16",
-        "@types/bootstrap": "^4.1.2",
+        "@types/bootstrap": "^5.0.12",
         "@types/chai": "^4.2.15",
         "@types/codemirror": "0.0.80",
         "@types/gapi": "^0.0.35",
@@ -29,6 +38,7 @@
         "webpack-cli": "^4.3.0"
     },
     "dependencies": {
+        "@types/estree": "^0.0.47",
         "axios": "^0.21.1",
         "codemirror": "^5.49.2",
         "flat-map-polyfill": "^0.3.8",

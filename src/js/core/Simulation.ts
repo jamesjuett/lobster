@@ -382,7 +382,7 @@ export class Simulation {
     }
 
     public atEndOfMain() {
-        return this.top()?.model === this.program.mainFunction;
+        return this.top()?.model === this.program.mainFunction.body.localDeallocator
     }
 
     // stepOver: function(options){

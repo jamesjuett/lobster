@@ -171,6 +171,11 @@ export class RuntimeTemporaryDeallocator extends RuntimeConstruct<CompiledTempor
                 // a temp class-type object, so we call the dtor
                 assert(dtor);
                 let obj = temp.runtimeLookup(this.parent);
+                if (!obj) {
+                    // some obscure cases (e.g. non-evaluated operand of ternary operator)
+                    // where the temporary object might not ever have been allocated
+                    continue;
+                }
                 this.sim.push(dtor.createRuntimeFunctionCall(this, obj));
 
                 // need to destroy the object once dtor is done, so we keep track of it here
@@ -180,8 +185,14 @@ export class RuntimeTemporaryDeallocator extends RuntimeConstruct<CompiledTempor
                 return;
             }
             else {
+                let obj = temp.runtimeLookup(this.parent);
+                if (!obj) {
+                    // some obscure cases (e.g. non-evaluated operand of ternary operator)
+                    // where the temporary object might not ever have been allocated
+                    return;
+                }
                 // a temp non-class-type object, no dtor needed.
-                this.sim.memory.deallocateTemporaryObject(temp.runtimeLookup(this.parent), this);
+                this.sim.memory.deallocateTemporaryObject(obj, this);
             }
         }
 
