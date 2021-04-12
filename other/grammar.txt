@@ -774,6 +774,8 @@ exp_primary
   = "(" ws sub:expression ws ")" {return track({construct_type: "parentheses_expression", subexpression:sub}, location(), text());}
   / literal
   / "this" !identifierChar {return track({construct_type: "this_expression"}, location(), text()); }
+  / "nullptr" !identifierChar {return track({construct_type: "nullptr_expression"}, location(), text()); }
+  / "NULL" !identifierChar {return track({construct_type: "nullptr_expression"}, location(), text()); }
   / id:id_expression { return track({construct_type: "identifier_expression", identifier: id}, location(), text()); }
   / opaque_expression
 
