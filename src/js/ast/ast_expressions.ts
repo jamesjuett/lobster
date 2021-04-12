@@ -22,6 +22,7 @@ export type ExpressionASTNode =
     ConstructExpressionASTNode |
     IdentifierExpressionASTNode |
     ThisExpressionASTNode |
+    NullptrExpressionASTNode |
     NumericLiteralASTNode |
     StringLiteralASTNode |
     ParenthesesExpressionASTNode |
@@ -309,6 +310,11 @@ export interface IdentifierExpressionASTNode extends ASTNode {
 
 export interface ThisExpressionASTNode extends ASTNode {
     readonly construct_type: "this_expression";
+}
+
+
+export interface NullptrExpressionASTNode extends ASTNode {
+    readonly construct_type: "nullptr_expression";
 }
 
 

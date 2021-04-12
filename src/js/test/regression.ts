@@ -638,6 +638,28 @@ int main() {
 
 
 
+        // ---------- Basic Nullptr Test ----------
+
+        new SingleTranslationUnitTest(
+          "Basic Nullptr Test",
+`
+int main() {
+  int *p1 = 0;
+  int *p2 = NULL;
+  int *p3 = nullptr;
+  assert(!p1);
+  assert(!p2);
+  assert(!p3);
+}
+`,
+          [
+              new NoErrorsNoWarningsVerifier(),
+              new NoBadRuntimeEventsVerifier(true)
+          ]
+      );
+
+
+
 
       // ---------- Basic Parameter Test ----------
 
