@@ -11,13 +11,13 @@ import { checkIdentifier, MAGIC_FUNCTION_NAMES, LexicalIdentifier, identifierToS
 import { QualifiedIdentifierASTNode, IdentifierASTNode } from "../ast/ast_identifiers";
 import { FunctionCallExpression, TypedFunctionCallExpression, CompiledFunctionCallExpression, RuntimeFunctionCallExpression } from "./FunctionCallExpression";
 import { RuntimeExpression, VCResultTypes, ValueCategory, Expression, CompiledExpression, TypedExpression, SpecificTypedExpression, t_TypedExpression, allWellTyped } from "./expressionBase";
-import { ConstructOutlet, TernaryExpressionOutlet, CommaExpressionOutlet, AssignmentExpressionOutlet, BinaryOperatorExpressionOutlet, UnaryOperatorExpressionOutlet, SubscriptExpressionOutlet, IdentifierOutlet, NumericLiteralOutlet, ParenthesesOutlet, MagicFunctionCallExpressionOutlet, StringLiteralExpressionOutlet, LValueToRValueOutlet, ArrayToPointerOutlet, TypeConversionOutlet, QualificationConversionOutlet, DotExpressionOutlet, ArrowExpressionOutlet, OutputOperatorExpressionOutlet, PostfixIncrementExpressionOutlet, InputOperatorExpressionOutlet, StreamToBoolOutlet, NonMemberOperatorOverloadExpressionOutlet, MemberOperatorOverloadExpressionOutlet, InitializerListOutlet as InitializerListExpressionOutlet, CompoundAssignmentExpressionOutlet, ThisExpressionOutlet } from "../view/codeOutlets";
+import { ConstructOutlet, TernaryExpressionOutlet, CommaExpressionOutlet, AssignmentExpressionOutlet, BinaryOperatorExpressionOutlet, UnaryOperatorExpressionOutlet, SubscriptExpressionOutlet, IdentifierOutlet, NumericLiteralOutlet, ParenthesesOutlet, MagicFunctionCallExpressionOutlet, StringLiteralExpressionOutlet, LValueToRValueOutlet, ArrayToPointerOutlet, TypeConversionOutlet, QualificationConversionOutlet, DotExpressionOutlet, ArrowExpressionOutlet, OutputOperatorExpressionOutlet, PostfixIncrementExpressionOutlet, InputOperatorExpressionOutlet, StreamToBoolOutlet, NonMemberOperatorOverloadExpressionOutlet, MemberOperatorOverloadExpressionOutlet, InitializerListOutlet as InitializerListExpressionOutlet, CompoundAssignmentExpressionOutlet, ThisExpressionOutlet, NullptrExpressionOutlet } from "../view/codeOutlets";
 import { Predicates } from "./predicates";
 import { OpaqueExpression, RuntimeOpaqueExpression, TypedOpaqueExpression, CompiledOpaqueExpression } from "./opaqueExpression";
 import { CompiledTemporaryDeallocator } from "./PotentialFullExpression";
 import { CompiledFunctionCall, FunctionCall, RuntimeFunctionCall, TypedFunctionCall } from "./FunctionCall";
 import { createNewExpressionFromAST, DeleteExpression, NewExpression, TypedNewExpression, TypedDeleteExpression, CompiledNewExpression, CompiledDeleteExpression, RuntimeNewExpression, RuntimeDeleteExpression, NewObjectType, NewArrayExpression, CompiledNewArrayExpression, RuntimeNewArrayExpression, TypedNewArrayExpression, DeleteArrayExpression, CompiledDeleteArrayExpression, RuntimeDeleteArrayExpression, TypedDeleteArrayExpression } from "./new_delete";
-import { AddressOfExpressionASTNode, ArithmeticBinaryOperatorExpressionASTNode, ArrowExpressionASTNode, AssignmentExpressionASTNode, BinaryOperatorExpressionASTNode, BitwiseNotExpressionASTNode, CommaASTNode, CompoundAssignmentExpressionASTNode, ConstCastExpressionASTNode, ConstructExpressionASTNode, CStyleCastExpressionASTNode, DeleteArrayExpressionASTNode, DeleteExpressionASTNode, DereferenceExpressionASTNode, DotExpressionASTNode, DynamicCastExpressionASTNode, ExpressionASTNode, FunctionCallExpressionASTNode, IdentifierExpressionASTNode, InitializerListExpressionASTNode, LogicalBinaryOperatorExpressionASTNode, LogicalNotExpressionASTNode, NewExpressionASTNode, NumericLiteralASTNode, OpaqueExpressionASTNode, ParenthesesExpressionASTNode, parseNumericLiteralValueFromAST, PointerToMemberExpressionASTNode, PostfixIncrementExpressionASTNode, PrefixIncrementExpressionASTNode, ReinterpretCastExpressionASTNode, RelationalBinaryOperatorExpressionASTNode, SizeofExpressionASTNode, SizeofTypeExpressionASTNode, StaticCastExpressionASTNode, StringLiteralASTNode, SubscriptExpressionASTNode, TernaryASTNode, ThisExpressionASTNode, t_ArithmeticBinaryOperators, t_BinaryOperators, t_CompoundAssignmentOperators, t_LogicalBinaryOperators, t_RelationalBinaryOperators, t_UnaryOperators, UnaryMinusExpressionASTNode, UnaryOperatorExpressionASTNode, UnaryPlusExpressionASTNode } from "../ast/ast_expressions";
+import { AddressOfExpressionASTNode, ArithmeticBinaryOperatorExpressionASTNode, ArrowExpressionASTNode, AssignmentExpressionASTNode, BinaryOperatorExpressionASTNode, BitwiseNotExpressionASTNode, CommaASTNode, CompoundAssignmentExpressionASTNode, ConstCastExpressionASTNode, ConstructExpressionASTNode, CStyleCastExpressionASTNode, DeleteArrayExpressionASTNode, DeleteExpressionASTNode, DereferenceExpressionASTNode, DotExpressionASTNode, DynamicCastExpressionASTNode, ExpressionASTNode, FunctionCallExpressionASTNode, IdentifierExpressionASTNode, InitializerListExpressionASTNode, LogicalBinaryOperatorExpressionASTNode, LogicalNotExpressionASTNode, NewExpressionASTNode, NullptrExpressionASTNode, NumericLiteralASTNode, OpaqueExpressionASTNode, ParenthesesExpressionASTNode, parseNumericLiteralValueFromAST, PointerToMemberExpressionASTNode, PostfixIncrementExpressionASTNode, PrefixIncrementExpressionASTNode, ReinterpretCastExpressionASTNode, RelationalBinaryOperatorExpressionASTNode, SizeofExpressionASTNode, SizeofTypeExpressionASTNode, StaticCastExpressionASTNode, StringLiteralASTNode, SubscriptExpressionASTNode, TernaryASTNode, ThisExpressionASTNode, t_ArithmeticBinaryOperators, t_BinaryOperators, t_CompoundAssignmentOperators, t_LogicalBinaryOperators, t_RelationalBinaryOperators, t_UnaryOperators, UnaryMinusExpressionASTNode, UnaryOperatorExpressionASTNode, UnaryPlusExpressionASTNode } from "../ast/ast_expressions";
 
 
 export function readValueWithAlert(obj: CPPObject<AtomicType>, sim: Simulation) {
@@ -80,6 +80,7 @@ const ExpressionConstructsMap = {
     "identifier_expression": (ast: IdentifierExpressionASTNode, context: ExpressionContext) => IdentifierExpression.createFromAST(ast, context),
 
     "this_expression": (ast: ThisExpressionASTNode, context: ExpressionContext) => ThisExpression.createFromAST(ast, context),
+    "nullptr_expression": (ast: NullptrExpressionASTNode, context: ExpressionContext) => NullptrExpression.createFromAST(ast, context),
 
     "numeric_literal_expression": (ast: NumericLiteralASTNode, context: ExpressionContext) => NumericLiteralExpression.createFromAST(ast, context),
     "string_literal_expression": (ast: StringLiteralASTNode, context: ExpressionContext) => StringLiteralExpression.createFromAST(ast, context),
@@ -126,6 +127,7 @@ export type AnalyticExpression =
     // ConstructExpression |
     IdentifierExpression |
     ThisExpression |
+    NullptrExpression |
     NumericLiteralExpression |
     StringLiteralExpression |
     ParenthesesExpression |
@@ -206,6 +208,9 @@ export type TypedExpressionKinds<T extends ExpressionType, V extends ValueCatego
     "this_expression":
     T extends NonNullable<TypedThisExpression["type"]> ? V extends NonNullable<TypedThisExpression["valueCategory"]> ? TypedThisExpression<T> : never :
     NonNullable<TypedThisExpression["type"]> extends T ? V extends NonNullable<TypedThisExpression["valueCategory"]> ? TypedThisExpression : never : never;
+    "nullptr_expression":
+    T extends NonNullable<TypedNullptrExpression["type"]> ? V extends NonNullable<TypedNullptrExpression["valueCategory"]> ? TypedNullptrExpression : never :
+    NonNullable<TypedNullptrExpression["type"]> extends T ? V extends NonNullable<TypedNullptrExpression["valueCategory"]> ? TypedNullptrExpression : never : never;
     "unary_plus_expression":
     T extends NonNullable<TypedUnaryPlusExpression["type"]> ? V extends NonNullable<TypedUnaryPlusExpression["valueCategory"]> ? TypedUnaryPlusExpression<T> : never :
     NonNullable<TypedUnaryPlusExpression["type"]> extends T ? V extends NonNullable<TypedUnaryPlusExpression["valueCategory"]> ? TypedUnaryPlusExpression : never : never;
@@ -304,6 +309,7 @@ export type CompiledExpressionKinds<T extends ExpressionType, V extends ValueCat
     "delete_expression": T extends NonNullable<CompiledDeleteExpression["type"]> ? V extends NonNullable<CompiledDeleteExpression["valueCategory"]> ? CompiledDeleteExpression : never : never;
     "delete_array_expression": T extends NonNullable<CompiledDeleteArrayExpression["type"]> ? V extends NonNullable<CompiledDeleteArrayExpression["valueCategory"]> ? CompiledDeleteArrayExpression : never : never;
     "this_expression": T extends NonNullable<CompiledThisExpression["type"]> ? V extends NonNullable<CompiledThisExpression["valueCategory"]> ? CompiledThisExpression<T> : never : never;
+    "nullptr_expression": T extends NonNullable<CompiledNullptrExpression["type"]> ? V extends NonNullable<CompiledNullptrExpression["valueCategory"]> ? CompiledNullptrExpression : never : never;
     "unary_plus_expression": T extends NonNullable<CompiledUnaryPlusExpression["type"]> ? V extends NonNullable<CompiledUnaryPlusExpression["valueCategory"]> ? CompiledUnaryPlusExpression<T> : never : never;
     "unary_minus_expression": T extends NonNullable<CompiledUnaryMinusExpression["type"]> ? V extends NonNullable<CompiledUnaryMinusExpression["valueCategory"]> ? CompiledUnaryMinusExpression<T> : never : never;
     "logical_not_expression": T extends NonNullable<CompiledLogicalNotExpression["type"]> ? V extends NonNullable<CompiledLogicalNotExpression["valueCategory"]> ? CompiledLogicalNotExpression : never : never;
@@ -356,6 +362,7 @@ const ExpressionConstructsRuntimeMap = {
     "delete_expression": (construct: CompiledDeleteExpression, parent: RuntimeConstruct) => new RuntimeDeleteExpression(construct, parent),
     "delete_array_expression": (construct: CompiledDeleteArrayExpression, parent: RuntimeConstruct) => new RuntimeDeleteArrayExpression(construct, parent),
     "this_expression": <T extends CompiledThisExpression["type"]>(construct: CompiledThisExpression<T>, parent: RuntimeConstruct) => new RuntimeThisExpression(construct, parent),
+    "nullptr_expression": (construct: CompiledNullptrExpression, parent: RuntimeConstruct) => new RuntimeNullptrExpression(construct, parent),
     "unary_plus_expression": <T extends CompiledUnaryPlusExpression["type"]>(construct: CompiledUnaryPlusExpression<T>, parent: RuntimeConstruct) => new RuntimeUnaryPlusExpression(construct, parent),
     "unary_minus_expression": <T extends CompiledUnaryMinusExpression["type"]>(construct: CompiledUnaryMinusExpression<T>, parent: RuntimeConstruct) => new RuntimeUnaryMinusExpression(construct, parent),
     "logical_not_expression": (construct: CompiledLogicalNotExpression, parent: RuntimeConstruct) => new RuntimeLogicalNotExpression(construct, parent),
@@ -420,6 +427,7 @@ export function createRuntimeExpression<T extends PointerType<NewObjectType>>(co
 export function createRuntimeExpression<T extends PointerType<ArrayElemType>>(construct: CompiledNewArrayExpression<T>, parent: RuntimeConstruct): RuntimeNewArrayExpression<T>;
 export function createRuntimeExpression(construct: CompiledDeleteArrayExpression, parent: RuntimeConstruct): RuntimeDeleteArrayExpression;
 export function createRuntimeExpression<T extends PointerType<CompleteClassType>>(construct: CompiledThisExpression<T>, parent: RuntimeConstruct): RuntimeThisExpression<T>;
+export function createRuntimeExpression(construct: CompiledNullptrExpression, parent: RuntimeConstruct): RuntimeNullptrExpression;
 export function createRuntimeExpression<T extends ArithmeticType | PointerType>(construct: CompiledUnaryPlusExpression<T>, parent: RuntimeConstruct): RuntimeUnaryPlusExpression<T>;
 export function createRuntimeExpression<T extends ArithmeticType>(construct: CompiledUnaryMinusExpression<T>, parent: RuntimeConstruct): RuntimeUnaryMinusExpression<T>;
 export function createRuntimeExpression(construct: CompiledLogicalNotExpression, parent: RuntimeConstruct): RuntimeLogicalNotExpression;
@@ -840,13 +848,13 @@ export class AssignmentExpression extends Expression<AssignmentExpressionASTNode
         throw new Error("Method not implemented.");
     }
 
-    public isTailChild(child: CPPConstruct) {
-        return {
-            isTail: false,
-            reason: "The assignment itself will happen after the recursive call returns.",
-            others: [this]
-        };
-    }
+    // public isTailChild(child: CPPConstruct) {
+    //     return {
+    //         isTail: false,
+    //         reason: "The assignment itself will happen after the recursive call returns.",
+    //         others: [this]
+    //     };
+    // }
 
     public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
         var lhs = this.lhs.describeEvalResult(0);
@@ -977,13 +985,13 @@ export class CompoundAssignmentExpression extends Expression<CompoundAssignmentE
         throw new Error("Method not implemented.");
     }
 
-    public isTailChild(child: CPPConstruct) {
-        return {
-            isTail: false,
-            reason: "The compound assignment itself will happen after the recursive call returns.",
-            others: [this]
-        };
-    }
+    // public isTailChild(child: CPPConstruct) {
+    //     return {
+    //         isTail: false,
+    //         reason: "The compound assignment itself will happen after the recursive call returns.",
+    //         others: [this]
+    //     };
+    // }
 
     public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
         var lhs = this.lhs.describeEvalResult(0);
@@ -4199,6 +4207,50 @@ export class RuntimeThisExpression<T extends PointerType<CompleteClassType> = Po
 
 
 
+export class NullptrExpression extends Expression<NullptrExpressionASTNode> {
+    public readonly construct_type = "nullptr_expression";
+
+    public readonly type = Int.INT;
+    public readonly valueCategory = "prvalue";
+
+    public constructor(context: ExpressionContext, ast: NullptrExpressionASTNode) {
+        super(context, ast);
+    }
+
+    public static createFromAST(ast: NullptrExpressionASTNode, context: ExpressionContext): NullptrExpression {
+        return new NullptrExpression(context, ast);
+    }
+
+    public createDefaultOutlet(this: CompiledNullptrExpression, element: JQuery, parent?: ConstructOutlet) {
+        return new NullptrExpressionOutlet(element, this, parent);
+    }
+
+    public describeEvalResult(depth: number): ConstructDescription {
+        throw new Error("Method not implemented.");
+    }
+}
+
+export interface TypedNullptrExpression extends NullptrExpression, t_TypedExpression {
+
+}
+
+export interface CompiledNullptrExpression extends TypedNullptrExpression, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+}
+
+export class RuntimeNullptrExpression extends SimpleRuntimeExpression<Int, "prvalue", CompiledNullptrExpression> {
+
+    public constructor(model: CompiledNullptrExpression, parent: RuntimeConstruct) {
+        super(model, parent);
+    }
+
+    protected operate() {
+        this.setEvalResult(Int.ZERO);
+    }
+
+}
+
+
 
 
 
@@ -5239,10 +5291,7 @@ abstract class NoOpTypeConversion<FromType extends AtomicType, ToType extends At
     }
 }
 
-export interface IntegerLiteralZero extends CompiledNumericLiteralExpression {
-    readonly type: Int;
-    readonly value: Value<Int> & { rawValue: 0 };
-}
+export type IntegerLiteralZero = CompiledNumericLiteralExpression<Int> & {value: Value<Int> & { rawValue: 0}} | CompiledNullptrExpression;
 
 export class NullPointerConversion<P extends PointerType> extends NoOpTypeConversion<Int, P> {
     // public readonly construct_type = "NullPointerConversion";
@@ -5251,7 +5300,6 @@ export class NullPointerConversion<P extends PointerType> extends NoOpTypeConver
 
     public constructor(from: IntegerLiteralZero, toType: P) {
         super(from, toType);
-        assert(from.value.rawValue === 0);
     }
 
 }
@@ -5549,7 +5597,7 @@ export function integralPromotion(expr: TypedExpression<IntegralType, "prvalue">
 };
 
 export function isIntegerLiteralZero(from: Expression): from is IntegerLiteralZero {
-    return from instanceof NumericLiteralExpression && isType(from.type, Int) && from.value.rawValue === 0;
+    return from instanceof NullptrExpression || from instanceof NumericLiteralExpression && isType(from.type, Int) && from.value.rawValue === 0;
 }
 
 export function isConvertibleToPointer(from: Expression): from is SpecificTypedExpression<PointerType> | TypedExpression<BoundedArrayType, "lvalue"> | IntegerLiteralZero {
