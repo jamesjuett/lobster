@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.RuntimeGlobalObjectAllocator = exports.GlobalObjectAllocator = exports.ContextualLocals = exports.InvalidConstruct = exports.BasicCPPConstruct = exports.RuntimeConstruct = exports.CPPConstruct = exports.areSemanticallyEquivalent = exports.areAllSemanticallyEquivalent = exports.createMemberSpecificationContext = exports.createOutOfLineFunctionDefinitionContext = exports.isMemberSpecificationContext = exports.createClassContext = exports.isClassContext = exports.createLoopContext = exports.isBlockContext = exports.isMemberBlockContext = exports.createBlockContext = exports.isMemberFunctionContext = exports.createFunctionContext = exports.isFunctionContext = exports.createExpressionContextWithReceiverType = exports.createExpressionContextWithParameterTypes = exports.createLibraryContext = exports.createTranslationUnitContext = exports.createImplicitContext = exports.EMPTY_SOURCE = void 0;
+exports.RuntimeGlobalObjectAllocator = exports.GlobalObjectAllocator = exports.ContextualLocals = exports.InvalidConstruct = exports.BasicCPPConstruct = exports.RuntimeConstruct = exports.CPPConstruct = exports.areSemanticallyEquivalent = exports.isAnythingConstruct = exports.areAllSemanticallyEquivalent = exports.createMemberSpecificationContext = exports.createOutOfLineFunctionDefinitionContext = exports.isMemberSpecificationContext = exports.createClassContext = exports.isClassContext = exports.createLoopContext = exports.isBlockContext = exports.isMemberBlockContext = exports.createBlockContext = exports.isMemberFunctionContext = exports.createFunctionContext = exports.isFunctionContext = exports.createExpressionContextWithReceiverType = exports.createExpressionContextWithParameterTypes = exports.createLibraryContext = exports.createTranslationUnitContext = exports.createImplicitContext = exports.EMPTY_SOURCE = void 0;
 const entities_1 = require("./entities");
 const errors_1 = require("./errors");
 const util_1 = require("../util/util");
@@ -112,12 +112,34 @@ function createMemberSpecificationContext(classContext, accessLevel) {
 }
 exports.createMemberSpecificationContext = createMemberSpecificationContext;
 function areAllSemanticallyEquivalent(constructs, others, equivalenceContext) {
-    return constructs.length === others.length
-        && constructs.every((c, i) => c.isSemanticallyEquivalent(others[i], equivalenceContext));
+    var _a, _b;
+    // Don't care about deallocators in semantic analysis
+    constructs = constructs.filter(c => c.construct_type !== "TemporaryDeallocator" && c.construct_type !== "LocalDeallocator");
+    others = others.filter(c => c.construct_type !== "TemporaryDeallocator" && c.construct_type !== "LocalDeallocator");
+    let n = Math.max(constructs.length, others.length);
+    for (let i = 0; i < n; ++i) {
+        if (!areSemanticallyEquivalent((_a = constructs[i]) !== null && _a !== void 0 ? _a : undefined, (_b = others[i]) !== null && _b !== void 0 ? _b : undefined, equivalenceContext)) {
+            return false;
+        }
+    }
+    return true;
 }
 exports.areAllSemanticallyEquivalent = areAllSemanticallyEquivalent;
+function isAnythingConstruct(construct) {
+    if ((construct === null || construct === void 0 ? void 0 : construct.construct_type) === "anything_construct") {
+        return true;
+    }
+    let ac = construct;
+    if ((ac === null || ac === void 0 ? void 0 : ac.construct_type) === "block" && ac.statements.length === 1 && isAnythingConstruct(ac.statements[0])) {
+        return true;
+    }
+    return false;
+}
+exports.isAnythingConstruct = isAnythingConstruct;
 function areSemanticallyEquivalent(construct, other, equivalenceContext) {
     return !!(construct === other // also handles case of both undefined
+        || isAnythingConstruct(construct)
+        || isAnythingConstruct(other)
         || construct && other && construct.isSemanticallyEquivalent(other, equivalenceContext));
 }
 exports.areSemanticallyEquivalent = areSemanticallyEquivalent;
@@ -214,8 +236,7 @@ class CPPConstruct {
     }
     ;
     areChildrenSemanticallyEquivalent(other, equivalenceContext) {
-        return this.children.length === other.children.length
-            && this.children.every((c, i) => c.isSemanticallyEquivalent(other.children[i], equivalenceContext));
+        return areAllSemanticallyEquivalent(this.children, other.children, equivalenceContext);
     }
     entitiesUsed() {
         let ents = [];

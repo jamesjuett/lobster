@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.RuntimeForStatement = exports.ForStatement = exports.RuntimeWhileStatement = exports.WhileStatement = exports.RuntimeIfStatement = exports.IfStatement = exports.RuntimeBlock = exports.Block = exports.RuntimeReturnStatement = exports.ReturnStatement = exports.RuntimeBreakStatement = exports.BreakStatement = exports.RuntimeDeclarationStatement = exports.DeclarationStatement = exports.RuntimeNullStatement = exports.NullStatement = exports.RuntimeExpressionStatement = exports.ExpressionStatement = exports.UnsupportedStatement = exports.RuntimeStatement = exports.Statement = exports.createRuntimeStatement = exports.createStatementFromAST = void 0;
+exports.RuntimeForStatement = exports.ForStatement = exports.RuntimeWhileStatement = exports.WhileStatement = exports.RuntimeIfStatement = exports.IfStatement = exports.RuntimeBlock = exports.Block = exports.RuntimeReturnStatement = exports.ReturnStatement = exports.RuntimeBreakStatement = exports.BreakStatement = exports.RuntimeDeclarationStatement = exports.DeclarationStatement = exports.RuntimeNullStatement = exports.NullStatement = exports.RuntimeExpressionStatement = exports.ExpressionStatement = exports.AnythingStatement = exports.UnsupportedStatement = exports.RuntimeStatement = exports.Statement = exports.createRuntimeStatement = exports.createStatementFromAST = void 0;
 const constructs_1 = require("./constructs");
 const errors_1 = require("./errors");
 const expressions_1 = require("./expressions");
@@ -25,7 +25,8 @@ const StatementConstructsMap = {
     "return_statement": (ast, context) => ReturnStatement.createFromAST(ast, context),
     "declaration_statement": (ast, context) => DeclarationStatement.createFromAST(ast, context),
     "expression_statement": (ast, context) => ExpressionStatement.createFromAST(ast, context),
-    "null_statement": (ast, context) => new NullStatement(context, ast)
+    "null_statement": (ast, context) => new NullStatement(context, ast),
+    "anything_construct": (ast, context) => new AnythingStatement(context, ast)
 };
 function createStatementFromAST(ast, context) {
     return StatementConstructsMap[ast.construct_type](ast, context);
@@ -82,6 +83,20 @@ class UnsupportedStatement extends Statement {
     }
 }
 exports.UnsupportedStatement = UnsupportedStatement;
+class AnythingStatement extends Statement {
+    constructor(context, ast) {
+        super(context, ast);
+        this.construct_type = "anything_construct";
+        this.addNote(errors_1.CPPError.lobster.anything_construct(this));
+    }
+    createDefaultOutlet(element, parent) {
+        throw new Error("Cannot create an outlet for an \"anything\" placeholder construct.");
+    }
+    isSemanticallyEquivalent_impl(other, equivalenceContext) {
+        return true;
+    }
+}
+exports.AnythingStatement = AnythingStatement;
 class ExpressionStatement extends Statement {
     constructor(context, ast, expression) {
         super(context, ast);

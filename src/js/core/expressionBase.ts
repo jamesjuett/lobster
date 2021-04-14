@@ -21,6 +21,8 @@ export type ValueCategory = "prvalue" | "lvalue";
 
 export abstract class Expression<ASTType extends ExpressionASTNode = ExpressionASTNode> extends PotentialFullExpression<ExpressionContext, ASTType> {
 
+    public readonly t_analytic!: AnalyticExpression;
+
     public abstract readonly type?: ExpressionType;
     public abstract readonly valueCategory?: ValueCategory;
     public readonly conversionLength: number = 0;
@@ -60,6 +62,10 @@ export abstract class Expression<ASTType extends ExpressionASTNode = ExpressionA
     }
 
     public abstract describeEvalResult(depth: number): ConstructDescription;
+
+    public analytic() : AnalyticExpression {
+        return <AnalyticExpression><unknown>this;
+    }
 
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, ec: SemanticContext): boolean {
         return other.construct_type === this.construct_type

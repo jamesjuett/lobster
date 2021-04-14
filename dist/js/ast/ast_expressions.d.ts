@@ -1,4 +1,4 @@
-import { ASTNode } from "./ASTNode";
+import { AnythingConstructASTNode, ASTNode } from "./ASTNode";
 import { TypeSpecifierASTNode } from "./ast_declarations";
 import { ArrayPostfixDeclaratorASTNode, FunctionPostfixDeclaratorASTNode } from "./ast_declarators";
 import { IdentifierASTNode } from "./ast_identifiers";
@@ -6,7 +6,7 @@ import { NewInitializerASTNode } from "./ast_initializers";
 /**
  * Union of potential expression AST types for a generic expression.
  */
-export declare type ExpressionASTNode = CommaASTNode | TernaryASTNode | AssignmentExpressionASTNode | CompoundAssignmentExpressionASTNode | BinaryOperatorExpressionASTNode | PointerToMemberExpressionASTNode | CStyleCastExpressionASTNode | UnaryOperatorExpressionASTNode | PostfixExpressionASTNode | ConstructExpressionASTNode | IdentifierExpressionASTNode | ThisExpressionASTNode | NumericLiteralASTNode | StringLiteralASTNode | ParenthesesExpressionASTNode | InitializerListExpressionASTNode | OpaqueExpressionASTNode;
+export declare type ExpressionASTNode = CommaASTNode | TernaryASTNode | AssignmentExpressionASTNode | CompoundAssignmentExpressionASTNode | BinaryOperatorExpressionASTNode | PointerToMemberExpressionASTNode | CStyleCastExpressionASTNode | UnaryOperatorExpressionASTNode | PostfixExpressionASTNode | ConstructExpressionASTNode | IdentifierExpressionASTNode | ThisExpressionASTNode | NullptrExpressionASTNode | NumericLiteralASTNode | StringLiteralASTNode | ParenthesesExpressionASTNode | InitializerListExpressionASTNode | OpaqueExpressionASTNode | AnythingConstructASTNode;
 export interface CommaASTNode extends ASTNode {
     readonly construct_type: "comma_expression";
     readonly operator: ",";
@@ -170,6 +170,9 @@ export interface IdentifierExpressionASTNode extends ASTNode {
 }
 export interface ThisExpressionASTNode extends ASTNode {
     readonly construct_type: "this_expression";
+}
+export interface NullptrExpressionASTNode extends ASTNode {
+    readonly construct_type: "nullptr_expression";
 }
 export declare function parseNumericLiteralValueFromAST(ast: NumericLiteralASTNode): number;
 export declare type NumericLiteralASTNode = FloatLiteralASTNode | IntLiteralASTNode | CharLiteralASTNode | BoolLiteralASTNode;

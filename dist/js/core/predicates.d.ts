@@ -64,7 +64,7 @@ export declare namespace Predicates {
     }, Narrowed extends DiscriminateUnion<Original, "construct_type", "while_statement" | "for_statement">>(construct: Original) => construct is Narrowed extends Original ? Narrowed : never;
     const isOperatorOverload: <Original extends {
         construct_type: string;
-    }, Narrowed extends DiscriminateUnion<Original, "construct_type", "invalid_operator_overload_expression" | "member_operator_overload_expression" | "non_member_operator_overload_expression">>(construct: Original) => construct is Narrowed extends Original ? Narrowed : never;
+    }, Narrowed extends DiscriminateUnion<Original, "construct_type", "non_member_operator_overload_expression" | "member_operator_overload_expression" | "invalid_operator_overload_expression">>(construct: Original) => construct is Narrowed extends Original ? Narrowed : never;
     function isIndexingOperation(construct: AnalyticConstruct): construct is SubscriptExpression | OperatorOverloadExpression;
     const isBinaryOperatorExpression: <Original extends {
         construct_type: string;

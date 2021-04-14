@@ -1,6 +1,6 @@
 /// <reference types="jquery" />
 /// <reference types="bootstrap" />
-import { StringLiteralExpression } from "./expressions";
+import { StringLiteralExpression, AnalyticExpression } from "./expressions";
 import { ExpressionASTNode } from "../ast/ast_expressions";
 import { ExpressionContext, RuntimeConstruct, CPPConstruct, ConstructDescription, SuccessfullyCompiled, SemanticContext } from "./constructs";
 import { CompiledTemporaryDeallocator, PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
@@ -12,6 +12,7 @@ import { ConstructOutlet, ExpressionOutlet } from "../view/codeOutlets";
 import { AnalyticConstruct } from "./predicates";
 export declare type ValueCategory = "prvalue" | "lvalue";
 export declare abstract class Expression<ASTType extends ExpressionASTNode = ExpressionASTNode> extends PotentialFullExpression<ExpressionContext, ASTType> {
+    readonly t_analytic: AnalyticExpression;
     abstract readonly type?: ExpressionType;
     abstract readonly valueCategory?: ValueCategory;
     readonly conversionLength: number;
@@ -26,6 +27,7 @@ export declare abstract class Expression<ASTType extends ExpressionASTNode = Exp
         isTail: boolean;
     };
     abstract describeEvalResult(depth: number): ConstructDescription;
+    analytic(): AnalyticExpression;
     isSemanticallyEquivalent_impl(other: AnalyticConstruct, ec: SemanticContext): boolean;
 }
 export interface t_TypedExpression {

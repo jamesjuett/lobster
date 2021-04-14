@@ -2,7 +2,7 @@ import { CPPObject, InvalidObject, TemporaryObject } from "./objects";
 import { Simulation, SimulationEvent } from "./Simulation";
 import { CompleteObjectType, AtomicType, IntegralType, PointerType, ReferenceType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointerType, Int, PotentialParameterType, Float, Double, Char, PeelReference, peelReference, ArrayOfUnknownBoundType, referenceCompatible, similarType, subType, ArrayElemType, FloatingPointType, isCvConvertible, CompleteClassType, isAtomicType, isArithmeticType, isIntegralType, isPointerType, isBoundedArrayType, isFunctionType, isCompleteObjectType, isPotentiallyCompleteClassType, isCompleteClassType, isFloatingPointType, PotentiallyCompleteObjectType, ExpressionType, CompleteReturnType, PointerToCompleteType as PointerToCompleteObjectType, IncompleteClassType, PotentiallyCompleteClassType, isPotentiallyCompleteArrayType, isPointerToCompleteType } from "./types";
 import { SuccessfullyCompiled, RuntimeConstruct, CPPConstruct, ExpressionContext, ConstructDescription, createExpressionContextWithReceiverType, isMemberFunctionContext, SemanticContext, areSemanticallyEquivalent, areAllSemanticallyEquivalent } from "./constructs";
-import { ASTNode } from "../ast/ASTNode";
+import { AnythingConstructASTNode, ASTNode } from "../ast/ASTNode";
 import { Note, CPPError, NoteHandler } from "./errors";
 import { FunctionEntity, ObjectEntity, Scope, VariableEntity, MemberVariableEntity, NameLookupOptions, BoundReferenceEntity, runtimeObjectLookup, DeclaredScopeEntry, TemporaryObjectEntity, ArraySubobjectEntity } from "./entities";
 import { Value, RawValueType } from "./runtimeEnvironment";
@@ -11,13 +11,13 @@ import { checkIdentifier, MAGIC_FUNCTION_NAMES, LexicalIdentifier, identifierToS
 import { QualifiedIdentifierASTNode, IdentifierASTNode } from "../ast/ast_identifiers";
 import { FunctionCallExpression, TypedFunctionCallExpression, CompiledFunctionCallExpression, RuntimeFunctionCallExpression } from "./FunctionCallExpression";
 import { RuntimeExpression, VCResultTypes, ValueCategory, Expression, CompiledExpression, TypedExpression, SpecificTypedExpression, t_TypedExpression, allWellTyped } from "./expressionBase";
-import { ConstructOutlet, TernaryExpressionOutlet, CommaExpressionOutlet, AssignmentExpressionOutlet, BinaryOperatorExpressionOutlet, UnaryOperatorExpressionOutlet, SubscriptExpressionOutlet, IdentifierOutlet, NumericLiteralOutlet, ParenthesesOutlet, MagicFunctionCallExpressionOutlet, StringLiteralExpressionOutlet, LValueToRValueOutlet, ArrayToPointerOutlet, TypeConversionOutlet, QualificationConversionOutlet, DotExpressionOutlet, ArrowExpressionOutlet, OutputOperatorExpressionOutlet, PostfixIncrementExpressionOutlet, InputOperatorExpressionOutlet, StreamToBoolOutlet, NonMemberOperatorOverloadExpressionOutlet, MemberOperatorOverloadExpressionOutlet, InitializerListOutlet as InitializerListExpressionOutlet, CompoundAssignmentExpressionOutlet, ThisExpressionOutlet } from "../view/codeOutlets";
+import { ConstructOutlet, TernaryExpressionOutlet, CommaExpressionOutlet, AssignmentExpressionOutlet, BinaryOperatorExpressionOutlet, UnaryOperatorExpressionOutlet, SubscriptExpressionOutlet, IdentifierOutlet, NumericLiteralOutlet, ParenthesesOutlet, MagicFunctionCallExpressionOutlet, StringLiteralExpressionOutlet, LValueToRValueOutlet, ArrayToPointerOutlet, TypeConversionOutlet, QualificationConversionOutlet, DotExpressionOutlet, ArrowExpressionOutlet, OutputOperatorExpressionOutlet, PostfixIncrementExpressionOutlet, InputOperatorExpressionOutlet, StreamToBoolOutlet, NonMemberOperatorOverloadExpressionOutlet, MemberOperatorOverloadExpressionOutlet, InitializerListOutlet as InitializerListExpressionOutlet, CompoundAssignmentExpressionOutlet, ThisExpressionOutlet, NullptrExpressionOutlet } from "../view/codeOutlets";
 import { AnalyticConstruct, Predicates } from "./predicates";
 import { OpaqueExpression, RuntimeOpaqueExpression, TypedOpaqueExpression, CompiledOpaqueExpression } from "./opaqueExpression";
 import { CompiledTemporaryDeallocator } from "./PotentialFullExpression";
 import { CompiledFunctionCall, FunctionCall, RuntimeFunctionCall, TypedFunctionCall } from "./FunctionCall";
 import { createNewExpressionFromAST, DeleteExpression, NewExpression, TypedNewExpression, TypedDeleteExpression, CompiledNewExpression, CompiledDeleteExpression, RuntimeNewExpression, RuntimeDeleteExpression, NewObjectType, NewArrayExpression, CompiledNewArrayExpression, RuntimeNewArrayExpression, TypedNewArrayExpression, DeleteArrayExpression, CompiledDeleteArrayExpression, RuntimeDeleteArrayExpression, TypedDeleteArrayExpression } from "./new_delete";
-import { AddressOfExpressionASTNode, ArithmeticBinaryOperatorExpressionASTNode, ArrowExpressionASTNode, AssignmentExpressionASTNode, BinaryOperatorExpressionASTNode, BitwiseNotExpressionASTNode, CommaASTNode, CompoundAssignmentExpressionASTNode, ConstCastExpressionASTNode, ConstructExpressionASTNode, CStyleCastExpressionASTNode, DeleteArrayExpressionASTNode, DeleteExpressionASTNode, DereferenceExpressionASTNode, DotExpressionASTNode, DynamicCastExpressionASTNode, ExpressionASTNode, FunctionCallExpressionASTNode, IdentifierExpressionASTNode, InitializerListExpressionASTNode, LogicalBinaryOperatorExpressionASTNode, LogicalNotExpressionASTNode, NewExpressionASTNode, NumericLiteralASTNode, OpaqueExpressionASTNode, ParenthesesExpressionASTNode, parseNumericLiteralValueFromAST, PointerToMemberExpressionASTNode, PostfixIncrementExpressionASTNode, PrefixIncrementExpressionASTNode, ReinterpretCastExpressionASTNode, RelationalBinaryOperatorExpressionASTNode, SizeofExpressionASTNode, SizeofTypeExpressionASTNode, StaticCastExpressionASTNode, StringLiteralASTNode, SubscriptExpressionASTNode, TernaryASTNode, ThisExpressionASTNode, t_ArithmeticBinaryOperators, t_BinaryOperators, t_CompoundAssignmentOperators, t_LogicalBinaryOperators, t_RelationalBinaryOperators, t_UnaryOperators, UnaryMinusExpressionASTNode, UnaryOperatorExpressionASTNode, UnaryPlusExpressionASTNode } from "../ast/ast_expressions";
+import { AddressOfExpressionASTNode, ArithmeticBinaryOperatorExpressionASTNode, ArrowExpressionASTNode, AssignmentExpressionASTNode, BinaryOperatorExpressionASTNode, BitwiseNotExpressionASTNode, CommaASTNode, CompoundAssignmentExpressionASTNode, ConstCastExpressionASTNode, ConstructExpressionASTNode, CStyleCastExpressionASTNode, DeleteArrayExpressionASTNode, DeleteExpressionASTNode, DereferenceExpressionASTNode, DotExpressionASTNode, DynamicCastExpressionASTNode, ExpressionASTNode, FunctionCallExpressionASTNode, IdentifierExpressionASTNode, InitializerListExpressionASTNode, LogicalBinaryOperatorExpressionASTNode, LogicalNotExpressionASTNode, NewExpressionASTNode, NullptrExpressionASTNode, NumericLiteralASTNode, OpaqueExpressionASTNode, ParenthesesExpressionASTNode, parseNumericLiteralValueFromAST, PointerToMemberExpressionASTNode, PostfixIncrementExpressionASTNode, PrefixIncrementExpressionASTNode, ReinterpretCastExpressionASTNode, RelationalBinaryOperatorExpressionASTNode, SizeofExpressionASTNode, SizeofTypeExpressionASTNode, StaticCastExpressionASTNode, StringLiteralASTNode, SubscriptExpressionASTNode, TernaryASTNode, ThisExpressionASTNode, t_ArithmeticBinaryOperators, t_BinaryOperators, t_CompoundAssignmentOperators, t_LogicalBinaryOperators, t_RelationalBinaryOperators, t_UnaryOperators, UnaryMinusExpressionASTNode, UnaryOperatorExpressionASTNode, UnaryPlusExpressionASTNode } from "../ast/ast_expressions";
 import { assignmentEquivalence, checkForNullptrEquivalence, checkForZeroEquivalence } from "../analysis/semantic_equivalence";
 
 
@@ -87,7 +87,8 @@ const ExpressionConstructsMap = {
     "string_literal_expression": (ast: StringLiteralASTNode, context: ExpressionContext) => StringLiteralExpression.createFromAST(ast, context),
     "parentheses_expression": (ast: ParenthesesExpressionASTNode, context: ExpressionContext) => ParenthesesExpression.createFromAST(ast, context),
     "initializer_list_expression": (ast: InitializerListExpressionASTNode, context: ExpressionContext) => InitializerListExpression.createFromAST(ast, context),
-    "opaque_expression": (ast: OpaqueExpressionASTNode, context: ExpressionContext) => OpaqueExpression.createFromAST(ast, context)
+    "opaque_expression": (ast: OpaqueExpressionASTNode, context: ExpressionContext) => OpaqueExpression.createFromAST(ast, context),
+    "anything_construct": (ast: AnythingConstructASTNode, context: ExpressionContext) => new AnythingExpression(context, ast)
 }
 
 /**
@@ -141,6 +142,7 @@ export type AnalyticExpression =
 
 export type TypedExpressionKinds<T extends ExpressionType, V extends ValueCategory> = {
     "unsupported_expression": never;
+    "anything_construct": never;
     "invalid_operator_overload_expression": never;
     "comma_expression":
     T extends NonNullable<TypedCommaExpression["type"]> ? V extends NonNullable<TypedCommaExpression["valueCategory"]> ? TypedCommaExpression<T, V> : never :
@@ -283,6 +285,7 @@ export type TypedExpressionKinds<T extends ExpressionType, V extends ValueCatego
 
 export type CompiledExpressionKinds<T extends ExpressionType, V extends ValueCategory> = {
     "unsupported_expression": never;
+    "anything_construct": never;
     "invalid_operator_overload_expression": never;
     "comma_expression": T extends NonNullable<CompiledCommaExpression["type"]> ? V extends NonNullable<CompiledCommaExpression["valueCategory"]> ? CompiledCommaExpression<T, V> : never : never;
     "ternary_expression": T extends NonNullable<CompiledTernaryExpression["type"]> ? V extends NonNullable<CompiledTernaryExpression["valueCategory"]> ? CompiledTernaryExpression<T, V> : never : never;
@@ -340,6 +343,7 @@ export type AnalyticCompiledExpression<C extends AnalyticExpression, T extends E
 
 const ExpressionConstructsRuntimeMap = {
     "unsupported_expression": (construct: UnsupportedExpression, parent: RuntimeConstruct) => { throw new Error("Cannot create a runtime instance of an unsupported construct."); },
+    "anything_construct": (construct: AnythingExpression, parent: RuntimeConstruct) => { throw new Error("Cannot create a runtime instance of an \"anything\" placeholder construct."); },
     "invalid_operator_overload_expression": (construct: UnsupportedExpression, parent: RuntimeConstruct) => { throw new Error("Cannot create a runtime instance of an invalid operator overload expression."); },
     "comma_expression": <T extends CompiledCommaExpression["type"], V extends ValueCategory>(construct: CompiledCommaExpression<T, V>, parent: RuntimeConstruct) => new RuntimeComma(construct, parent),
     "ternary_expression": <T extends CompiledTernaryExpression["type"], V extends ValueCategory>(construct: CompiledTernaryExpression<T, V>, parent: RuntimeConstruct) => new RuntimeTernary(construct, parent),
@@ -405,6 +409,7 @@ const ExpressionConstructsRuntimeMap = {
 };
 
 export function createRuntimeExpression(construct: UnsupportedExpression, parent: RuntimeConstruct): never;
+export function createRuntimeExpression(construct: AnythingExpression, parent: RuntimeConstruct): never;
 export function createRuntimeExpression(construct: InvalidOperatorOverloadExpression, parent: RuntimeConstruct): never;
 export function createRuntimeExpression<T extends ExpressionType, V extends ValueCategory>(construct: CompiledCommaExpression<T, V>, parent: RuntimeConstruct): RuntimeComma<T, V>;
 export function createRuntimeExpression<T extends ExpressionType, V extends ValueCategory>(construct: CompiledTernaryExpression<T, V>, parent: RuntimeConstruct): RuntimeTernary<T, V>;
@@ -517,6 +522,32 @@ export abstract class InvalidExpression extends Expression<ExpressionASTNode> {
     }
 }
 
+
+export class AnythingExpression extends Expression {
+    public readonly construct_type = "anything_construct";
+
+    public readonly type: undefined;
+    public readonly valueCategory: undefined;
+
+    public constructor(context: ExpressionContext, ast: AnythingConstructASTNode | undefined) {
+        super(context, ast);
+        this.addNote(CPPError.lobster.anything_construct(this));
+    }
+
+    public createDefaultOutlet(element: JQuery, parent?: ConstructOutlet): never {
+        throw new Error("Cannot create an outlet for an \"anything\" placeholder construct.");
+    }
+
+    public describeEvalResult(depth: number): ConstructDescription {
+        return {
+            message: "an \"anything\" placeholder expression to support semantic analysis"
+        }
+    }
+
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext) : boolean {
+        return true;
+    }
+}
 
 
 

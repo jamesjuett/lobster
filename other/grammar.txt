@@ -149,6 +149,8 @@ statement
 
   / null_statement
 
+  / anything
+
   /*/ asm_statement
   / try_except_statement
   / try_finally_statement*/
@@ -777,6 +779,7 @@ exp_primary
   / "nullptr" !identifierChar {return track({construct_type: "nullptr_expression"}, location(), text()); }
   / "NULL" !identifierChar {return track({construct_type: "nullptr_expression"}, location(), text()); }
   / id:id_expression { return track({construct_type: "identifier_expression", identifier: id}, location(), text()); }
+  / anything
   / opaque_expression
 
 id_expression
@@ -1020,7 +1023,5 @@ qualified_class_name
   / class_name
 
 
-
-
-
-
+anything
+  = "@anything@" { return track({construct_type: "anything_construct"}, location(), text()); }

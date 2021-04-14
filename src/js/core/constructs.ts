@@ -8,7 +8,7 @@ import { CompleteObjectType, ReferenceType, PeelReference, VoidType, PotentialRe
 import { GlobalVariableDefinition, CompiledGlobalVariableDefinition, CompiledFunctionDefinition, ClassDefinition, Declarator, FunctionDefinition, ClassDeclaration } from "./declarations";
 import { RuntimeFunction } from "./functions";
 import { CPPObject, TemporaryObject } from "./objects";
-import { ForStatement, WhileStatement } from "./statements";
+import { Block, ForStatement, WhileStatement } from "./statements";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { ASTNode } from "../ast/ASTNode";
 import { AccessSpecifier } from "../ast/ast_declarations";
@@ -196,17 +196,43 @@ export type SemanticContext = {
 };
 
 export function areAllSemanticallyEquivalent(constructs: readonly CPPConstruct[], others: readonly CPPConstruct[], equivalenceContext: SemanticContext) : boolean{
-    return constructs.length === others.length
-        && constructs.every((c, i) => c.isSemanticallyEquivalent(others[i], equivalenceContext));
+
+    // Don't care about deallocators in semantic analysis
+    constructs = constructs.filter(c => c.construct_type !== "TemporaryDeallocator" && c.construct_type !== "LocalDeallocator");
+    others = others.filter(c => c.construct_type !== "TemporaryDeallocator" && c.construct_type !== "LocalDeallocator");
+
+    let n = Math.max(constructs.length, others.length);
+    for(let i = 0; i < n; ++i) {
+        if (!areSemanticallyEquivalent(constructs[i] ?? undefined, others[i] ?? undefined, equivalenceContext)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+export function isAnythingConstruct(construct: CPPConstruct | undefined) : boolean {
+    if (construct?.construct_type === "anything_construct") {
+        return true;
+    }
+    
+    let ac = <AnalyticConstruct>construct;
+    if (ac?.construct_type === "block" && ac.statements.length === 1 && isAnythingConstruct(ac.statements[0])) {
+        return true;
+    }
+
+    return false;
 }
 
 export function areSemanticallyEquivalent(construct: CPPConstruct | undefined, other: CPPConstruct | undefined, equivalenceContext: SemanticContext) : boolean{
     return !!(construct === other // also handles case of both undefined
+        || isAnythingConstruct(construct)
+        || isAnythingConstruct(other)
         || construct && other && construct.isSemanticallyEquivalent(other, equivalenceContext));
 }
 
 export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramContext, ASTType extends ASTNode = ASTNode> {
     public abstract readonly construct_type: string;
+    public readonly t_analytic!: AnalyticConstruct;
     private static NEXT_ID = 0;
     // initIndex: "pushChildren",
 
@@ -349,8 +375,7 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
     public abstract isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext) : boolean;
 
     public areChildrenSemanticallyEquivalent(other: CPPConstruct, equivalenceContext: SemanticContext) : boolean{
-        return this.children.length === other.children.length
-            && this.children.every((c, i) => c.isSemanticallyEquivalent(other.children[i], equivalenceContext));
+        return areAllSemanticallyEquivalent(this.children, other.children, equivalenceContext);
     }
 
     public entitiesUsed() : CPPEntity[] {
@@ -620,6 +645,8 @@ export class InvalidConstruct extends BasicCPPConstruct<TranslationUnitContext, 
             && this.areChildrenSemanticallyEquivalent(other, equivalenceContext);
     }
 }
+
+
 
 export class ContextualLocals {
 

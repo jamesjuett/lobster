@@ -227,13 +227,13 @@
         "affectsGlobalScope": false
       },
       "../../src/js/parse/cpp_parser.ts": {
-        "version": "8b25be10ce4cf84d82fa21fd7083a2c1bded80a7a6aa3eec0e81ef7c521e8978",
+        "version": "868a1f34b1ea7a7ec27b76968f2aaf57a436f8df11f60c40d7d07ca2164c7e2e",
         "signature": "ff2c763c7895327196fd3eb358dcc775b25f27bdae513079cc287433af262427",
         "affectsGlobalScope": false
       },
       "../../src/js/ast/ASTNode.ts": {
-        "version": "21680e4cadf77761d54929881a03213ce140c52b0619d15b2a3b61a93b820cf7",
-        "signature": "baff8bf6818344f8f52d797286110fd47f3a9ee3006db874445575f8e78cee50",
+        "version": "42a55b007dedfa6f6e035cac5125560e1aaa85e45fd5a239d8b846509328c294",
+        "signature": "7032e6ba704619932952ba059aa4ff486bf1959947db5750355ef4b19891a1f0",
         "affectsGlobalScope": false
       },
       "../../src/js/ast/ast_identifiers.ts": {
@@ -247,8 +247,8 @@
         "affectsGlobalScope": false
       },
       "../../src/js/ast/ast_expressions.ts": {
-        "version": "de83b872fde611f281bfc3658ba65b13b87f68593970194c94c699aed5a306d1",
-        "signature": "5d1e9fcb6902868fcff7b90eb6b7a10c694ac455d7f1d2af7ef4efa1796b7045",
+        "version": "5e04d7974511d06936598273146a1251f162b18cb0fe6d5b37af3a4837a949a4",
+        "signature": "d2cb66b01780d0a7191b43e5202113e1fd9f2ef3a6114181b36492ff19a1d16d",
         "affectsGlobalScope": false
       },
       "../../src/js/ast/ast_declarators.ts": {
@@ -257,8 +257,8 @@
         "affectsGlobalScope": false
       },
       "../../src/js/ast/ast_statements.ts": {
-        "version": "d453d1421a9a988cd62b08e87fa91faf8f202cba45d73e9adb376d591babbf96",
-        "signature": "8f47ccf32cf588d6bf3ef2625db43e167006c15425ba4dc3e3d0c74fcee8ee6a",
+        "version": "95831c39fd57629809e4a5f758d53f79f37fb6bcfd573812e5dee307f3444df8",
+        "signature": "d82ab5e25229f740406a7ca283ea286d5a29b4a12ead4f6203e1f72f67940322",
         "affectsGlobalScope": false
       },
       "../../src/js/ast/ast_declarations.ts": {
@@ -342,13 +342,13 @@
         "affectsGlobalScope": false
       },
       "../../src/js/core/FunctionCallExpression.ts": {
-        "version": "aca66b6cf02733ff348d208b4aee700b3f0df5f30a59fc2b61dee4420d994c6c",
-        "signature": "8ec7bdce6ecf4bc973d0c094e7d472d7c48a831530ed3da9a427eb3948285da6",
+        "version": "a4d776cc99e8dc53c190f7b0cdf2dff66dcc5bc6f7290763332f176328cace00",
+        "signature": "5f457c9c6f5f47cee900bc0690a492b39ef57b0f560a548519057db8bf65eb5f",
         "affectsGlobalScope": false
       },
       "../../src/js/analysis/analysis.ts": {
-        "version": "b0c87b1737916e746049a391fd628a8b54650735ee86a8fdeed0f55912705f0c",
-        "signature": "3281184864c685e89720ccbead44772c87a7936a4b7040c68ea8c4efe5f6ab9b",
+        "version": "f1b845cd54de09c31e87e12100f30e88cbe8b94c9dc81e66b834d39d7f3518e7",
+        "signature": "6d67d33baf958375a5159965ffa8404ad9ab4f5765a32b22da7c4cc21988b22c",
         "affectsGlobalScope": false
       },
       "../../src/js/analysis/loops.ts": {
@@ -367,7 +367,7 @@
         "affectsGlobalScope": false
       },
       "../../src/js/core/Project.ts": {
-        "version": "d55f23295dd2b1b219e60794da44686b06310bfe85968faf21eb4c24cb080507",
+        "version": "b75d0dfb660eb2ed7df8ee5bce12f7e9e27a335f7bd7bda5c6769c6eba8876cf",
         "signature": "79dcacb114b852cc5c63a1d61338e0c3727ba440b4bd45cb0e59832fe1cb58e3",
         "affectsGlobalScope": false
       },
@@ -383,7 +383,7 @@
       },
       "../../src/js/core/new_delete.ts": {
         "version": "f6d7b15c6592bcd8dc603e0bd00fd336e0a85a9197adf90e9ffab49ae155b812",
-        "signature": "65adf6a041a666df1e8cbd45b114fd3718addfeac2120d1fecb56dbb1f5a3fca",
+        "signature": "b1e1c83cae59c563b9dd725da4a4b0af8fe9e7a0d0170cfe39a48a28a8c68df3",
         "affectsGlobalScope": false
       },
       "../../src/js/core/opaqueExpression.ts": {
@@ -392,13 +392,13 @@
         "affectsGlobalScope": false
       },
       "../../src/js/view/codeOutlets.ts": {
-        "version": "ac9e08a885bb63a0878a08f38dbd1e61cac78680a1c5a57ea626fe37fc1c65c7",
-        "signature": "01452289c2afcde64d3e01f48566ebb2383c7df73e492c90160f079cf5f47ec1",
+        "version": "ce58e6c07d3212b0f0fd6ae28ecbdecd87c9d06c44269e01ed6cc465bdb08e18",
+        "signature": "f01955622c5eb49a00c2cde08e36d761b5dfcea545112420420eb134f8480584",
         "affectsGlobalScope": false
       },
       "../../src/js/core/expressionBase.ts": {
-        "version": "469f5c94a6f8cd2d7c24259d3151e98d79220df4b54b75bc63782521171e399c",
-        "signature": "f22d32d4c49643e835f899fbd377bb0e3cfc1aaebbfd39c6c63527011bf9ae85",
+        "version": "23275884602127749c2006b86937296ba72db23c450bd39c15efeb6c0650637c",
+        "signature": "6f9622f8973ff61e1af6a1b83491a95d698d0666c721576264ca591c75d25a65",
         "affectsGlobalScope": false
       },
       "../../src/js/core/ObjectDeallocator.ts": {
@@ -408,7 +408,7 @@
       },
       "../../src/js/core/predicates.ts": {
         "version": "23c0a63b14c501f0ad73bd3d4aad43992ef0bbfd7eca79b6df6b15e2353a2ea5",
-        "signature": "d9146c5767478c68151cfcda83a550f2041134c449429c8516198fde4bc91190",
+        "signature": "fcc249e621555ad3f3a4f2793aa1c24c6a8dde262fd4d71b048e112e7a8cbed7",
         "affectsGlobalScope": false
       },
       "../../src/js/core/PotentialFullExpression.ts": {
@@ -432,13 +432,13 @@
         "affectsGlobalScope": false
       },
       "../../src/js/core/expressions.ts": {
-        "version": "177040ef1ad1d129fb6fbad3ed3b177f827ada30e8903cc3646d131fc4e9b224",
-        "signature": "e5d810641b64f4f79579c80509d0ce4d1c15f73f86df7e3d1e8bf9289d683a5c",
+        "version": "3141309f023cd35d39372ad6e5ec8a7f11043b7d7f61a70fe2de6ec0de53c4b0",
+        "signature": "f54f069148b6e72f9468478dbdbfd19ca0bce9903eb207b1d493919b27efa0e0",
         "affectsGlobalScope": false
       },
       "../../src/js/core/statements.ts": {
-        "version": "bd71373dc63679d96b59a8c373de4406ab3d18500b363d9780da617a44d181da",
-        "signature": "970a25d1e26bbee776f1cbd10f9a7b4a60238944a30e7a18c197a74f8bdf31d9",
+        "version": "b22a858bcbed41d7467f1be6c538f805d76f8acb72ff26e5305a26b76ae74971",
+        "signature": "c54d965b82cdd54a2a92509bb826b6c7c150e2d07d1e62d3de424bb08f27b3f1",
         "affectsGlobalScope": false
       },
       "../../src/js/core/functions.ts": {
@@ -462,13 +462,13 @@
         "affectsGlobalScope": false
       },
       "../../src/js/core/declarations.ts": {
-        "version": "21f8271b44a8f5832962bc844af09425b941816e8b38f900b7e1965395d10382",
-        "signature": "4c8c06adf554e9017aabe4705d89ec16a96cae36e00f216ed1ea66d3d5861d09",
+        "version": "9b8feb035fd6bce4f76f632d47944f4e0a075bdde3418fc631489a9484586808",
+        "signature": "df97542718f469b77bd6d5a16d5ea363e170c0ad1e18e88cd59ced609ed9bd98",
         "affectsGlobalScope": false
       },
       "../../src/js/core/errors.ts": {
-        "version": "9fbb42fe9d37d73d3379871fcce799c724e10a08782263269ead22bd1f67a2fc",
-        "signature": "3e6c8e02f93f90e4fd73a8f6c226abde261305e93df6d027cd2a48ab6614e87c",
+        "version": "15ff70c252bd1f3264c363782b3d0c1b54854b3963af1e6c89cef547dd14d317",
+        "signature": "6ae279b16053819d344b45379a0be3f2166f057d2cc1a04a06bb4525a6bb8a2b",
         "affectsGlobalScope": false
       },
       "../../src/js/lib/string.ts": {
@@ -487,8 +487,8 @@
         "affectsGlobalScope": false
       },
       "../../src/js/core/constructs.ts": {
-        "version": "39ce6f5c157380608d66adad87d7e0236b17d6ed34ea045bdb508861c772d50e",
-        "signature": "8b6395f759e6bdc2190993cc334e31475e58baea7295805df19930eada56fd69",
+        "version": "2bdc2a94093ad852de7ca68fb98cfa13e35a529c2508eb0351bd58180f293f04",
+        "signature": "a811428aa8186f262d748af1670aae8af1b243882e830aa8bf4ad1dce84a7036",
         "affectsGlobalScope": false
       },
       "../../src/js/core/types.ts": {
@@ -498,7 +498,7 @@
       },
       "../../src/js/core/entities.ts": {
         "version": "647806f390347204263da72d71a7d8feeb926092989152538fa58fea5fd0d99e",
-        "signature": "ad3498a0c4e34e31eadfa12d2617a1b12141a7d92d81c64fbefcfdf29e9aceb4",
+        "signature": "6eeec805ea8b9ae119e772e53b313761b5435baadd7c6aa6712a9d518a90b8a5",
         "affectsGlobalScope": false
       },
       "../../src/js/core/FunctionCall.ts": {
@@ -572,7 +572,7 @@
         "affectsGlobalScope": false
       },
       "../../src/js/test/regression.ts": {
-        "version": "b1ac572592b920156736d9e64d5699d7863cdfb3014984ec5d1227842c74f3df",
+        "version": "b168a0b3bcc432bdff8621dea8bd3895f08b8695ff814d2cd0863010928a97e9",
         "signature": "030c7d9a26862afb9e75410ea699c205b4ce02ff97e4e496a994bfb78e24d817",
         "affectsGlobalScope": false
       },
@@ -1790,6 +1790,7 @@
         "../../src/js/core/expressions.ts",
         "../../src/js/core/lexical.ts",
         "../../src/js/core/objects.ts",
+        "../../src/js/core/predicates.ts",
         "../../src/js/core/types.ts",
         "../../src/js/util/util.ts",
         "../../src/js/view/codeOutlets.ts"
@@ -2082,6 +2083,7 @@
         "../../src/js/view/CPP_ANIMATIONS.ts"
       ],
       "../../src/js/core/statements.ts": [
+        "../../src/js/ast/ASTNode.ts",
         "../../src/js/ast/ast_expressions.ts",
         "../../src/js/ast/ast_statements.ts",
         "../../src/js/core/ObjectDeallocator.ts",
@@ -2985,6 +2987,7 @@
         "../../src/js/core/constructs.ts",
         "../../src/js/core/expressionBase.ts",
         "../../src/js/core/expressions.ts",
+        "../../src/js/core/predicates.ts",
         "../../src/js/core/types.ts",
         "../../src/js/view/codeOutlets.ts"
       ],
@@ -3109,6 +3112,7 @@
         "../../src/js/view/codeOutlets.ts"
       ],
       "../../src/js/core/expressions.ts": [
+        "../../src/js/ast/ASTNode.ts",
         "../../src/js/ast/ast_expressions.ts",
         "../../src/js/core/FunctionCall.ts",
         "../../src/js/core/FunctionCallExpression.ts",
@@ -3216,6 +3220,7 @@
         "../../src/js/core/Simulation.ts"
       ],
       "../../src/js/core/statements.ts": [
+        "../../src/js/ast/ASTNode.ts",
         "../../src/js/ast/ast_statements.ts",
         "../../src/js/core/ObjectDeallocator.ts",
         "../../src/js/core/constructs.ts",

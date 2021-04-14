@@ -767,6 +767,9 @@ function peg$parse(input: string, options?: IParseOptions) {
   const peg$c494 = function(n: any, c: any): any {
       n.push(c);
       return {construct_type: "qualified_identifier", components: n};};
+  const peg$c495 = "@anything@";
+  const peg$c496 = peg$literalExpectation("@anything@", false);
+  const peg$c497 = function(): any { return track({construct_type: "anything_construct"}, location(), text()); };
 
   let peg$currPos = 0;
   let peg$savedPos = 0;
@@ -1234,6 +1237,9 @@ function peg$parse(input: string, options?: IParseOptions) {
                 s0 = peg$parseexpression_statement();
                 if (s0 === peg$FAILED) {
                   s0 = peg$parsenull_statement();
+                  if (s0 === peg$FAILED) {
+                    s0 = peg$parseanything();
+                  }
                 }
               }
             }
@@ -9586,7 +9592,10 @@ function peg$parse(input: string, options?: IParseOptions) {
               }
               s0 = s1;
               if (s0 === peg$FAILED) {
-                s0 = peg$parseopaque_expression();
+                s0 = peg$parseanything();
+                if (s0 === peg$FAILED) {
+                  s0 = peg$parseopaque_expression();
+                }
               }
             }
           }
@@ -12425,6 +12434,26 @@ function peg$parse(input: string, options?: IParseOptions) {
     if (s0 === peg$FAILED) {
       s0 = peg$parseclass_name();
     }
+
+    return s0;
+  }
+
+  function peg$parseanything(): any {
+    let s0, s1;
+
+    s0 = peg$currPos;
+    if (input.substr(peg$currPos, 10) === peg$c495) {
+      s1 = peg$c495;
+      peg$currPos += 10;
+    } else {
+      s1 = peg$FAILED;
+      if (peg$silentFails === 0) { peg$fail(peg$c496); }
+    }
+    if (s1 !== peg$FAILED) {
+      peg$savedPos = s0;
+      s1 = peg$c497();
+    }
+    s0 = s1;
 
     return s0;
   }

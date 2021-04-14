@@ -219,7 +219,7 @@ interface OtherSpecifiers {
     readonly virtual?: boolean;
 }
 
-export type Declaration = TopLevelSimpleDeclaration | LocalSimpleDeclaration | MemberDeclaration | FunctionDefinition | ClassDefinition | InvalidConstruct;
+export type Declaration = TopLevelSimpleDeclaration | LocalSimpleDeclaration | MemberDeclaration | FunctionDefinition | ClassDeclaration | ClassDefinition | InvalidConstruct;
 
 export type TopLevelDeclaration = TopLevelSimpleDeclaration | FunctionDefinition | ClassDefinition | InvalidConstruct;
 
@@ -2059,7 +2059,7 @@ export class ClassDeclaration extends BasicCPPConstruct<TranslationUnitContext, 
     }
     
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return true;
+        return other.construct_type === this.construct_type;
         // TODO: semantic equivalence
     }
 }
@@ -2716,7 +2716,7 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
     }
     
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return true;
+        return other.construct_type === this.construct_type;
         // TODO semantic equivalence
     }
 }
@@ -2829,7 +2829,7 @@ export class MemberVariableDeclaration extends VariableDefinitionBase<MemberSpec
     }
 
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return true;
+        return other.construct_type === this.construct_type;
         // TODO semantic equivalence
     }
 }

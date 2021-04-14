@@ -553,6 +553,20 @@ int main() {
         new verifiers_1.NoErrorsNoWarningsVerifier(),
         new verifiers_1.NoBadRuntimeEventsVerifier(true)
     ]);
+    // ---------- Basic Nullptr Test ----------
+    new verifiers_1.SingleTranslationUnitTest("Basic Nullptr Test", `
+int main() {
+  int *p1 = 0;
+  int *p2 = NULL;
+  int *p3 = nullptr;
+  assert(!p1);
+  assert(!p2);
+  assert(!p3);
+}
+`, [
+        new verifiers_1.NoErrorsNoWarningsVerifier(),
+        new verifiers_1.NoBadRuntimeEventsVerifier(true)
+    ]);
     // ---------- Basic Parameter Test ----------
     new verifiers_1.SingleTranslationUnitTest("Basic Parameter Test", `int func1(int x, int y) {
   x = x + 10;

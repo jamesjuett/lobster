@@ -10,25 +10,25 @@ function constructTest(constructClass) {
     return ((construct) => construct instanceof constructClass);
 }
 exports.constructTest = constructTest;
-function exploreConstructs(root, test, fn) {
+function exploreConstructs(root, test, fn, keepGoing = { b: true }) {
     if (root instanceof Program_1.Program) {
         for (let tuName in root.translationUnits) {
-            exploreConstructs(root.translationUnits[tuName], test, fn);
+            exploreConstructs(root.translationUnits[tuName], test, fn, keepGoing);
         }
         return;
     }
     if (root instanceof Program_1.TranslationUnit) {
-        root.topLevelDeclarations.forEach(decl => exploreConstructs(decl, test, fn));
+        root.topLevelDeclarations.forEach(decl => exploreConstructs(decl, test, fn, keepGoing));
         return;
     }
     if (Array.isArray(root)) {
-        root.forEach(r => exploreConstructs(r, test, fn));
+        root.forEach(r => exploreConstructs(r, test, fn, keepGoing));
         return;
     }
-    if (test(root)) {
-        fn(root);
+    if (keepGoing.b && test(root)) {
+        fn(root, () => { keepGoing.b = false; });
     }
-    root.children.forEach(child => exploreConstructs(child, test, fn));
+    root.children.forEach(child => exploreConstructs(child, test, fn, keepGoing));
 }
 exports.exploreConstructs = exploreConstructs;
 function findConstructs(root, test) {
@@ -40,13 +40,12 @@ function findConstructs(root, test) {
 }
 exports.findConstructs = findConstructs;
 function findFirstConstruct(root, test) {
-    let constructs = findConstructs(root, test);
-    if (constructs.length > 0) {
-        return constructs[0];
-    }
-    else {
-        return undefined;
-    }
+    let found;
+    exploreConstructs(root, test, (matchedConstruct, stop) => {
+        found = matchedConstruct;
+        stop();
+    });
+    return found;
 }
 exports.findFirstConstruct = findFirstConstruct;
 function containsConstruct(root, test) {
