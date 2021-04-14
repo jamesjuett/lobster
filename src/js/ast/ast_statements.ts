@@ -1,4 +1,4 @@
-import { ASTNode } from "./ASTNode";
+import { AnythingConstructASTNode, ASTNode } from "./ASTNode";
 import { LocalDeclarationASTNode } from "./ast_declarations";
 import { ExpressionASTNode } from "./ast_expressions";
 
@@ -12,7 +12,8 @@ IterationStatementASTNode |
 JumpStatementASTNode |
 DeclarationStatementASTNode |
 ExpressionStatementASTNode |
-NullStatementASTNode;
+NullStatementASTNode |
+AnythingConstructASTNode;
 
 
 export interface ExpressionStatementASTNode extends ASTNode {

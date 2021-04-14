@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.RuntimeFunctionArrowExpression = exports.RuntimeObjectArrowExpression = exports.ArrowExpression = exports.RuntimeFunctionDotExpression = exports.RuntimeObjectDotExpression = exports.DotExpression = exports.RuntimeSubscriptExpression = exports.SubscriptExpression = exports.RuntimeLogicalNotExpression = exports.LogicalNotExpression = exports.RuntimeUnaryMinusExpression = exports.UnaryMinusExpression = exports.RuntimeUnaryPlusExpression = exports.UnaryPlusExpression = exports.RuntimeAddressOfExpression = exports.AddressOfExpression = exports.RuntimeDereferenceExpression = exports.DereferenceExpression = exports.RuntimePrefixIncrementExpression = exports.PrefixIncrementExpression = exports.RuntimeLogicalBinaryOperatorExpression = exports.LogicalBinaryOperatorExpression = exports.RuntimePointerComparisonExpression = exports.PointerComparisonExpression = exports.RuntimeRelationalBinaryOperator = exports.RelationalBinaryOperatorExpression = exports.RuntimeInputOperatorExpression = exports.InputOperatorExpression = exports.RuntimeOutputOperatorExpression = exports.OutputOperatorExpression = exports.RuntimePointerOffset = exports.PointerOffsetExpression = exports.RuntimePointerDifference = exports.PointerDifferenceExpression = exports.RuntimeArithmeticBinaryOperator = exports.ArithmeticBinaryOperatorExpression = exports.RuntimeCompoundAssignment = exports.CompoundAssignmentExpression = exports.RuntimeAssignment = exports.AssignmentExpression = exports.RuntimeTernary = exports.TernaryExpression = exports.RuntimeComma = exports.CommaExpression = exports.SimpleRuntimeExpression = exports.InvalidExpression = exports.UnsupportedExpression = exports.createRuntimeExpression = exports.createExpressionFromAST = exports.readValueWithAlert = void 0;
-exports.RuntimeNonMemberOperatorOverloadExpression = exports.NonMemberOperatorOverloadExpression = exports.selectOperatorOverload = exports.usualArithmeticConversions = exports.isConvertible = exports.isConvertibleToPointer = exports.isIntegerLiteralZero = exports.integralPromotion = exports.standardConversion = exports.qualificationConversion = exports.typeConversion = exports.convertToPRValue = exports.QualificationConversion = exports.FloatingToIntegralConversion = exports.IntegralToFloatingConversion = exports.FloatingPointConversion = exports.FloatingPointPromotion = exports.IntegralConversion = exports.IntegralPromotion = exports.IntegralToBooleanConversion = exports.FloatingToBooleanConversion = exports.PointerToBooleanConversion = exports.ToBooleanConversion = exports.PointerConversion = exports.NullPointerConversion = exports.StreamToBoolConversion = exports.ArrayToPointerConversion = exports.LValueToRValueConversion = exports.RuntimeImplicitConversion = exports.ImplicitConversion = exports.RuntimeMagicFunctionCallExpression = exports.MagicFunctionCallExpression = exports.overloadResolution = exports.AuxiliaryExpression = exports.RuntimeInitializerListExpression = exports.InitializerListExpression = exports.RuntimeParentheses = exports.ParenthesesExpression = exports.RuntimeStringLiteralExpression = exports.StringLiteralExpression = exports.RuntimeNumericLiteral = exports.NumericLiteralExpression = exports.RuntimeThisExpression = exports.ThisExpression = exports.RuntimeFunctionIdentifierExpression = exports.RuntimeObjectIdentifierExpression = exports.entityLookup = exports.IdentifierExpression = exports.RuntimePostfixIncrementExpression = exports.PostfixIncrementExpression = void 0;
-exports.InvalidOperatorOverloadExpression = exports.RuntimeMemberOperatorOverloadExpression = exports.MemberOperatorOverloadExpression = void 0;
+exports.RuntimeObjectArrowExpression = exports.ArrowExpression = exports.RuntimeFunctionDotExpression = exports.RuntimeObjectDotExpression = exports.DotExpression = exports.RuntimeSubscriptExpression = exports.SubscriptExpression = exports.RuntimeLogicalNotExpression = exports.LogicalNotExpression = exports.RuntimeUnaryMinusExpression = exports.UnaryMinusExpression = exports.RuntimeUnaryPlusExpression = exports.UnaryPlusExpression = exports.RuntimeAddressOfExpression = exports.AddressOfExpression = exports.RuntimeDereferenceExpression = exports.DereferenceExpression = exports.RuntimePrefixIncrementExpression = exports.PrefixIncrementExpression = exports.RuntimeLogicalBinaryOperatorExpression = exports.LogicalBinaryOperatorExpression = exports.RuntimePointerComparisonExpression = exports.PointerComparisonExpression = exports.RuntimeRelationalBinaryOperator = exports.RelationalBinaryOperatorExpression = exports.RuntimeInputOperatorExpression = exports.InputOperatorExpression = exports.RuntimeOutputOperatorExpression = exports.OutputOperatorExpression = exports.RuntimePointerOffset = exports.PointerOffsetExpression = exports.RuntimePointerDifference = exports.PointerDifferenceExpression = exports.RuntimeArithmeticBinaryOperator = exports.ArithmeticBinaryOperatorExpression = exports.RuntimeCompoundAssignment = exports.CompoundAssignmentExpression = exports.RuntimeAssignment = exports.AssignmentExpression = exports.RuntimeTernary = exports.TernaryExpression = exports.RuntimeComma = exports.CommaExpression = exports.SimpleRuntimeExpression = exports.AnythingExpression = exports.InvalidExpression = exports.UnsupportedExpression = exports.createRuntimeExpression = exports.createExpressionFromAST = exports.readValueWithAlert = void 0;
+exports.usualArithmeticConversions = exports.isConvertible = exports.isConvertibleToPointer = exports.isIntegerLiteralZero = exports.integralPromotion = exports.standardConversion = exports.qualificationConversion = exports.typeConversion = exports.convertToPRValue = exports.QualificationConversion = exports.FloatingToIntegralConversion = exports.IntegralToFloatingConversion = exports.FloatingPointConversion = exports.FloatingPointPromotion = exports.IntegralConversion = exports.IntegralPromotion = exports.IntegralToBooleanConversion = exports.FloatingToBooleanConversion = exports.PointerToBooleanConversion = exports.ToBooleanConversion = exports.PointerConversion = exports.NullPointerConversion = exports.StreamToBoolConversion = exports.ArrayToPointerConversion = exports.LValueToRValueConversion = exports.RuntimeImplicitConversion = exports.ImplicitConversion = exports.RuntimeMagicFunctionCallExpression = exports.MagicFunctionCallExpression = exports.overloadResolution = exports.AuxiliaryExpression = exports.RuntimeInitializerListExpression = exports.InitializerListExpression = exports.RuntimeParentheses = exports.ParenthesesExpression = exports.RuntimeStringLiteralExpression = exports.StringLiteralExpression = exports.RuntimeNumericLiteral = exports.NumericLiteralExpression = exports.RuntimeNullptrExpression = exports.NullptrExpression = exports.RuntimeThisExpression = exports.ThisExpression = exports.RuntimeFunctionIdentifierExpression = exports.RuntimeObjectIdentifierExpression = exports.entityLookup = exports.IdentifierExpression = exports.RuntimePostfixIncrementExpression = exports.PostfixIncrementExpression = exports.RuntimeFunctionArrowExpression = void 0;
+exports.InvalidOperatorOverloadExpression = exports.RuntimeMemberOperatorOverloadExpression = exports.MemberOperatorOverloadExpression = exports.RuntimeNonMemberOperatorOverloadExpression = exports.NonMemberOperatorOverloadExpression = exports.selectOperatorOverload = void 0;
 const objects_1 = require("./objects");
 const Simulation_1 = require("./Simulation");
 const types_1 = require("./types");
@@ -72,11 +72,13 @@ const ExpressionConstructsMap = {
     "construct_expression": (ast, context) => new UnsupportedExpression(context, ast, "construct expression"),
     "identifier_expression": (ast, context) => IdentifierExpression.createFromAST(ast, context),
     "this_expression": (ast, context) => ThisExpression.createFromAST(ast, context),
+    "nullptr_expression": (ast, context) => NullptrExpression.createFromAST(ast, context),
     "numeric_literal_expression": (ast, context) => NumericLiteralExpression.createFromAST(ast, context),
     "string_literal_expression": (ast, context) => StringLiteralExpression.createFromAST(ast, context),
     "parentheses_expression": (ast, context) => ParenthesesExpression.createFromAST(ast, context),
     "initializer_list_expression": (ast, context) => InitializerListExpression.createFromAST(ast, context),
-    "opaque_expression": (ast, context) => opaqueExpression_1.OpaqueExpression.createFromAST(ast, context)
+    "opaque_expression": (ast, context) => opaqueExpression_1.OpaqueExpression.createFromAST(ast, context),
+    "anything_construct": (ast, context) => new AnythingExpression(context, ast)
 };
 /**
  * Creates an expression construct based on a given expression AST node.
@@ -94,6 +96,7 @@ function createExpressionFromAST(ast, context) {
 exports.createExpressionFromAST = createExpressionFromAST;
 const ExpressionConstructsRuntimeMap = {
     "unsupported_expression": (construct, parent) => { throw new Error("Cannot create a runtime instance of an unsupported construct."); },
+    "anything_construct": (construct, parent) => { throw new Error("Cannot create a runtime instance of an \"anything\" placeholder construct."); },
     "invalid_operator_overload_expression": (construct, parent) => { throw new Error("Cannot create a runtime instance of an invalid operator overload expression."); },
     "comma_expression": (construct, parent) => new RuntimeComma(construct, parent),
     "ternary_expression": (construct, parent) => new RuntimeTernary(construct, parent),
@@ -117,6 +120,7 @@ const ExpressionConstructsRuntimeMap = {
     "delete_expression": (construct, parent) => new new_delete_1.RuntimeDeleteExpression(construct, parent),
     "delete_array_expression": (construct, parent) => new new_delete_1.RuntimeDeleteArrayExpression(construct, parent),
     "this_expression": (construct, parent) => new RuntimeThisExpression(construct, parent),
+    "nullptr_expression": (construct, parent) => new RuntimeNullptrExpression(construct, parent),
     "unary_plus_expression": (construct, parent) => new RuntimeUnaryPlusExpression(construct, parent),
     "unary_minus_expression": (construct, parent) => new RuntimeUnaryMinusExpression(construct, parent),
     "logical_not_expression": (construct, parent) => new RuntimeLogicalNotExpression(construct, parent),
@@ -206,6 +210,25 @@ class InvalidExpression extends expressionBase_1.Expression {
     }
 }
 exports.InvalidExpression = InvalidExpression;
+class AnythingExpression extends expressionBase_1.Expression {
+    constructor(context, ast) {
+        super(context, ast);
+        this.construct_type = "anything_construct";
+        this.addNote(errors_1.CPPError.lobster.anything_construct(this));
+    }
+    createDefaultOutlet(element, parent) {
+        throw new Error("Cannot create an outlet for an \"anything\" placeholder construct.");
+    }
+    describeEvalResult(depth) {
+        return {
+            message: "an \"anything\" placeholder expression to support semantic analysis"
+        };
+    }
+    isSemanticallyEquivalent_impl(other, equivalenceContext) {
+        return true;
+    }
+}
+exports.AnythingExpression = AnythingExpression;
 class SimpleRuntimeExpression extends expressionBase_1.RuntimeExpression {
     constructor(model, parent) {
         super(model, parent);
@@ -2761,6 +2784,33 @@ class RuntimeThisExpression extends SimpleRuntimeExpression {
     }
 }
 exports.RuntimeThisExpression = RuntimeThisExpression;
+class NullptrExpression extends expressionBase_1.Expression {
+    constructor(context, ast) {
+        super(context, ast);
+        this.construct_type = "nullptr_expression";
+        this.type = types_1.Int.INT;
+        this.valueCategory = "prvalue";
+    }
+    static createFromAST(ast, context) {
+        return new NullptrExpression(context, ast);
+    }
+    createDefaultOutlet(element, parent) {
+        return new codeOutlets_1.NullptrExpressionOutlet(element, this, parent);
+    }
+    describeEvalResult(depth) {
+        throw new Error("Method not implemented.");
+    }
+}
+exports.NullptrExpression = NullptrExpression;
+class RuntimeNullptrExpression extends SimpleRuntimeExpression {
+    constructor(model, parent) {
+        super(model, parent);
+    }
+    operate() {
+        this.setEvalResult(types_1.Int.ZERO);
+    }
+}
+exports.RuntimeNullptrExpression = RuntimeNullptrExpression;
 // export var EntityExpression  = Expression.extend({
 //     _name: "EntityExpression",
 //     valueCategory: "lvalue",
@@ -3365,7 +3415,6 @@ class NoOpTypeConversion extends TypeConversion {
 class NullPointerConversion extends NoOpTypeConversion {
     constructor(from, toType) {
         super(from, toType);
-        util_1.assert(from.value.rawValue === 0);
     }
 }
 exports.NullPointerConversion = NullPointerConversion;
@@ -3594,7 +3643,7 @@ function integralPromotion(expr) {
 exports.integralPromotion = integralPromotion;
 ;
 function isIntegerLiteralZero(from) {
-    return from instanceof NumericLiteralExpression && types_1.isType(from.type, types_1.Int) && from.value.rawValue === 0;
+    return from instanceof NullptrExpression || from instanceof NumericLiteralExpression && types_1.isType(from.type, types_1.Int) && from.value.rawValue === 0;
 }
 exports.isIntegerLiteralZero = isIntegerLiteralZero;
 function isConvertibleToPointer(from) {

@@ -74,6 +74,11 @@ class FunctionCallExpression extends expressionBase_1.Expression {
     describeEvalResult(depth) {
         throw new Error("Method not implemented.");
     }
+    isSemanticallyEquivalent_impl(other, ec) {
+        return other.construct_type === this.construct_type
+            && constructs_1.areSemanticallyEquivalent(this.operand, other.operand, ec)
+            && constructs_1.areAllSemanticallyEquivalent(this.originalArgs, other.originalArgs, ec);
+    }
 }
 exports.FunctionCallExpression = FunctionCallExpression;
 exports.INDEX_FUNCTION_CALL_EXPRESSION_OPERAND = 0;

@@ -64,7 +64,7 @@ export declare class Scope {
      * If an error prevents the entity being added successfully. (e.g. An error due to
      * multiple definitions of the same class within a single translation unit.)
      */
-    declareClassEntity(newEntity: ClassEntity): ClassEntity | CompilerNote;
+    declareClassEntity(newEntity: ClassEntity): CompilerNote | ClassEntity;
     protected classEntityCreated(newEntity: ClassEntity): void;
     /**
      * Performs unqualified name lookup of a given name in this scope. Returns the entity found, or undefined
@@ -481,7 +481,7 @@ export declare class ClassEntity extends DeclaredEntityBase<PotentiallyCompleteC
      * same translation unit, which is prohibited.)
      * @param existingEntity
      */
-    mergeInto(existingEntity: ClassEntity): ClassEntity | CompilerNote;
+    mergeInto(existingEntity: ClassEntity): CompilerNote | ClassEntity;
     setDefinition(def: ClassDefinition): void;
     registerWithLinker(): void;
     link(def: ClassDefinition | undefined): void;

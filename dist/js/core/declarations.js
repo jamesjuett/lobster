@@ -1170,7 +1170,7 @@ class ClassDeclaration extends constructs_1.BasicCPPConstruct {
         this.type = this.declaredEntity.type;
     }
     isSemanticallyEquivalent_impl(other, equivalenceContext) {
-        return true;
+        return other.construct_type === this.construct_type;
         // TODO: semantic equivalence
     }
 }
@@ -1665,7 +1665,7 @@ class ClassDefinition extends constructs_1.BasicCPPConstruct {
         return super.isSuccessfullyCompiled();
     }
     isSemanticallyEquivalent_impl(other, equivalenceContext) {
-        return true;
+        return other.construct_type === this.construct_type;
         // TODO semantic equivalence
     }
 }
@@ -1735,7 +1735,7 @@ class MemberVariableDeclaration extends VariableDefinitionBase {
         }
     }
     isSemanticallyEquivalent_impl(other, equivalenceContext) {
-        return true;
+        return other.construct_type === this.construct_type;
         // TODO semantic equivalence
     }
 }

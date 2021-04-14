@@ -51,7 +51,7 @@ interface OtherSpecifiers {
     readonly explicit?: boolean;
     readonly virtual?: boolean;
 }
-export declare type Declaration = TopLevelSimpleDeclaration | LocalSimpleDeclaration | MemberDeclaration | FunctionDefinition | ClassDefinition | InvalidConstruct;
+export declare type Declaration = TopLevelSimpleDeclaration | LocalSimpleDeclaration | MemberDeclaration | FunctionDefinition | ClassDeclaration | ClassDefinition | InvalidConstruct;
 export declare type TopLevelDeclaration = TopLevelSimpleDeclaration | FunctionDefinition | ClassDefinition | InvalidConstruct;
 export declare type TopLevelSimpleDeclaration = NonObjectDeclaration | GlobalVariableDefinition | IncompleteTypeVariableDefinition;
 export declare type LocalDeclaration = LocalSimpleDeclaration | FunctionDefinition | ClassDefinition | InvalidConstruct;

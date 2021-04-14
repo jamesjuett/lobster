@@ -1166,7 +1166,17 @@ return ((root-&#x3E;datum) == compare? 1: 0) + countEqual(root-&#x3E;left, compa
 }
 return (root-&#x3E;datum == compare ? 1 : 0)
 &#x9;+ countEqual(root-&#x3E;left, compare)
-&#x9;+ countEqual(root-&#x3E;right, compare);</code></pre><div style="text-align: center;">CORRECT</div></td></tr></table><table><tr> <td><pre><code>if (!root) { return 0; }
+&#x9;+ countEqual(root-&#x3E;right, compare);</code></pre><div style="text-align: center;">CORRECT</div></td></tr></table><table><tr> <td><pre><code>if (root == 0) { return 0; }
+int nodeSum = 0;
+if (root-&#x3E;datum == compare) { ++nodeSum; }
+nodeSum += countEqual(node-&#x3E;left, compare);
+nodeSum += countEqual(node-&#x3E;right, compare);
+return nodeSum;</code></pre></td><td><pre><code>if(root == 0) return 0; //base case
+int x = 0; //create value to return
+if(root-&#x3E;datum == compare) ++x; //increase x if current node is compare
+x += countEqual(root-&#x3E;left, compare); //add countEqual of left subtree to x
+x += countEqual(root-&#x3E;right, compare); //add countEqual of right subtree to x
+return x;</code></pre></td></tr></table><table><tr> <td><pre><code>if (!root) { return 0; }
 int addToCount = root-&#x3E;datum == compare ? 1 : 0;
 return addToCount + countEqual(root-&#x3E;left) + countEqual(root-&#x3E;right);</code></pre></td><td><pre><code>if (!root) return 0;
 int add = (root-&#x3E;datum == compare);
@@ -1380,12 +1390,7 @@ if(!root){
 } else if(root-&#x3E;datum == compare){
     count++;
 }
-return count + countEqual(root-&#x3E;left, compare) + countEqual(root-&#x3E;right, compare);</code></pre><div style="text-align: center;">CORRECT</div></td></tr></table><table><tr> <td><pre><code>if (root == 0) { return 0; }
-int nodeSum = 0;
-if (root-&#x3E;datum == compare) { ++nodeSum; }
-nodeSum += countEqual(node-&#x3E;left, compare);
-nodeSum += countEqual(node-&#x3E;right, compare);
-return nodeSum;</code></pre></td></tr></table><table><tr> <td><pre><code>if (!root) return 0;
+return count + countEqual(root-&#x3E;left, compare) + countEqual(root-&#x3E;right, compare);</code></pre><div style="text-align: center;">CORRECT</div></td></tr></table><table><tr> <td><pre><code>if (!root) return 0;
 int didItContain;
 if (root-&#x3E;datum == compare) didItContain = 1;
 else didItContain = 0;
@@ -2191,12 +2196,7 @@ else{
         count = count + countEqual(root-&#x3E;right, compare);
     }
     return count;
-}</code></pre><div style="text-align: center;">CORRECT</div></td></tr></table><table><tr><td style="vertical-align: middle; font-size: 48pt; color: green;"><i class="bi bi-check-circle"></i></td> <td><pre><code>if(root == 0) return 0; //base case
-int x = 0; //create value to return
-if(root-&#x3E;datum == compare) ++x; //increase x if current node is compare
-x += countEqual(root-&#x3E;left, compare); //add countEqual of left subtree to x
-x += countEqual(root-&#x3E;right, compare); //add countEqual of right subtree to x
-return x;</code></pre><div style="text-align: center;">CORRECT</div></td></tr></table><table><tr> <td><pre><code>int count = 0;
+}</code></pre><div style="text-align: center;">CORRECT</div></td></tr></table><table><tr> <td><pre><code>int count = 0;
 if(!root){
     return 0;
 }
@@ -2744,13 +2744,13 @@ return 1 + countEqual(*root-&#x3E;left);
 else {
    return countEqual(root-&#x3E;left) + countEqual(root-&#x3E;right);
 }
-</code></pre></td></tr></table><table><tr> <td><pre><code>if (root == NULL) {
+</code></pre></td></tr></table><table><tr><td style="vertical-align: middle; font-size: 48pt; color: green;"><i class="bi bi-check-circle"></i></td> <td><pre><code>if (root == NULL) {
     return 0;
 }
 if(root-&#x3E;datum == compare){
     return countEqual(root-&#x3E;left, compare) + countEqual(root-&#x3E;right, compare) + 1;
 }
-return countEqual(root-&#x3E;left, compare) + countEqual(root-&#x3E;right, compare);</code></pre></td></tr></table><table><tr> <td><pre><code>int num = 0;
+return countEqual(root-&#x3E;left, compare) + countEqual(root-&#x3E;right, compare);</code></pre><div style="text-align: center;">CORRECT</div></td></tr></table><table><tr> <td><pre><code>int num = 0;
 if(root-&#x3E;datum == compare){
     num++;
 }
@@ -2917,7 +2917,7 @@ ans = 1;
 int left_ans = countEqual(root-&#x3E;left,compare);
 int right_ans = countEqual(root-&#x3E;right,compare);
 
-return ans+left_ans+right_ans;</code></pre></td></tr></table><table><tr> <td><pre><code>       int result = 0;
+return ans+left_ans+right_ans;</code></pre></td></tr></table><table><tr><td style="vertical-align: middle; font-size: 48pt; color: green;"><i class="bi bi-check-circle"></i></td> <td><pre><code>       int result = 0;
        if(root-&#x3E;datum == compare){
            result = result + 1;
        }
@@ -2927,7 +2927,7 @@ return ans+left_ans+right_ans;</code></pre></td></tr></table><table><tr> <td><pr
        if(root-&#x3E;right!=NULL){
            result = result+countEqual(root-&#x3E;right,compare);
        }
-       return result;</code></pre></td></tr></table><table><tr> <td><pre><code>if(!node){ return 0; }
+       return result;</code></pre><div style="text-align: center;">CORRECT</div></td></tr></table><table><tr> <td><pre><code>if(!node){ return 0; }
 if(node-&#x3E;datum == compare){
     return 1 + countEqual(node-&#x3E;left, compare) + countEqual(node-&#x3E;right, compare);
 }

@@ -16,6 +16,7 @@ import { RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { ArraySubobject, AutoObject } from "./objects";
 import { LabeledStatementASTNode, BlockASTNode, IfStatementASTNode, WhileStatementASTNode, DoWhileStatementASTNode, ForStatementASTNode, BreakStatementASTNode, ContinueStatementASTNode, ReturnStatementASTNode, DeclarationStatementASTNode, ExpressionStatementASTNode, NullStatementASTNode, StatementASTNode } from "../ast/ast_statements";
 import { ObjectDeallocator, CompiledObjectDeallocator, createLocalDeallocator, RuntimeObjectDeallocator} from "./ObjectDeallocator";
+import { AnythingConstructASTNode } from "../ast/ASTNode";
 
 
 const StatementConstructsMap = {
@@ -30,7 +31,8 @@ const StatementConstructsMap = {
     "return_statement": (ast: ReturnStatementASTNode, context: BlockContext) => ReturnStatement.createFromAST(ast, context),
     "declaration_statement": (ast: DeclarationStatementASTNode, context: BlockContext) => DeclarationStatement.createFromAST(ast, context),
     "expression_statement": (ast: ExpressionStatementASTNode, context: BlockContext) => ExpressionStatement.createFromAST(ast, context),
-    "null_statement": (ast: NullStatementASTNode, context: BlockContext) => new NullStatement(context, ast)
+    "null_statement": (ast: NullStatementASTNode, context: BlockContext) => new NullStatement(context, ast),
+    "anything_construct": (ast: AnythingConstructASTNode, context: BlockContext) => new AnythingStatement(context, ast)
 }
 
 export function createStatementFromAST<ASTType extends StatementASTNode>(ast: ASTType, context: BlockContext): ReturnType<(typeof StatementConstructsMap)[ASTType["construct_type"]]> {
@@ -139,6 +141,23 @@ export class UnsupportedStatement extends Statement {
     
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
         return other.construct_type === this.construct_type;
+    }
+}
+
+export class AnythingStatement extends Statement {
+    public readonly construct_type = "anything_construct";
+
+    public constructor(context: BlockContext, ast: AnythingConstructASTNode | undefined) {
+        super(context, ast);
+        this.addNote(CPPError.lobster.anything_construct(this));
+    }
+
+    public createDefaultOutlet(element: JQuery, parent?: ConstructOutlet): never {
+        throw new Error("Cannot create an outlet for an \"anything\" placeholder construct.");
+    }
+
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext) : boolean {
+        return true;
     }
 }
 
@@ -1494,6 +1513,5 @@ export class RuntimeForStatement extends RuntimeStatement<CompiledForStatement> 
 //     _name: "Statements.Continue",
 //     englishName: "continue statement"
 // });
-
 
 

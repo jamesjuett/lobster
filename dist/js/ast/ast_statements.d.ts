@@ -1,7 +1,7 @@
-import { ASTNode } from "./ASTNode";
+import { AnythingConstructASTNode, ASTNode } from "./ASTNode";
 import { LocalDeclarationASTNode } from "./ast_declarations";
 import { ExpressionASTNode } from "./ast_expressions";
-export declare type StatementASTNode = LabeledStatementASTNode | BlockASTNode | IfStatementASTNode | IterationStatementASTNode | JumpStatementASTNode | DeclarationStatementASTNode | ExpressionStatementASTNode | NullStatementASTNode;
+export declare type StatementASTNode = LabeledStatementASTNode | BlockASTNode | IfStatementASTNode | IterationStatementASTNode | JumpStatementASTNode | DeclarationStatementASTNode | ExpressionStatementASTNode | NullStatementASTNode | AnythingConstructASTNode;
 export interface ExpressionStatementASTNode extends ASTNode {
     readonly construct_type: "expression_statement";
     readonly expression: ExpressionASTNode;

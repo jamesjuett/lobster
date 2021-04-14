@@ -201,8 +201,9 @@ class Exercise {
         return __awaiter(this, void 0, void 0, function* () {
             util_1.assert(this.project);
             util_1.asMutable(this).checkpointEvaluationsFinished = this.checkpoints.map(c => false);
+            util_1.asMutable(this).checkpointCompletions = this.checkpoints.map(c => false);
             this.observable.send("allCheckpointEvaluationStarted", this);
-            this.checkpointCompletions = yield Promise.all(this.checkpoints.map((checkpoint, i) => __awaiter(this, void 0, void 0, function* () {
+            yield Promise.all(this.checkpoints.map((checkpoint, i) => __awaiter(this, void 0, void 0, function* () {
                 try {
                     let result = yield checkpoint.evaluate(this.project);
                     util_1.asMutable(this.checkpointEvaluationsFinished)[i] = true;

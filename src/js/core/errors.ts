@@ -1097,6 +1097,9 @@ export const CPPError = {
         keyword: function (construct: TranslationUnitConstruct, name: string) {
             return new CompilerNote(construct, NoteKind.ERROR, "lobster.keyword", "\"" + name + "\" is a special keyword used by the Lobster system and cannot be used as an identifier.");
         },
+        anything_construct: function (construct: TranslationUnitConstruct) {
+            return new CompilerNote(construct, NoteKind.ERROR, "lobster.anything_construct", "An \"anything\" construct is a placeholder for Lobster's semantic analysis system and not a valid program construct.");
+        },
     }
 };
 

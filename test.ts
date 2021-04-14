@@ -197,7 +197,7 @@ submissions.forEach((sub, i) => {
     if (p.isRunnable()) {
         console.log("runnable");
         sim = new Simulation(p);
-        new SynchronousSimulationRunner(sim).stepToEnd(20000)
+        new SynchronousSimulationRunner(sim).stepToEnd(2000)
     }
     else {
         console.log(p.notes.allNotes.map(n => n.message));

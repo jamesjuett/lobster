@@ -28,6 +28,9 @@ class Expression extends PotentialFullExpression_1.PotentialFullExpression {
     isTailChild(child) {
         return { isTail: false };
     }
+    analytic() {
+        return this;
+    }
     isSemanticallyEquivalent_impl(other, ec) {
         return other.construct_type === this.construct_type
             && constructs_1.areAllSemanticallyEquivalent(this.children, other.children, ec);

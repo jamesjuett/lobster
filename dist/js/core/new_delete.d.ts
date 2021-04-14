@@ -11,7 +11,7 @@ import { CompiledFunctionCall, FunctionCall, RuntimeFunctionCall } from "./Funct
 import { CompiledDefaultInitializer, CompiledDirectInitializer, CompiledInitializer, DefaultInitializer, DirectInitializer, Initializer, RuntimeDefaultInitializer, RuntimeDirectInitializer, RuntimeInitializer } from "./initializers";
 import { CompiledDeclarator, CompiledTypeSpecifier, Declarator, TypeSpecifier } from "./declarations";
 import { NewExpressionASTNode, DeleteExpressionASTNode, DeleteArrayExpressionASTNode } from "../ast/ast_expressions";
-export declare function createNewExpressionFromAST(ast: NewExpressionASTNode, context: ExpressionContext): NewArrayExpression | NewExpression;
+export declare function createNewExpressionFromAST(ast: NewExpressionASTNode, context: ExpressionContext): NewExpression | NewArrayExpression;
 export declare type NewObjectType = AtomicType | CompleteClassType;
 export declare class NewExpression extends Expression<NewExpressionASTNode> {
     readonly construct_type = "new_expression";

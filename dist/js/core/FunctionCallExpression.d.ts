@@ -1,6 +1,6 @@
 /// <reference types="jquery" />
 /// <reference types="bootstrap" />
-import { SuccessfullyCompiled, RuntimeConstruct, ExpressionContext, ConstructDescription } from "./constructs";
+import { SuccessfullyCompiled, RuntimeConstruct, ExpressionContext, ConstructDescription, SemanticContext } from "./constructs";
 import { CompiledTemporaryDeallocator } from "./PotentialFullExpression";
 import { CompiledFunctionCall, FunctionCall, RuntimeFunctionCall, TypedFunctionCall } from "./FunctionCall";
 import { CompiledFunctionIdentifierExpression, RuntimeFunctionIdentifierExpression, MagicFunctionCallExpression, CompiledFunctionDotExpression, RuntimeFunctionDotExpression, CompiledFunctionArrowExpression, RuntimeFunctionArrowExpression } from "./expressions";
@@ -8,6 +8,7 @@ import { FunctionCallExpressionASTNode } from "../ast/ast_expressions";
 import { PeelReference, FunctionType, CompleteReturnType } from "./types";
 import { CompiledExpression, RuntimeExpression, ValueCategory, Expression } from "./expressionBase";
 import { FunctionCallExpressionOutlet, ConstructOutlet } from "../view/codeOutlets";
+import { AnalyticConstruct } from "./predicates";
 export declare class FunctionCallExpression extends Expression<FunctionCallExpressionASTNode> {
     readonly construct_type = "function_call_expression";
     readonly type?: PeelReference<CompleteReturnType>;
@@ -19,6 +20,7 @@ export declare class FunctionCallExpression extends Expression<FunctionCallExpre
     static createFromAST(ast: FunctionCallExpressionASTNode, context: ExpressionContext): FunctionCallExpression | MagicFunctionCallExpression;
     createDefaultOutlet(this: CompiledFunctionCallExpression, element: JQuery, parent?: ConstructOutlet): FunctionCallExpressionOutlet;
     describeEvalResult(depth: number): ConstructDescription;
+    isSemanticallyEquivalent_impl(other: AnalyticConstruct, ec: SemanticContext): boolean;
 }
 export interface TypedFunctionCallExpression<T extends PeelReference<CompleteReturnType> = PeelReference<CompleteReturnType>, V extends ValueCategory = ValueCategory> extends FunctionCallExpression {
     readonly type: T;

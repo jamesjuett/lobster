@@ -394,6 +394,7 @@ export declare const CPPError: {
         ternarySameType: (construct: TranslationUnitConstruct, type1: Type, type2: Type) => CompilerNote;
         ternaryNoVoid: (construct: TranslationUnitConstruct) => CompilerNote;
         keyword: (construct: TranslationUnitConstruct, name: string) => CompilerNote;
+        anything_construct: (construct: TranslationUnitConstruct) => CompilerNote;
     };
 };
 export interface NoteHandler {

@@ -10,6 +10,7 @@ import { RuntimeFunction } from "./functions";
 import { AnalyticConstruct } from "./predicates";
 import { LabeledStatementASTNode, BlockASTNode, IfStatementASTNode, WhileStatementASTNode, DoWhileStatementASTNode, ForStatementASTNode, BreakStatementASTNode, ContinueStatementASTNode, ReturnStatementASTNode, DeclarationStatementASTNode, ExpressionStatementASTNode, NullStatementASTNode, StatementASTNode } from "../ast/ast_statements";
 import { ObjectDeallocator, CompiledObjectDeallocator, RuntimeObjectDeallocator } from "./ObjectDeallocator";
+import { AnythingConstructASTNode } from "../ast/ASTNode";
 declare const StatementConstructsMap: {
     labeled_statement: (ast: LabeledStatementASTNode, context: BlockContext) => UnsupportedStatement;
     block: (ast: BlockASTNode, context: BlockContext) => Block;
@@ -23,6 +24,7 @@ declare const StatementConstructsMap: {
     declaration_statement: (ast: DeclarationStatementASTNode, context: BlockContext) => DeclarationStatement;
     expression_statement: (ast: ExpressionStatementASTNode, context: BlockContext) => ExpressionStatement;
     null_statement: (ast: NullStatementASTNode, context: BlockContext) => NullStatement;
+    anything_construct: (ast: AnythingConstructASTNode, context: BlockContext) => AnythingStatement;
 };
 export declare function createStatementFromAST<ASTType extends StatementASTNode>(ast: ASTType, context: BlockContext): ReturnType<(typeof StatementConstructsMap)[ASTType["construct_type"]]>;
 export declare type CompiledStatementKinds = {
@@ -67,6 +69,12 @@ export declare abstract class RuntimeStatement<C extends CompiledStatement = Com
 export declare class UnsupportedStatement extends Statement {
     readonly construct_type = "unsupported_statement";
     constructor(context: BlockContext, ast: StatementASTNode, unsupportedName: string);
+    createDefaultOutlet(element: JQuery, parent?: ConstructOutlet): never;
+    isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean;
+}
+export declare class AnythingStatement extends Statement {
+    readonly construct_type = "anything_construct";
+    constructor(context: BlockContext, ast: AnythingConstructASTNode | undefined);
     createDefaultOutlet(element: JQuery, parent?: ConstructOutlet): never;
     isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean;
 }

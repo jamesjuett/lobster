@@ -91,9 +91,11 @@ export interface MemberSpecificationContext extends ClassContext {
 export declare function createMemberSpecificationContext(classContext: ClassContext, accessLevel: AccessSpecifier): MemberSpecificationContext;
 export declare type SemanticContext = {};
 export declare function areAllSemanticallyEquivalent(constructs: readonly CPPConstruct[], others: readonly CPPConstruct[], equivalenceContext: SemanticContext): boolean;
+export declare function isAnythingConstruct(construct: CPPConstruct | undefined): boolean;
 export declare function areSemanticallyEquivalent(construct: CPPConstruct | undefined, other: CPPConstruct | undefined, equivalenceContext: SemanticContext): boolean;
 export declare abstract class CPPConstruct<ContextType extends ProgramContext = ProgramContext, ASTType extends ASTNode = ASTNode> {
     abstract readonly construct_type: string;
+    readonly t_analytic: AnalyticConstruct;
     private static NEXT_ID;
     readonly constructId: number;
     readonly notes: NoteRecorder;
