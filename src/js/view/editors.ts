@@ -566,7 +566,7 @@ export class CompilationStatusOutlet {
     @messageResponse("compilationFinished")
     private onCompilationFinished() {
         this.notesElem.show();
-        this.numErrorsElem.html("" + this.project.program.notes.numNotes(NoteKind.ERROR));
+        this.numErrorsElem.html("" );
         this.numWarningsElem.html("" + this.project.program.notes.numNotes(NoteKind.WARNING));
         this.numStyleElem.html("" + this.project.program.notes.numNotes(NoteKind.STYLE));
 

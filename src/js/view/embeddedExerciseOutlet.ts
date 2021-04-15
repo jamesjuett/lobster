@@ -26,7 +26,10 @@ export function createRunestoneExerciseOutlet(id: string) {
                                     <button class="btn btn-xs btn-primary active">OFF</button>
                                 </div>
                             </div>
-                            <button class = "btn btn-primary-muted runButton" style="display: inline-block; margin-left: 1em"><span class="glyphicon glyphicon-play-circle"></span> Simulate</span></button>
+                            <button class = "btn btn-primary-muted runButton" style="display: inline-block; margin-left: 1em"><span class="glyphicon glyphicon-play-circle"></span></button>
+                           
+                            <button class = "btn btn-primary-muted runButton" style="display: inline-block; margin-left: 1em"><span class="glyphicon glyphicon-remove"></span></button>
+
                         </div>
                     </div>
                     <div style="height: 100%; display: flex; flex-direction: row; overflow: hidden;">

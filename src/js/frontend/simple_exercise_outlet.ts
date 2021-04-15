@@ -1,9 +1,9 @@
 
 export function createSimpleExerciseOutlet(id: string) {
     return $(`
-        <div class="lobster-ex-checkpoints panel panel-default" style="margin-top: 0.5em;">
-            <div class="panel-heading"></div>
-            <div class="panel-body">
+        <div class="lobster-ex-checkpoints panel panel-default" style="margin-top: 0.5em; display: none;">
+            <div class="panel-heading" style="display: none;"></div>
+            <div class="panel-body" style="display: none;">
                 
             </div>
         </div>
@@ -37,14 +37,14 @@ export function createSimpleExerciseOutlet(id: string) {
                         <ul style="display:inline-block; vertical-align: middle;" class="project-files nav nav-pills"></ul>
                         <div style="float: right;">
                             <div class = "compilation-status-outlet" style="display: inline-block;"></div>
-                            <div style="display: inline-block; text-align: center;">
+                            <div style="display: inline-block; text-align: center; display: none;">
                                 Memory Diagram<br />
                                 <div class="btn-group btn-toggle lobster-instant-memory-diagram-buttons"> 
                                     <button class="btn btn-xs btn-default">ON</button>
                                     <button class="btn btn-xs btn-primary active">OFF</button>
                                 </div>
                             </div>
-                            <button class = "btn btn-primary-muted runButton" style="display: inline-block; margin-left: 1em"><span class="glyphicon glyphicon-play-circle"></span> Simulate</span></button>
+                            <button class = "btn btn-primary-muted runButton" style="display: inline-block; margin-left: 1em"><span class="glyphicon glyphicon-play-circle"></span></span></button>
                         </div>
                     </div>
                     <div style="height: 100%; display: flex; flex-direction: row; overflow: hidden;">
