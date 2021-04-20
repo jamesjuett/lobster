@@ -39,4 +39,35 @@ describe('mk2html() function', () => {
     )).is.true;
   });
 
+  it('differentiates numeric literals in return statements', () => {
+    let p1 = new Program([
+        new SourceFile("test.cpp", "int main() { return 0; }")
+    ], new Set<string>(["test.cpp"]));
+    
+    let p2 = new Program([
+        new SourceFile("test.cpp", "int main() { return 1; }")
+    ], new Set<string>(["test.cpp"]));
+
+    expect(!areSemanticallyEquivalent(
+        p1.mainFunction!,
+        p2.mainFunction!,
+        {}
+    )).is.true;
+  });
+
+  it('works for indexing', () => {
+    let p1 = new Program([
+        new SourceFile("test.cpp", "int main() { int arr[3]; int x; return arr[x]; }")
+    ], new Set<string>(["test.cpp"]));
+    
+    let p2 = new Program([
+        new SourceFile("test.cpp", "int main() { int arr[3]; int x; return arr[x]; }")
+    ], new Set<string>(["test.cpp"]));
+
+    expect(areSemanticallyEquivalent(
+        p1.mainFunction!,
+        p2.mainFunction!,
+        {}
+    )).is.true;
+  });
 });
