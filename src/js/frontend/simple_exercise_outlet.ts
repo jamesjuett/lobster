@@ -51,16 +51,7 @@ export function createSimpleExerciseOutlet(id: string) {
                         <div class="codeMirrorEditor" style = "flex-grow: 1; position: relative; overflow-y: hidden; height: 100%; background-color: #272822"></div>
                         <div class="lobster-instant-memory-diagram" style="display: none; height: 100%; flex: 0 1 300px;"></div>
                     </div>
-                    <div class="annotationMessagesContainer" style="position: absolute; bottom: 0; left: 0px; right: 0px; overflow: hidden; text-align: center; pointer-events: none">
-                        <div class="annotationMessages">
-                            <div style="height: 100px; margin-left: 5px; float: right;">
-                                <img src="img/lobster_teaching.jpg" class="lobsterRecursionImage" style="height: 90px; margin-left: 5px;"/>
-                                <img src="img/lobster_recursion.jpg" class="lobsterTeachingImage" style="display:none; height: 90px; margin-left: 5px;"/>
-                                <div style="padding-right: 5px; text-align: center"><button>Thanks!</button></div>
-                            </div>
-                            <div style="height: 100%; overflow-y: auto"><table style="height: 110px; margin-left: auto; margin-right: auto"><tr><td><div class="annotation-message"></div></td></tr></table></div>
-                        </div>
-                    </div>
+                    
                 </div>
             </div>
             <div id="lobster-ex-${id}-sim-pane" class="lobster-sim-pane tab-pane fade" style="height: 100%">
@@ -73,7 +64,6 @@ export function createSimpleExerciseOutlet(id: string) {
                         <div class="alerts">
                             <div style="display:inline-block; padding: 5px">
                                 <div style="height: 100px; margin-left: 5px; float: right;">
-                                    <img src="img/lobster.png" style="height: 80px; margin-left: 5px;"/>
                                     <div style="padding-right: 5px; text-align: right"><button>Dismiss</button></div>
                                 </div>
                                 <table style="height: 110px"><tr><td><div class="alerts-message"></div></td></tr></table>

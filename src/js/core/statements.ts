@@ -464,6 +464,7 @@ export class ReturnStatement extends Statement<ReturnStatementASTNode> {
         }
 
         // Note: The expression is NOT attached directly here, since it's attached under the initializer.
+        this.expression = expression;
         this.attach(this.returnInitializer);
     }
 

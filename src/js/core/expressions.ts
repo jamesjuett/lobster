@@ -4,7 +4,7 @@ import { CompleteObjectType, AtomicType, IntegralType, PointerType, ReferenceTyp
 import { SuccessfullyCompiled, RuntimeConstruct, CPPConstruct, ExpressionContext, ConstructDescription, createExpressionContextWithReceiverType, isMemberFunctionContext, SemanticContext, areSemanticallyEquivalent, areAllSemanticallyEquivalent } from "./constructs";
 import { AnythingConstructASTNode, ASTNode } from "../ast/ASTNode";
 import { Note, CPPError, NoteHandler } from "./errors";
-import { FunctionEntity, ObjectEntity, Scope, VariableEntity, MemberVariableEntity, NameLookupOptions, BoundReferenceEntity, runtimeObjectLookup, DeclaredScopeEntry, TemporaryObjectEntity, ArraySubobjectEntity } from "./entities";
+import { FunctionEntity, ObjectEntity, Scope, VariableEntity, MemberVariableEntity, NameLookupOptions, BoundReferenceEntity, runtimeObjectLookup, DeclaredScopeEntry, TemporaryObjectEntity, ArraySubobjectEntity, areEntitiesSemanticallyEquivalent } from "./entities";
 import { Value, RawValueType } from "./runtimeEnvironment";
 import { escapeString, assertNever, assert, assertFalse, Mutable } from "../util/util";
 import { checkIdentifier, MAGIC_FUNCTION_NAMES, LexicalIdentifier, identifierToString, astToIdentifier } from "./lexical";
@@ -3383,6 +3383,13 @@ export class DotExpression extends Expression<DotExpressionASTNode> {
     public entitiesUsed() {
         return this.entity ? [this.entity] : [];
     }
+
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, ec: SemanticContext): boolean {
+        return other.construct_type === this.construct_type
+            && this.memberName === other.memberName
+            && areSemanticallyEquivalent(this.operand, other.operand, ec)
+            && areEntitiesSemanticallyEquivalent(this.entity, other.entity, ec);
+    }
 }
 
 export interface TypedObjectDotExpression<T extends PotentiallyCompleteObjectType = PotentiallyCompleteObjectType> extends DotExpression, t_TypedExpression {
@@ -3620,6 +3627,13 @@ export class ArrowExpression extends Expression<ArrowExpressionASTNode> {
     
     public entitiesUsed() {
         return this.entity ? [this.entity] : [];
+    }
+
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, ec: SemanticContext): boolean {
+        return other.construct_type === this.construct_type
+            && this.memberName === other.memberName
+            && areSemanticallyEquivalent(this.operand, other.operand, ec)
+            && areEntitiesSemanticallyEquivalent(this.entity, other.entity, ec);
     }
 }
 
@@ -4499,10 +4513,11 @@ export class NumericLiteralExpression extends Expression<NumericLiteralASTNode> 
         throw new Error("Method not implemented.");
     }
 
-    public isIntegerZero() {
-        return
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, ec: SemanticContext): boolean {
+        return other.construct_type === this.construct_type
+            && sameType(this.type, other.type)
+            && this.value.rawValue === other.value.rawValue;
     }
-
     // describeEvalResult : function(depth, sim, inst){
     //     var str = this.value.toString();
     //     return {name: str, message: str};

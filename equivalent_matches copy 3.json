@@ -1,25 +1,29 @@
 {
   "num_total": 426,
-  "num_groups": 295,
-  "num_to_grade": 205,
-  "num_parsed": 254,
+  "num_groups": 253,
+  "num_to_grade": 182,
+  "num_parsed": 212,
   "num_failed": 41,
-  "num_single": 263,
-  "num_test_cases_passed": 90,
-  "num_runtime_event": 60,
+  "num_single": 224,
+  "num_test_cases_passed": 71,
+  "num_runtime_event": 54,
   "group_lengths": [
-    30,
-    25,
+    41,
+    32,
+    20,
+    18,
     15,
-    12,
-    11,
-    9,
-    6,
+    10,
+    7,
+    7,
+    4,
+    4,
     3,
     3,
     3,
     3,
     3,
+    3,
     2,
     2,
     2,
@@ -33,52 +37,6 @@
     2,
     2,
     2,
-    2,
-    2,
-    2,
-    2,
-    2,
-    2,
-    2,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
-    1,
     1,
     1,
     1,
@@ -308,29 +266,38 @@
     {
       "group": 0,
       "parsed": true,
-      "num": 30,
+      "num": 41,
       "testCasesPassed": true,
       "runtimeEvent": false,
       "submissions": [
         "if (!root) {\n    return 0;\n}\n\nif (root->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nelse {\n    return countEqual(root->left, compare) + countEqual(root->right, compare);\n}",
+        "if(!root)\n  return 0;\nif(root->datum == compare)\n  return countEqual(root->left, compare) + countEqual(root->right, compare) + 1;\nelse\n  return countEqual(root->left, compare) + countEqual(root->right, compare);",
         "if (!root) {\n    return 0;\n}\nif (root->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nelse {\n    return countEqual(root->left, compare) + countEqual(root->right, compare);\n}",
         "\nif(!root) { return 0; }\n\nif(root->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\n\nelse {\n    return countEqual(root->left, compare) + countEqual(root->right, compare);\n}",
         "if (!root) {\n    return 0;\n}\nif (root->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nelse {\n    return countEqual(root->left, compare) + countEqual(root->right, compare);\n}",
+        "    if (!root) {\n        return 0;\n    }\n    if (root->datum == compare) {\n        return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n    }\n    else {\n        return 0 + countEqual(root->left, compare) + countEqual(root->right, compare);\n    }",
+        "if (!root) return 0;\nif (root->datum == compare) {\n    return 1 + countEqual(root->left) + countEqual(root->right);\n} else {\n    return countEqual(root->left) + countEqual(root->right);\n}",
         "if(!root)\n    return 0;\nif(root->datum == compare)\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\nelse\n    return countEqual(root->left, compare) + countEqual(root->right, compare);",
+        "if(!root)\n    return 0;\nif(root->datum == compare)\n    return 1 + countEqual(root->right) + countEqual(root->left);\nelse\n    return 0 + countEqual(root->right) + countEqual(root->left);",
         "if (!root) return 0;\nif (root->datum == compare) return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\nelse return countEqual(root->left, compare) + countEqual(root->right, compare);",
         "if (!root) {\n    return 0;\n}\nif (root->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nelse {\n    return countEqual(root->left, compare) + countEqual(root->right, compare);\n}",
         "if(!root){\n    return 0;\n}\nif (root->datum==compare){\n    return 1+countEqual(root->left, compare)+countEqual(root->right, compare);\n}\nelse{\n    return countEqual(root->left, compare)+countEqual(root->right, compare);\n}",
         "if (!root) {\nreturn 0;\n}\n\nif (root->datum == compare) {\nreturn 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nelse {\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);\n}\n",
         "if(!root) return 0;\nif(root->datum == compare) return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\nelse return countEqual(root->left, compare) + countEqual(root->right, compare);",
+        "if (!root) {\n    return 0;\n}\nif (root->datum == compare) {\n    return 1 + countEqual(root->left) + countEqual(root->right);\n}\nelse {\n    return countEqual(root->left) + countEqual(root->right);\n}",
         "if (!root) {\n    return 0;\n}\nif (root->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n} else {\n    return countEqual(root->left, compare) + countEqual(root->right, compare);\n}",
         "if(!root) {\n    return 0;\n}\nif(root->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nelse {\n    return countEqual(root->left, compare) + countEqual(root->right, compare);\n}",
+        "if (!root) {\n    return 0;\n}\nif (root->datum == compare) {\n    return 1 + countEqual(root->right, compare), countEqual(root->left, compare);\n}\nelse {\n    return countEqual(root->right, compare), countEqual(root->left, compare);\n}\n",
         "    if (!root) {\n      return 0;\n    }\n    if (root->datum == compare) {\n      return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n    }\n    else {\n      return countEqual(root->left, compare) + countEqual(root->right, compare);\n    }",
         "if (!root) {return 0;}\nif (root->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nelse {\n    return countEqual(root->left, compare) + countEqual(root->right, compare);\n}",
         "if (!root) {\n    return 0; // no values match compare because there is none\n}\n// if the root matches, add one and find others in left and right subtrees\nif (root->datum == compare) { \n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\n// if the root doesn't match, still look in left and right subtrees\nelse {\n    return countEqual(root->left, compare) + countEqual(root->right, compare);\n}\n",
         "if (!root) return 0;\nif (root->datum == compare) \n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\nelse\n    return countEqual(root->left, compare) + countEqual(root->right, compare);",
         "if (!root) return 0;\n\nif (root->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n    }\nelse {\n    return countEqual(root->left, compare) + countEqual(root->right, compare);\n}\n",
+        "if (!root) return 0;\n\nif (root->datum == compare) {\n    return countEqual(root->left, compare) + countEqual(root->right, compare) + 1;\n} else {\n    return countEqual(root->left, compare) + countEqual(root->right, compare);\n}",
         "if (!root) {\n    return 0;\n}\n\nif (root->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n} else {\n    return countEqual(root->left, compare) + countEqual(root->right, compare);\n}",
         "if(!root){\n    return 0;\n}\nif(root -> datum == compare){\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nelse \n    return countEqual(root->left, compare) + countEqual(root->right, compare);",
+        "if (!root) {\n    return 0;\n}\nif (root->datum == compare) {\n    return 1 + countEqual(root->left, compare) +\n           countEqual(root->right, compare);\n} else {\n    return 0 + countEqual(root->left, compare) +\n           countEqual(root->right, compare);\n}",
+        "if(!root) {return 0;}\n\nif(root->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right,compare);\n}else {\n    return 0 + countEqual(root->left, compare) + countEqual(root->right,compare);\n}",
         "if(!root) {\nreturn 0;\n}\nif(root->datum == compare) {\n  return 1 + countEqual(root->left,compare)+countEqual(root->right,compare);\n}\nelse {\n  return countEqual(root->left,compare) + countEqual(root->right,compare);\n}",
         "if (!root) {\n    return 0;\n}\nif (root->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}else {\n    return countEqual(root->left, compare) + countEqual(root->right, compare);\n}",
         "if (!root) {\nreturn 0;\n}\nif (root->datum == compare) {\nreturn 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nelse {\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);\n}",
@@ -341,35 +308,44 @@
         "if(!root)\n{\n    return 0;\n}\nif(root->datum == compare)\n{\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nelse\n{\n    return countEqual(root->left, compare) + countEqual(root->right, compare);\n}",
         "if(!root) return 0;\nif(root->datum == compare){\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nelse{\n    return countEqual(root->left, compare) + countEqual(root->right, compare);\n}",
         "if (!root) { return 0; }\n\nif (root->datum == compare) {\n    return 1 + countEqual(node->left, compare) + countEqual(node->right, compare);\n}\nelse {\n    return countEqual(node->left, compare) + countEqual(node->right, compare);",
+        "if(!root){\n    return 0;\n    }\nif(root->datum == compare){\n    return 1 + countEqual(root->right) + countEqual(root->left);\n}\nelse{\n    return countEqual(root->right) + countEqual(root->left);\n}",
+        "if(!root){return 0;}\nif(root->datum == compare){\n    return 1 + countEqual(root->next,compare);\n}\nelse{\n    return countEqual(root->next,compare);\n}",
         "if (!root) return 0;\n\nif (root->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n} else {\n    return countEqual(root->left, compare) + countEqual(root->right, compare);"
       ]
     },
     {
       "group": 1,
       "parsed": true,
-      "num": 25,
+      "num": 32,
       "testCasesPassed": true,
       "runtimeEvent": false,
       "submissions": [
         "if (!root) {\n    return 0;\n}\nif (root->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);",
         "if(!root){\n    return 0;\n}\nif(root->datum == compare){\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);",
         "if (!root) {\n    return 0;\n}\nif (root->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);",
+        "if (!root){\n    return 0;\n}\nif (root->datum == compare) {\n    return 1 + countEqual(root->left. compare) + countEqual(root->right, compare);\n}\nreturn countEqual(root->left. compare) + countEqual(root->right, compare);",
         "if (!root) {return 0;}\nif (root->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);",
         "if (!root) {\n    return 0;\n}\nif (root->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);",
         "if(!root){\n    return 0;\n}\nif(root->datum == compare){\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);",
         "if (!root) {\n    return 0;\n}\nif (root->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);",
+        "if (!root){\n    return 0;\n}\nif (root->datum == compare){\nreturn countEqual(root->left, compare) + countEqual(root->right, compare) + 1;\n}\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);",
         "if (!root) {\n  return 0;\n}\nif (root->datum == compare) {\n  return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);",
         "if(!root) return 0;\nif(root->datum == compare){\nreturn 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\n\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);",
+        "if (!root) {\n return 0;\n}\nif (root->datum == compare) {\n return 1;\n}\n return countEqual(root->right, compare) + countEqual(root->left, compare);",
         "if (!root){\n    return 0;\n}\nif (root->datum == compare){\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\n\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);",
         "if (!root) {\n    return 0;\n}\nif (root->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);",
+        "if(!root){\n    return 0;\n}\nif(root->datum == compare){\n    return 1 + countEqual(root->right) + countEqual(root->left);\n}\nreturn countEqual(root->right) + countEqual(root->left);",
         "if(!root){return 0;}\nif(root->datum == compare){\n    return 1 + countEqual(root->left,compare) + countEqual(root->right,compare);\n}\nreturn countEqual(root->left,compare) + countEqual(root->right,compare);",
         "if (!root) return 0; \nif (root->datum == compare) \n    return 1 + countEqual(root->right, compare) + countEqual(root->left,compare); \nreturn countEqual(root->right, compare) + countEqual(root->left,compare); ",
+        "if(!root){\n    return 1;\n}\nif(root->datum == compare){\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);",
+        "if(!root){\n    return 0;\n}\nif(root->datum == compare){\n    return countEqual(root->left, compare) + countEqual(root->right, compare) + 1;\n}\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);",
         "if(!root){\nreturn 0;\n}\nif(root->datum == compare){\nreturn 1 + countEqual(root->left,compare) + countEqual(root->right,compare);\n}\nreturn countEqual(root->left,compare) + countEqual(root->right,compare);",
         "if (!root){ return 0;}\nif(root->datum == compare){\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);",
         "if (!root) {\n    return 0;\n}\nif (root->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);",
         "if (!root) {\n    return 0; \n}\nif (root-> datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare); \n}\nreturn countEqual(root->left, compare) + countEqual(root->right, compare); ",
         "if(!root) {\n    return 0;\n}\nif(root->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);",
         "if(!root) { \n    return 0;\n} \nif(root->datum == compare) { \n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare); \n} \nreturn countEqual(root->left, compare) + countEqual(root->right, compare); \n ",
+        "if(!root) {\n    return 0;\n}\nif(root->datum == compare) {\n    return (1 + countEqual(root->right, compare) + countEqual(root->left,compare));\n}\nreturn (0 + countEqual(root->right, compare) + countEqual(root->left,compare));",
         "if(!root){\n    return 0;\n}\nif(root->datum == compare)\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);",
         "// base case\nif (!root) return 0;\n\nif (root->datum == compare)\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);\n",
         "if (!root){\n    return 0;\n}\nif (root->datum == compare){\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);",
@@ -381,7 +357,7 @@
     {
       "group": 2,
       "parsed": true,
-      "num": 15,
+      "num": 20,
       "testCasesPassed": true,
       "runtimeEvent": false,
       "submissions": [
@@ -389,56 +365,71 @@
         "if(!root)\n{\n    return 0;\n}\nelse if(root->datum == compare)\n{\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nelse\n{\n    return countEqual(root->left, compare) + countEqual(root->right, compare);\n}",
         "if (!root) return 0;\nelse if (root->datum == compare) {\n    return 1 + countEqual(root->left, compare) +\n        countEqual(root->right, compare);\n}\nelse {\n    return countEqual(root->left, compare) +\n        countEqual(root->right, compare);\n}",
         "if(!root) { return 0; }\nelse if(root->datum == compare) { \n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare); \n}\nelse {\n    return countEqual(root->left, compare) + countEqual(root->right, compare);\n}",
+        "if(!root){\n    return 0;\n}\nelse if(root->datum == compare){\n    return countEqual(root->left, compare) + countEqual(root->right, compare) + 1;\n}\nelse{\n    return countEqual(root->left, compare) + countEqual(root->right, compare);\n}",
         "if (!root) {\n    return 0;\n}\nelse if (root->datum == compare) {\n    return 1 + countEqual(root->right, compare) + countEqual(root->left, compare);\n}\nelse {\n    return countEqual(root->right, compare) + countEqual(root->left, compare);\n}",
         "if (!root) return 0;\nelse {\n    if (root->datum == compare) {\n        return 1 + countEqual(root->left,compare) + countEqual(root->right,compare);\n    }\n    else {\n        return countEqual(root->left,compare) + countEqual(root->right,compare);\n    }\n}",
         "if(!root)\n    return 0;\nelse if(root->datum == compare)\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\nelse\n    return countEqual(root->left, compare) + countEqual(root->right, compare);\n",
         "if (!root) {\n return 0;\n} else if (root->datum == compare) {\n return 1 + coutEqual(root->left, compare) + coutEqual(root->right, compare);\n} else {\n return coutEqual(root->left, compare) + coutEqual(root->right, compare);\n}",
         "if(!root){\nreturn 0;\n}\nelse if (root->datum == compare){\n    return 1 + countEqual(root->right, compare) +countEqual(root->left,compare);\n}\nelse{\n    return countEqual(root->right, compare) + countEqual(root->left,compare);\n}",
         "if (!root) {\n    return 0;\n} else if (root->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n} else {\n    return countEqual(root->left, compare) + countEqual(root->right, compare);\n}",
+        "if (!root){\n    return 0; \n}\nelse{\n    if (root->datum == compare){\n        return 1 + countEqual(root->left) + countEqual(root->right);\n    }\n    else{\n         return countEqual(root->left) + countEqual(root->right);\n     }\n}\n\n",
         "if(!root){\n    return 0;\n}\nelse if(root->datum == compare){\n    return 1 + countEqual(root->right,compare) + countEqual(root->left,compare);\n}\nelse{\n    return countEqual(root->right,compare) + countEqual(root->left,compare);\n}",
         "if(!root){\n    return 0;\n}\nelse if(root->datum == compare){\n    return 1 + countEqual(root->right, compare) + countEqual(root->right, compare);\n}\nelse{\n    return countEqual(root->right, compare) + countEqual(root->right, compare);\n}",
         "if (!root) {\n    return 0;\n} \nelse if (root->datum == compare) {\n    return 1 + countEqual(root->right, compare)+ countEqual(root->left, compare);\n} else {\n    return countEqual(root->right, compare)+ countEqual(root->left, compare);\n}",
         "// nothing left\nif (!root) {\n    return 0;\n}\n\n// same\nelse if (root->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n    \n}\n\n// not same\nelse {\n    return countEqual(root->left, compare) + countEqual(root->right, compare);\n}\n",
-        "if (!root) { return 0; }\nelse {\n    if (root->datum == compare) {\n        return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n    }\n    else {\n        return countEqual(root->left, compare) + countEqual(root->right, compare);\n    }\n}"
+        "if (!root) { return 0; }\nelse {\n    if (root->datum == compare) {\n        return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n    }\n    else {\n        return countEqual(root->left, compare) + countEqual(root->right, compare);\n    }\n}",
+        "if (!root) { return 0; }\nelse if (root->datum == compare) {\n    return countEqual(root->left) + countEqual(root->right) + 1;\n}\nelse {\n    return countEqual(root->left) + countEqual(root->right);\n} ",
+        "if (!root) {\n    return 0;\n    }\nelse if (root->datum == compare) {\nreturn countEqual(root->left, compare) + countEqual(root->right, compare) + 1;\n}\nelse {\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);\n}",
+        "if(!root) {return 0;}\nelse if(root->datum == compare) {\n    return 1 + countEqual(root-left, compare) + countEqual(root->left, compare);\n} else {\n    return countEqual(root-left, compare) + countEqual(root->left, compare);\n}\n\n\n"
       ]
     },
     {
       "group": 3,
       "parsed": true,
-      "num": 12,
+      "num": 18,
       "testCasesPassed": true,
       "runtimeEvent": false,
       "submissions": [
         "if(root==0){\n    return 0;\n}\nif(root->datum==compare){\n    return 1+ countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);",
+        "if (root == 0) {\n    return 0;\n}\nif ( root->datum == compare ) {\n    return 1 + countEqual(root->right, compare) + countEqual(root->left, compare);\n}\nreturn 0 + countEqual(root->right, compare) + countEqual(root->left, compare);",
         "if (root == 0) return 0;\nif (root -> datum == compare) return 1 + countEqual(root->left,compare) + countEqual(root->right, compare);\n\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);",
         "if (root == 0) {\n    return 0;\n}\n\nif(root->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\n\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);\n\n",
         "if (root == 0) return 0;\nif (root->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);",
         "if( root == 0 )\n    return 0;\nif( root->datum == compare){\n    return 1 + countEqual( root->left, compare ) + countEqual( root->right, compare);\n}\nreturn countEqual( root->left, compare ) + countEqual( root->right, compare);",
         "if(root == 0) //base case. null is not equal and has no further directions.\n    return 0;\nif(root->datum == compare) //node is equal. one plus related branches\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n//node not equal. add related branches.\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);",
+        "if (root == 0)\n\treturn 0;\nif (root->datum == compare)\n{\n\treturn(1 + countEqual(root->right, compare) + countEqual(root->left, compare));\n}\nreturn(countEqual(root->right, compare) + countEqual(root->left, compare));",
         "if(root == 0) { return 0;}\nif(root->datum == compare){\n    return 1+ countEqual(root->left, compare)+countEqual(root->right,compare);\n}\nreturn countEqual(root->left, compare)+countEqual(root->right,compare);",
         "if(root==0){\n    return 0;\n}\nif(root->datum == compare){\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);",
         "if (root == 0) {\n    return 0;\n}\nif (root->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);",
+        "if(root == 0) {\n      return 0;\n   }\n   if(root->datum == compare) {\n      return(1 + countEqual(root->left, compare) + countEqual(root->right, compare));\n   }\n   return (countEqual(root->left, compare) + countEqual(root->right, compare));",
+        "if(root == 0)\n    return 0;\nif(root->datum == compare)\n    return 1+countEqual(root->left,compare)+countEqual(root->right,compare);\nreturn 0+countEqual(root->left,compare)+countEqual(root->right,compare);\n\n",
         "if(root == 0) {\n    return 0;\n}\n\nif(root->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\n\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);",
         "if(root == 0) {\n    return 0;\n}\nif(root->datum == compare) {\n    return 1 + countEqual(root->left,compare) + countEqual(root->right,compare);\n}\nreturn countEqual(root->left,compare) + countEqual(root->right,compare);\n    ",
-        "if(root == 0)\n{\n    return 0;\n}\n\nif(root->datum == compare)\n{\n    return 1 + countEqual(root->right,compare) + countEqual(root->left,compare);\n}\n\nreturn countEqual(root->right,compare) + countEqual(root->left,compare);"
+        "if(root == 0)\n{\n    return 0;\n}\n\nif(root->datum == compare)\n{\n    return 1 + countEqual(root->right,compare) + countEqual(root->left,compare);\n}\n\nreturn countEqual(root->right,compare) + countEqual(root->left,compare);",
+        "if (root == 0) {\n     return 0;\n}\n\nif (root->datum == compare) {\n    return countEqual(root->left, compare) + countEqual(root->right, compare) + 1;\n}\n\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);",
+        "if(root == 0) return 0;\n\nif(root->datum == compare)\n    return countEqual(root->left, compare) + countEqual(root->right, compare) + 1;\n\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);"
       ]
     },
     {
       "group": 4,
       "parsed": true,
-      "num": 11,
+      "num": 15,
       "testCasesPassed": true,
       "runtimeEvent": false,
       "submissions": [
         "if (root == 0) {\n    return 0;\n}\nif (root->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nelse {\n    return countEqual(root->left, compare) + countEqual(root->right, compare);\n}\n    ",
         "if (root == 0){\n    return 0;\n}\n\nif (root->datum == compare){\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nelse{\n    return countEqual(root->left, compare) + countEqual(root->right, compare);\n}",
+        "if (root == 0) {\n    return 0;\n}\nif (root->datum == compare) {\n    return 1 + countEqual(root->left) + countEqual(root->right);\n}\nelse {\n    return countEqual(root->left) + countEqual(root->right);\n}",
         "if(root == 0) {\n    return 0;\n}\nif(root->datum == compare) {\n    return 1 + countEqual(root->left,compare) + countEqual(root->right,compare);\n} else {\n    return countEqual(root->left,compare) + countEqual(root->right,compare);\n}",
+        "if(root == 0){\n    return 0;\n}\nif(root->datum == compare){\n    return 1 + countEqual(root->left,compare) + countEqual(root->right,compare);\n}else{\n    return countEqual(root->left.compare) + countEqual(root->right,compare);\n}",
         "if (root == 0){\n    return 0;\n}\n\nif (root->datum == compare){\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}else{\n    return countEqual(root->left, compare) + countEqual(root->right, compare);\n}\n",
+        "if(root == 0){\n    return 0;\n}\nif(root->datum == compare){\n    return 1+countEqual(root->right, compare) + (root->left,compare);\n}\nelse{\n    return countEqual(root->right, compare) + (root->left,compare);\n}",
         "// Base case\nif(root == 0){\n    return 0;\n}\n// Recursive case\nif(root->datum == compare){\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n} else {\n    return countEqual(root->left, compare) + countEqual(root->right, compare);\n}",
         "if(root == 0)\n    return 0;\nif (root->datum == compare)\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\nelse\n    return countEqual(root->left,compare) + countEqual(root->right, compare);",
         "if(root == 0) return 0;\nif(root->datum == compare) return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\nelse{\n    return countEqual(root->left, compare) + countEqual(root->right, compare);\n}",
         "// base case:\nif (root == 0) return 0; \n// recursive step\nif (root->datum == compare){\n    return 1 + countEqual(root->left, compare) + countEqual (root->right, compare); \n    }else{ \n    return countEqual(root->left, compare) + countEqual (root->right, compare); \n    }",
         "if (root == 0){\n    return 0;\n}\nif (root->datum == compare){\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}else{\n    return countEqual(root->left, compare) + countEqual(root->right, compare);\n}\n",
+        "if(root == 0) return 0;\nif(root->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n} else {\n    return 0 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}",
         "if (root == 0){\n    return 0;\n}\nif(root->datum == compare){\nreturn 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n} else {\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);\n}\n\n",
         "if(root == 0){\nreturn 0;\n}\nif(root -> datum == compare){\nreturn 1+countEqual(root->left,compare) + countEqual(root->right,compare);\n}else{\nreturn countEqual(root->left,compare) + countEqual(root->right,compare);\n}"
       ]
@@ -446,7 +437,7 @@
     {
       "group": 5,
       "parsed": true,
-      "num": 9,
+      "num": 10,
       "testCasesPassed": true,
       "runtimeEvent": false,
       "submissions": [
@@ -454,6 +445,7 @@
         "if(!root){return 0;}\nint current = 0;\nif(root->datum == compare){current = 1;}\nreturn current + countEqual(root->right, compare) + countEqual(root->left, compare);\n",
         "if(!root) return 0;\nint x = 0;\nif(root->datum == compare) x = 1;\nreturn x + countEqual(root->right, compare) + countEqual(root->left, compare); ",
         "if (!root) {\n    return 0;\n}\nint count = 0;\nif (root->datum == compare) {\n    count = 1;\n}\nreturn count + countEqual(root->left, compare) + countEqual(root->right, compare); ",
+        "    if(!root){\n        return 0;\n    }\n\n    int add = 0;\n    if(root->datum == compare){\n        add = 1;\n    }\n\n    return countEqual(root->left, compare) + countEqual(root->right, compare) + add;",
         "if(!root){\n    return 0;\n}\nint count = 0;\nif(root->datum == compare){\n    count = 1;\n}\nreturn count + countEqual(root->left, compare) + countEqual(root->right, compare);",
         "if(!root)\n{\n    return 0;\n}\n\nint thisOne = 0;\n\nif(root->datum == compare)\n{\n    thisOne = 1;\n}\n\nreturn thisOne + countEqual(root->left,compare) + countEqual(root->right,compare);",
         "if (!root) {\n  return 0;\n}\nint count = 0;\nif (root->datum == compare) {\n    count = 1;\n} \nreturn countEqual(root->left, compare) + count + countEqual(root->right, compare);",
@@ -464,13 +456,14 @@
     {
       "group": 6,
       "parsed": true,
-      "num": 6,
+      "num": 7,
       "testCasesPassed": true,
       "runtimeEvent": false,
       "submissions": [
         "if (root == 0) {\n    return 0;\n}\nelse if (root->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nelse {\n    return countEqual(root->left, compare) + countEqual(root->right, compare);\n} ",
         "\nif (root == 0) {\n    return 0;\n}\nelse if (root->datum == compare) {\n   return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nelse {\n    return countEqual(root->left, compare) + countEqual(root->right, compare)  ;\n}",
         "if(root==0)\n{\nreturn 0;\n}\nelse if(root->datum == compare)\n{\nreturn 1+countEqual(root->left,compare)+countEqual(root->right,compare);\n}\nelse\nreturn countEqual(root->left,compare)+countEqual(root->right,compare);",
+        "if (root == 0) {\n    return 0;\n}\n\nelse if (root->datum == compare) {\n    return 1 + countEqual(root->right, compare) + countEqual(root->left, compare);\n}\n\nelse {\n    return 0 + countEqual(root->right, compare) + countEqual(root->left, compare);\n}",
         "if(root == 0){\nreturn 0;}\nelse if(root->datum == compare){\nreturn 1 + countEqual(root->right, compare) + countEqual(root->left, compare);}\nelse{\nreturn countEqual(root->right, compare) + countEqual(root->left, compare);}",
         "if (root == 0) {\n    return 0;\n} else {\n    if (root->datum == compare) {\n        return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n    } else {\n        return countEqual(root->left, compare) + countEqual(root->right, compare);\n    }\n}",
         "if (root == 0)\n    return 0;\nelse {\n    if (root->datum == compare)\n        return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n    else\n        return countEqual(root->left, compare) + countEqual(root->right, compare);\n}"
@@ -478,6 +471,48 @@
     },
     {
       "group": 7,
+      "parsed": true,
+      "num": 7,
+      "testCasesPassed": true,
+      "runtimeEvent": false,
+      "submissions": [
+        "if(!root) return 0;\nreturn countEqual(root->left, compare) + countEqual(root->right, compare) + (root->datum == compare ? 1 : 0);",
+        "if(!root) return 0;\nreturn (int)(root->datum == compare) + countEqual(root->left, compare) + countEqual(root->right, compare);",
+        "if (!root) return 0;\nreturn (root->datum == compare) +\n\tcountEqual(root->left, compare) +\n\tcountEqual(root->right, compare);",
+        "   if(!root) return 0;\n   return countEqual(root->left, compare) + countEqual(root->right, compare) + (root->datum == compare ? 1 : 0);",
+        "if (!root) {return 0;}\nreturn (root->datum == compare) + countEqual(root->left, compare) + countEqual(root->right, compare);",
+        "if (!root) {\n    return 0;\n}\nreturn countEqual(root->left, compare) + countEqual(root->right, compare) + (root->datum == compare);",
+        "if(!root) {return 0;}\n\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);"
+      ]
+    },
+    {
+      "group": 8,
+      "parsed": true,
+      "num": 4,
+      "testCasesPassed": true,
+      "runtimeEvent": false,
+      "submissions": [
+        "if(!root) return 0;\nint sum = 0;\nif(root->datum == compare) sum++;\nreturn sum + countEqual(root->left, compare) + countEqual(root->right, compare);",
+        "if (!root) {\n    return 0;\n}\nint count = 0;\nif (root->datum == compare) {\n    count++;\n}\nreturn count + countEqual(root->right, compare) + countEqual(root->left, compare);",
+        "if (!root) return 0;\nint sum = 0;\nif (root->datum == compare) sum++;\nreturn sum + (countEqual(root->left, compare) || countEqual(root->right, compare));",
+        "if(!root) return 0;\nint count = 0;\nif(root -> datum == compare) {\n    count ++;\n}\nreturn count + countEqual(root ->left, compare) + countEqual(root -> right, compare);"
+      ]
+    },
+    {
+      "group": 9,
+      "parsed": true,
+      "num": 4,
+      "testCasesPassed": true,
+      "runtimeEvent": false,
+      "submissions": [
+        "if (!root) {\n    return 0;\n}\nint count = 0;\nif (root->datum == compare) {\n    count += 1;\n}\nreturn count + countEqual(root->left, compare) + countEqual(root->right, compare);",
+        "if (!root) {\n    return 0;\n}\nint count = 0;\nif (root->datum == compare) {\n    count += 1;\n}\nreturn count + countEqual(root->left, compare) + countEqual(root->right, compare);",
+        "if (!root) {\n    return 0;\n}\nint counter = 0;\nif (root->datum == compare) {\n    counter += 1;\n}\nreturn counter + countEqual(root->left, compare) + countEqual(root->right_compare);",
+        "if(!root) return 0; //if no node, count is 0\nint sum_below = countEqual(root->left, compare) + countEqual(root->right, compare);\n//down left sum + down right sum\nif(root->datum == compare){\n    sum_below += 1;    //add in 1 if the current node matches\n}\nreturn sum_below; //send it up the chains"
+      ]
+    },
+    {
+      "group": 10,
       "parsed": true,
       "num": 3,
       "testCasesPassed": true,
@@ -489,7 +524,7 @@
       ]
     },
     {
-      "group": 8,
+      "group": 11,
       "parsed": true,
       "num": 3,
       "testCasesPassed": true,
@@ -501,52 +536,62 @@
       ]
     },
     {
-      "group": 9,
-      "parsed": true,
-      "num": 3,
-      "testCasesPassed": true,
-      "runtimeEvent": false,
-      "submissions": [
-        "    if (!root) {\n        return 0;\n    }\n    if (root->datum == compare) {\n        return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n    }\n    else {\n        return 0 + countEqual(root->left, compare) + countEqual(root->right, compare);\n    }",
-        "if (!root) {\n    return 0;\n}\nif (root->datum == compare) {\n    return 1 + countEqual(root->left, compare) +\n           countEqual(root->right, compare);\n} else {\n    return 0 + countEqual(root->left, compare) +\n           countEqual(root->right, compare);\n}",
-        "if(!root) {return 0;}\n\nif(root->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right,compare);\n}else {\n    return 0 + countEqual(root->left, compare) + countEqual(root->right,compare);\n}"
-      ]
-    },
-    {
-      "group": 10,
-      "parsed": true,
-      "num": 3,
-      "submissions": [
-        "if (!root) return 0;\nif (root->datum == compare) {\n    return 1 + countEqual(root->left) + countEqual(root->right);\n} else {\n    return countEqual(root->left) + countEqual(root->right);\n}",
-        "if (!root) {\n    return 0;\n}\nif (root->datum == compare) {\n    return 1 + countEqual(root->left) + countEqual(root->right);\n}\nelse {\n    return countEqual(root->left) + countEqual(root->right);\n}",
-        "if(!root){\n    return 0;\n    }\nif(root->datum == compare){\n    return 1 + countEqual(root->right) + countEqual(root->left);\n}\nelse{\n    return countEqual(root->right) + countEqual(root->left);\n}"
-      ]
-    },
-    {
-      "group": 11,
-      "parsed": true,
-      "num": 3,
-      "testCasesPassed": true,
-      "runtimeEvent": false,
-      "submissions": [
-        "if(!root) return 0;\nint sum = 0;\nif(root->datum == compare) sum++;\nreturn sum + countEqual(root->left, compare) + countEqual(root->right, compare);",
-        "if (!root) {\n    return 0;\n}\nint count = 0;\nif (root->datum == compare) {\n    count++;\n}\nreturn count + countEqual(root->right, compare) + countEqual(root->left, compare);",
-        "if(!root) return 0;\nint count = 0;\nif(root -> datum == compare) {\n    count ++;\n}\nreturn count + countEqual(root ->left, compare) + countEqual(root -> right, compare);"
-      ]
-    },
-    {
       "group": 12,
+      "parsed": true,
+      "num": 3,
+      "submissions": [
+        "if(!node){return 0;}\nif(root->datum==compare){\nreturn 1+ countEqual(root->left,compare) +countEqual(root->right,compare);\n}\nelse{\nreturn countEqual(root->left,compare) +countEqual(root->right,compare);\n}",
+        "if (!node) {\n    return 0;\n}\n\nif (root->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nelse {\n    return 0 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\n",
+        "if(!node){\nreturn 0;\n}\n\nif(root->datum == compare){\nreturn 1 + countEqual(root->right, compare) + countEqual(root->left, compare);\n}\nelse{\nreturn countEqual(root->right, compare) + countEqual(root->left, compare);\n}"
+      ]
+    },
+    {
+      "group": 13,
+      "parsed": true,
+      "num": 3,
+      "testCasesPassed": true,
+      "runtimeEvent": false,
+      "submissions": [
+        "if (root == 0)\n    return 0;\n\nint c = 0;\nif (root->datum == compare)\n    c = 1;\n    \nreturn c + countEqual(root->right, compare) + countEqual(root->left, compare);",
+        "if(root==0){return 0;}\nint ans=0;\nif(root->datum==compare){\nans=1;\n}\nreturn ans+countEqual(root->left)+countEqual(root->right);",
+        "if (root == 0) return 0;\nint now = 0;\nif (root->datum == compare) now = 1;\nreturn now + countEqual(root->left, compare) + countEqual(root->right, compare);"
+      ]
+    },
+    {
+      "group": 14,
+      "parsed": true,
+      "num": 3,
+      "submissions": [
+        "if (!node) {\n    return 0;\n}\nif(node->datum == compare) {\n    return 1 + countEqual(root->right, compare) + countEqual(root->left, compare);\n}\nreturn countEqual(root->right, compare) + countEqual(root->left, compare);\n",
+        "if (!node) return false;\nif (node->datum == compare) return 1+countEqual(node->left, compare)+countEqual(node->right, compare);\nreturn countEqual(node->left, compare)+countEqual(node->right, compare);",
+        "if (!node) return 0;\nif (node->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);"
+      ]
+    },
+    {
+      "group": 15,
+      "parsed": true,
+      "num": 3,
+      "testCasesPassed": true,
+      "runtimeEvent": false,
+      "submissions": [
+        "if(!root){\n    return 0;\n}\nint n = 0;\nif(root->datum == compare){\n    ++n;\n}\nreturn n + countEqual(root->left, compare) + countEqual(root->right, compare);\n\n",
+        "if(!root) {return 0;}\nint count = 0;\nif(root->datum == compare) {++count;}\nreturn count + countEqual(node->left,compare) + countEqual(node->right,compare);",
+        "if (!root) {\n    return 0;\n}\nint count = 0; \nif (root-> datum == compare) {\n    ++count;\n}\nreturn count + countEqual(root->left, compare) + countEqual(root->right, compare);"
+      ]
+    },
+    {
+      "group": 16,
       "parsed": true,
       "num": 2,
       "testCasesPassed": true,
       "runtimeEvent": false,
       "submissions": [
-        "if(!root)\n  return 0;\nif(root->datum == compare)\n  return countEqual(root->left, compare) + countEqual(root->right, compare) + 1;\nelse\n  return countEqual(root->left, compare) + countEqual(root->right, compare);",
-        "if (!root) return 0;\n\nif (root->datum == compare) {\n    return countEqual(root->left, compare) + countEqual(root->right, compare) + 1;\n} else {\n    return countEqual(root->left, compare) + countEqual(root->right, compare);\n}"
+        "if (root == 0){\n    return 0;\n}\nreturn ((root->datum) == compare? 1: 0) + countEqual(root->left, compare) + countEqual(root->right, compare);",
+        "if (root == 0) {\n\treturn 0;\n}\nreturn (root->datum == compare ? 1 : 0)\n\t+ countEqual(root->left, compare)\n\t+ countEqual(root->right, compare);"
       ]
     },
     {
-      "group": 13,
+      "group": 17,
       "parsed": true,
       "num": 2,
       "submissions": [
@@ -555,56 +600,12 @@
       ]
     },
     {
-      "group": 14,
-      "parsed": true,
-      "num": 2,
-      "testCasesPassed": true,
-      "runtimeEvent": false,
-      "submissions": [
-        "if (root == 0) {\n    return 0;\n}\nif ( root->datum == compare ) {\n    return 1 + countEqual(root->right, compare) + countEqual(root->left, compare);\n}\nreturn 0 + countEqual(root->right, compare) + countEqual(root->left, compare);",
-        "if(root == 0)\n    return 0;\nif(root->datum == compare)\n    return 1+countEqual(root->left,compare)+countEqual(root->right,compare);\nreturn 0+countEqual(root->left,compare)+countEqual(root->right,compare);\n\n"
-      ]
-    },
-    {
-      "group": 15,
-      "parsed": true,
-      "num": 2,
-      "testCasesPassed": true,
-      "runtimeEvent": false,
-      "submissions": [
-        "if(!root) return 0;\nreturn countEqual(root->left, compare) + countEqual(root->right, compare) + (root->datum == compare ? 1 : 0);",
-        "   if(!root) return 0;\n   return countEqual(root->left, compare) + countEqual(root->right, compare) + (root->datum == compare ? 1 : 0);"
-      ]
-    },
-    {
-      "group": 16,
-      "parsed": true,
-      "num": 2,
-      "submissions": [
-        "int count = 0;\nif(root == nulltr){\n  return zero;\n}\nif(root->datum == compare){\n   ++count;\n}\nreturn count + countEqual(root->left, compare) + countEqual(root->right, compare);",
-        "int sum = 0;\nif(root == nullpr){\n    return sum;\n}\nif (root->datum == compare){\n    ++sum;\n}\n\nreturn sum + countEqual(root->left,compare) + countEqual(root->right,compare);"
-      ]
-    },
-    {
-      "group": 17,
-      "parsed": true,
-      "num": 2,
-      "testCasesPassed": true,
-      "runtimeEvent": false,
-      "submissions": [
-        "if(!root){\n    return 0;\n}\nelse if(root->datum == compare){\n    return countEqual(root->left, compare) + countEqual(root->right, compare) + 1;\n}\nelse{\n    return countEqual(root->left, compare) + countEqual(root->right, compare);\n}",
-        "if (!root) {\n    return 0;\n    }\nelse if (root->datum == compare) {\nreturn countEqual(root->left, compare) + countEqual(root->right, compare) + 1;\n}\nelse {\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);\n}"
-      ]
-    },
-    {
       "group": 18,
       "parsed": true,
       "num": 2,
-      "testCasesPassed": true,
-      "runtimeEvent": false,
       "submissions": [
-        "if (!root) {\n    return 0;\n}\nint count = 0;\nif (root->datum == compare) {\n    count += 1;\n}\nreturn count + countEqual(root->left, compare) + countEqual(root->right, compare);",
-        "if (!root) {\n    return 0;\n}\nint count = 0;\nif (root->datum == compare) {\n    count += 1;\n}\nreturn count + countEqual(root->left, compare) + countEqual(root->right, compare);"
+        "if (!root) { return 0; }\nint addToCount = root->datum == compare ? 1 : 0;\nreturn addToCount + countEqual(root->left) + countEqual(root->right);",
+        "if (!root) return 0;\nint add = (root->datum == compare);\nreturn add + countEqual(root->left, compare) + countEqual(root->right, compare);"
       ]
     },
     {
@@ -612,8 +613,8 @@
       "parsed": true,
       "num": 2,
       "submissions": [
-        "if(!node){return 0;}\nif(root->datum==compare){\nreturn 1+ countEqual(root->left,compare) +countEqual(root->right,compare);\n}\nelse{\nreturn countEqual(root->left,compare) +countEqual(root->right,compare);\n}",
-        "if(!node){\nreturn 0;\n}\n\nif(root->datum == compare){\nreturn 1 + countEqual(root->right, compare) + countEqual(root->left, compare);\n}\nelse{\nreturn countEqual(root->right, compare) + countEqual(root->left, compare);\n}"
+        "if (root == 0) return 0;\nbool is_equal = root->datum == compare;\nreturn (int) is_equal + countEqual(root->left, compare) + countEqual(root->right, compare);",
+        "if (root == 0) {return 0;}\nbool isEqual = (root->datum == compare);\nreturn ((int)isEqual) + countEqual(root->left,compare) + countEqual(root->right, compare);"
       ]
     },
     {
@@ -623,12 +624,21 @@
       "testCasesPassed": true,
       "runtimeEvent": false,
       "submissions": [
-        "if (root == 0)\n    return 0;\n\nint c = 0;\nif (root->datum == compare)\n    c = 1;\n    \nreturn c + countEqual(root->right, compare) + countEqual(root->left, compare);",
-        "if (root == 0) return 0;\nint now = 0;\nif (root->datum == compare) now = 1;\nreturn now + countEqual(root->left, compare) + countEqual(root->right, compare);"
+        "int c = 0;\nif(!root) return c;\nif(root->datum == compare) c++;\nif(root->left) c += countEqual(root->left, compare);\nif(root->right) c += countEqual(root->right, compare);\nreturn c;",
+        "int count = 0;\nif (!root) {\n    return 0;\n}\nif (root->datum == compare) {\n    count++;\n}\nif (root->left) {\n    count += countEqual(root->left, compare);\n}\nif (root->right) {\n    count += countEqual(root->right, compare);\n}\nreturn count;\n"
       ]
     },
     {
       "group": 21,
+      "parsed": true,
+      "num": 2,
+      "submissions": [
+        "int count = 0;\nif(root == nulltr){\n  return zero;\n}\nif(root->datum == compare){\n   ++count;\n}\nreturn count + countEqual(root->left, compare) + countEqual(root->right, compare);",
+        "int sum = 0;\nif(root == nullpr){\n    return sum;\n}\nif (root->datum == compare){\n    ++sum;\n}\n\nreturn sum + countEqual(root->left,compare) + countEqual(root->right,compare);"
+      ]
+    },
+    {
+      "group": 22,
       "parsed": true,
       "num": 2,
       "testCasesPassed": false,
@@ -639,7 +649,7 @@
       ]
     },
     {
-      "group": 22,
+      "group": 23,
       "parsed": true,
       "num": 2,
       "testCasesPassed": true,
@@ -650,40 +660,7 @@
       ]
     },
     {
-      "group": 23,
-      "parsed": true,
-      "num": 2,
-      "testCasesPassed": true,
-      "runtimeEvent": false,
-      "submissions": [
-        "if (!root) return 0;\nreturn (root->datum == compare) +\n\tcountEqual(root->left, compare) +\n\tcountEqual(root->right, compare);",
-        "if (!root) {return 0;}\nreturn (root->datum == compare) + countEqual(root->left, compare) + countEqual(root->right, compare);"
-      ]
-    },
-    {
       "group": 24,
-      "parsed": true,
-      "num": 2,
-      "testCasesPassed": true,
-      "runtimeEvent": false,
-      "submissions": [
-        "if (!root){\n    return 0;\n}\nif (root->datum == compare){\nreturn countEqual(root->left, compare) + countEqual(root->right, compare) + 1;\n}\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);",
-        "if(!root){\n    return 0;\n}\nif(root->datum == compare){\n    return countEqual(root->left, compare) + countEqual(root->right, compare) + 1;\n}\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);"
-      ]
-    },
-    {
-      "group": 25,
-      "parsed": true,
-      "num": 2,
-      "testCasesPassed": true,
-      "runtimeEvent": false,
-      "submissions": [
-        "if (root == 0)\n\treturn 0;\nif (root->datum == compare)\n{\n\treturn(1 + countEqual(root->right, compare) + countEqual(root->left, compare));\n}\nreturn(countEqual(root->right, compare) + countEqual(root->left, compare));",
-        "if(root == 0) {\n      return 0;\n   }\n   if(root->datum == compare) {\n      return(1 + countEqual(root->left, compare) + countEqual(root->right, compare));\n   }\n   return (countEqual(root->left, compare) + countEqual(root->right, compare));"
-      ]
-    },
-    {
-      "group": 26,
       "parsed": true,
       "num": 2,
       "testCasesPassed": false,
@@ -694,16 +671,7 @@
       ]
     },
     {
-      "group": 27,
-      "parsed": true,
-      "num": 2,
-      "submissions": [
-        "if (!node) {\n    return 0;\n}\nif(node->datum == compare) {\n    return 1 + countEqual(root->right, compare) + countEqual(root->left, compare);\n}\nreturn countEqual(root->right, compare) + countEqual(root->left, compare);\n",
-        "if (!node) return 0;\nif (node->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);"
-      ]
-    },
-    {
-      "group": 28,
+      "group": 25,
       "parsed": true,
       "num": 2,
       "testCasesPassed": true,
@@ -714,18 +682,29 @@
       ]
     },
     {
-      "group": 29,
+      "group": 26,
       "parsed": true,
       "num": 2,
       "testCasesPassed": true,
       "runtimeEvent": false,
       "submissions": [
-        "if(!root){\n    return 0;\n}\nint n = 0;\nif(root->datum == compare){\n    ++n;\n}\nreturn n + countEqual(root->left, compare) + countEqual(root->right, compare);\n\n",
-        "if (!root) {\n    return 0;\n}\nint count = 0; \nif (root-> datum == compare) {\n    ++count;\n}\nreturn count + countEqual(root->left, compare) + countEqual(root->right, compare);"
+        "if (!root) {\n    return 0;}\nint countLeft = countEqual (root -> left, compare);\nint countRight = countEqual (root -> right, compare);\nreturn (root->datum == compare ? 1 : 0)+countLeft+countRight;",
+        "if(!root)\n    return 0;\n\nint left_equal = countEqual(root->left, compare);\nint right_equal = countEqual(root->right, compare);\n\n    \nreturn (root->datum == compare) + left_equal + right_equal;"
       ]
     },
     {
-      "group": 30,
+      "group": 27,
+      "parsed": true,
+      "num": 2,
+      "testCasesPassed": true,
+      "runtimeEvent": false,
+      "submissions": [
+        "int num = 0;\n\nif (root == 0) {\n    return 0;\n} \n\nif (root->datum == compare) num++;\n\nif (root->left != 0) {\n    num += countEqual(root->left, compare);\n}\n\nif (root ->right != 0) {\n    num += countEqual(root->right, compare);\n}\n\nreturn num;",
+        "int num_nodes = 0;\nif (root == 0) {\n    return num_nodes;\n}\nif (root->datum == compare) {\n    num_nodes++;\n}\nif (root->left != 0) {\n    num_nodes += countEqual(root->left, compare);\n}\nif (root->right != 0) {\n    num_nodes += countEqual(root->right, compare);\n}\nreturn num_nodes;"
+      ]
+    },
+    {
+      "group": 28,
       "parsed": true,
       "num": 2,
       "testCasesPassed": false,
@@ -736,18 +715,7 @@
       ]
     },
     {
-      "group": 31,
-      "parsed": true,
-      "num": 2,
-      "testCasesPassed": true,
-      "runtimeEvent": false,
-      "submissions": [
-        "if (root == 0) {\n     return 0;\n}\n\nif (root->datum == compare) {\n    return countEqual(root->left, compare) + countEqual(root->right, compare) + 1;\n}\n\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);",
-        "if(root == 0) return 0;\n\nif(root->datum == compare)\n    return countEqual(root->left, compare) + countEqual(root->right, compare) + 1;\n\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);"
-      ]
-    },
-    {
-      "group": 32,
+      "group": 29,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -755,7 +723,7 @@
       ]
     },
     {
-      "group": 33,
+      "group": 30,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -765,7 +733,7 @@
       ]
     },
     {
-      "group": 34,
+      "group": 31,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -775,17 +743,7 @@
       ]
     },
     {
-      "group": 35,
-      "parsed": true,
-      "num": 1,
-      "testCasesPassed": true,
-      "runtimeEvent": false,
-      "submissions": [
-        "if (root == 0){\n    return 0;\n}\nreturn ((root->datum) == compare? 1: 0) + countEqual(root->left, compare) + countEqual(root->right, compare);"
-      ]
-    },
-    {
-      "group": 36,
+      "group": 32,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -795,7 +753,7 @@
       ]
     },
     {
-      "group": 37,
+      "group": 33,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -803,7 +761,7 @@
       ]
     },
     {
-      "group": 38,
+      "group": 34,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -813,7 +771,7 @@
       ]
     },
     {
-      "group": 39,
+      "group": 35,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -821,7 +779,7 @@
       ]
     },
     {
-      "group": 40,
+      "group": 36,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -829,7 +787,7 @@
       ]
     },
     {
-      "group": 41,
+      "group": 37,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -839,7 +797,7 @@
       ]
     },
     {
-      "group": 42,
+      "group": 38,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -847,7 +805,7 @@
       ]
     },
     {
-      "group": 43,
+      "group": 39,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -855,7 +813,7 @@
       ]
     },
     {
-      "group": 44,
+      "group": 40,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -865,7 +823,7 @@
       ]
     },
     {
-      "group": 45,
+      "group": 41,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -873,7 +831,7 @@
       ]
     },
     {
-      "group": 46,
+      "group": 42,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -881,7 +839,7 @@
       ]
     },
     {
-      "group": 47,
+      "group": 43,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -891,7 +849,7 @@
       ]
     },
     {
-      "group": 48,
+      "group": 44,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -899,15 +857,7 @@
       ]
     },
     {
-      "group": 49,
-      "parsed": true,
-      "num": 1,
-      "submissions": [
-        "if (root == 0) {\n    return 0;\n}\nif (root->datum == compare) {\n    return 1 + countEqual(root->left) + countEqual(root->right);\n}\nelse {\n    return countEqual(root->left) + countEqual(root->right);\n}"
-      ]
-    },
-    {
-      "group": 50,
+      "group": 45,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -915,7 +865,7 @@
       ]
     },
     {
-      "group": 51,
+      "group": 46,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -925,7 +875,7 @@
       ]
     },
     {
-      "group": 52,
+      "group": 47,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -935,7 +885,7 @@
       ]
     },
     {
-      "group": 53,
+      "group": 48,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -943,15 +893,7 @@
       ]
     },
     {
-      "group": 54,
-      "parsed": true,
-      "num": 1,
-      "submissions": [
-        "if (!root) { return 0; }\nint addToCount = root->datum == compare ? 1 : 0;\nreturn addToCount + countEqual(root->left) + countEqual(root->right);"
-      ]
-    },
-    {
-      "group": 55,
+      "group": 49,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -961,15 +903,7 @@
       ]
     },
     {
-      "group": 56,
-      "parsed": true,
-      "num": 1,
-      "submissions": [
-        "if (root == 0) return 0;\nbool is_equal = root->datum == compare;\nreturn (int) is_equal + countEqual(root->left, compare) + countEqual(root->right, compare);"
-      ]
-    },
-    {
-      "group": 57,
+      "group": 50,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -979,7 +913,7 @@
       ]
     },
     {
-      "group": 58,
+      "group": 51,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -987,7 +921,7 @@
       ]
     },
     {
-      "group": 59,
+      "group": 52,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -995,7 +929,7 @@
       ]
     },
     {
-      "group": 60,
+      "group": 53,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -1005,7 +939,7 @@
       ]
     },
     {
-      "group": 61,
+      "group": 54,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -1013,15 +947,7 @@
       ]
     },
     {
-      "group": 62,
-      "parsed": true,
-      "num": 1,
-      "submissions": [
-        "if (!root){\n    return 0;\n}\nif (root->datum == compare) {\n    return 1 + countEqual(root->left. compare) + countEqual(root->right, compare);\n}\nreturn countEqual(root->left. compare) + countEqual(root->right, compare);"
-      ]
-    },
-    {
-      "group": 63,
+      "group": 55,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -1031,7 +957,7 @@
       ]
     },
     {
-      "group": 64,
+      "group": 56,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -1041,7 +967,7 @@
       ]
     },
     {
-      "group": 65,
+      "group": 57,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -1051,7 +977,7 @@
       ]
     },
     {
-      "group": 66,
+      "group": 58,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -1061,7 +987,7 @@
       ]
     },
     {
-      "group": 67,
+      "group": 59,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -1071,7 +997,7 @@
       ]
     },
     {
-      "group": 68,
+      "group": 60,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1079,17 +1005,7 @@
       ]
     },
     {
-      "group": 69,
-      "parsed": true,
-      "num": 1,
-      "testCasesPassed": true,
-      "runtimeEvent": false,
-      "submissions": [
-        "int c = 0;\nif(!root) return c;\nif(root->datum == compare) c++;\nif(root->left) c += countEqual(root->left, compare);\nif(root->right) c += countEqual(root->right, compare);\nreturn c;"
-      ]
-    },
-    {
-      "group": 70,
+      "group": 61,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -1099,7 +1015,7 @@
       ]
     },
     {
-      "group": 71,
+      "group": 62,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -1107,7 +1023,7 @@
       ]
     },
     {
-      "group": 72,
+      "group": 63,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -1117,7 +1033,7 @@
       ]
     },
     {
-      "group": 73,
+      "group": 64,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -1127,7 +1043,7 @@
       ]
     },
     {
-      "group": 74,
+      "group": 65,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -1135,7 +1051,7 @@
       ]
     },
     {
-      "group": 75,
+      "group": 66,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1143,7 +1059,7 @@
       ]
     },
     {
-      "group": 76,
+      "group": 67,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -1153,7 +1069,7 @@
       ]
     },
     {
-      "group": 77,
+      "group": 68,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -1163,7 +1079,7 @@
       ]
     },
     {
-      "group": 78,
+      "group": 69,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -1171,17 +1087,7 @@
       ]
     },
     {
-      "group": 79,
-      "parsed": true,
-      "num": 1,
-      "testCasesPassed": true,
-      "runtimeEvent": false,
-      "submissions": [
-        "if (!root) return 0;\nint add = (root->datum == compare);\nreturn add + countEqual(root->left, compare) + countEqual(root->right, compare);"
-      ]
-    },
-    {
-      "group": 80,
+      "group": 70,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1189,7 +1095,7 @@
       ]
     },
     {
-      "group": 81,
+      "group": 71,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1197,7 +1103,7 @@
       ]
     },
     {
-      "group": 82,
+      "group": 72,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1205,7 +1111,7 @@
       ]
     },
     {
-      "group": 83,
+      "group": 73,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1213,7 +1119,7 @@
       ]
     },
     {
-      "group": 84,
+      "group": 74,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -1223,7 +1129,7 @@
       ]
     },
     {
-      "group": 85,
+      "group": 75,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -1233,7 +1139,7 @@
       ]
     },
     {
-      "group": 86,
+      "group": 76,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1241,7 +1147,7 @@
       ]
     },
     {
-      "group": 87,
+      "group": 77,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1249,7 +1155,7 @@
       ]
     },
     {
-      "group": 88,
+      "group": 78,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1257,7 +1163,7 @@
       ]
     },
     {
-      "group": 89,
+      "group": 79,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -1267,7 +1173,7 @@
       ]
     },
     {
-      "group": 90,
+      "group": 80,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1275,7 +1181,7 @@
       ]
     },
     {
-      "group": 91,
+      "group": 81,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -1283,7 +1189,7 @@
       ]
     },
     {
-      "group": 92,
+      "group": 82,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -1291,7 +1197,7 @@
       ]
     },
     {
-      "group": 93,
+      "group": 83,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -1301,7 +1207,7 @@
       ]
     },
     {
-      "group": 94,
+      "group": 84,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -1309,7 +1215,7 @@
       ]
     },
     {
-      "group": 95,
+      "group": 85,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -1319,17 +1225,7 @@
       ]
     },
     {
-      "group": 96,
-      "parsed": true,
-      "num": 1,
-      "testCasesPassed": true,
-      "runtimeEvent": false,
-      "submissions": [
-        "int count = 0;\nif (!root) {\n    return 0;\n}\nif (root->datum == compare) {\n    count++;\n}\nif (root->left) {\n    count += countEqual(root->left, compare);\n}\nif (root->right) {\n    count += countEqual(root->right, compare);\n}\nreturn count;\n"
-      ]
-    },
-    {
-      "group": 97,
+      "group": 86,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1337,15 +1233,7 @@
       ]
     },
     {
-      "group": 98,
-      "parsed": true,
-      "num": 1,
-      "submissions": [
-        "if(root == 0){\n    return 0;\n}\nif(root->datum == compare){\n    return 1 + countEqual(root->left,compare) + countEqual(root->right,compare);\n}else{\n    return countEqual(root->left.compare) + countEqual(root->right,compare);\n}"
-      ]
-    },
-    {
-      "group": 99,
+      "group": 87,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1353,7 +1241,7 @@
       ]
     },
     {
-      "group": 100,
+      "group": 88,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1361,7 +1249,7 @@
       ]
     },
     {
-      "group": 101,
+      "group": 89,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -1371,7 +1259,7 @@
       ]
     },
     {
-      "group": 102,
+      "group": 90,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -1381,7 +1269,7 @@
       ]
     },
     {
-      "group": 103,
+      "group": 91,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -1391,15 +1279,7 @@
       ]
     },
     {
-      "group": 104,
-      "parsed": true,
-      "num": 1,
-      "submissions": [
-        "if(!root)\n    return 0;\nif(root->datum == compare)\n    return 1 + countEqual(root->right) + countEqual(root->left);\nelse\n    return 0 + countEqual(root->right) + countEqual(root->left);"
-      ]
-    },
-    {
-      "group": 105,
+      "group": 92,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1407,7 +1287,7 @@
       ]
     },
     {
-      "group": 106,
+      "group": 93,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -1417,7 +1297,7 @@
       ]
     },
     {
-      "group": 107,
+      "group": 94,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1425,7 +1305,7 @@
       ]
     },
     {
-      "group": 108,
+      "group": 95,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -1435,7 +1315,7 @@
       ]
     },
     {
-      "group": 109,
+      "group": 96,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1443,7 +1323,7 @@
       ]
     },
     {
-      "group": 110,
+      "group": 97,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1451,7 +1331,7 @@
       ]
     },
     {
-      "group": 111,
+      "group": 98,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -1459,15 +1339,7 @@
       ]
     },
     {
-      "group": 112,
-      "parsed": true,
-      "num": 1,
-      "submissions": [
-        "if(!root) return 0;\nreturn (int)(root->datum == compare) + countEqual(root->left, compare) + countEqual(root->right, compare);"
-      ]
-    },
-    {
-      "group": 113,
+      "group": 99,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1475,7 +1347,7 @@
       ]
     },
     {
-      "group": 114,
+      "group": 100,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -1483,7 +1355,7 @@
       ]
     },
     {
-      "group": 115,
+      "group": 101,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -1493,7 +1365,7 @@
       ]
     },
     {
-      "group": 116,
+      "group": 102,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -1503,7 +1375,7 @@
       ]
     },
     {
-      "group": 117,
+      "group": 103,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1511,7 +1383,7 @@
       ]
     },
     {
-      "group": 118,
+      "group": 104,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -1521,7 +1393,7 @@
       ]
     },
     {
-      "group": 119,
+      "group": 105,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1529,7 +1401,7 @@
       ]
     },
     {
-      "group": 120,
+      "group": 106,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -1539,7 +1411,7 @@
       ]
     },
     {
-      "group": 121,
+      "group": 107,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -1549,7 +1421,7 @@
       ]
     },
     {
-      "group": 122,
+      "group": 108,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -1559,7 +1431,7 @@
       ]
     },
     {
-      "group": 123,
+      "group": 109,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1567,7 +1439,7 @@
       ]
     },
     {
-      "group": 124,
+      "group": 110,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -1577,7 +1449,7 @@
       ]
     },
     {
-      "group": 125,
+      "group": 111,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -1587,7 +1459,7 @@
       ]
     },
     {
-      "group": 126,
+      "group": 112,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -1597,15 +1469,7 @@
       ]
     },
     {
-      "group": 127,
-      "parsed": true,
-      "num": 1,
-      "submissions": [
-        "if(root==0){return 0;}\nint ans=0;\nif(root->datum==compare){\nans=1;\n}\nreturn ans+countEqual(root->left)+countEqual(root->right);"
-      ]
-    },
-    {
-      "group": 128,
+      "group": 113,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1613,7 +1477,7 @@
       ]
     },
     {
-      "group": 129,
+      "group": 114,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1621,7 +1485,7 @@
       ]
     },
     {
-      "group": 130,
+      "group": 115,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1629,7 +1493,7 @@
       ]
     },
     {
-      "group": 131,
+      "group": 116,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -1639,7 +1503,7 @@
       ]
     },
     {
-      "group": 132,
+      "group": 117,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -1649,7 +1513,7 @@
       ]
     },
     {
-      "group": 133,
+      "group": 118,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1657,17 +1521,7 @@
       ]
     },
     {
-      "group": 134,
-      "parsed": true,
-      "num": 1,
-      "testCasesPassed": true,
-      "runtimeEvent": false,
-      "submissions": [
-        "    if(!root){\n        return 0;\n    }\n\n    int add = 0;\n    if(root->datum == compare){\n        add = 1;\n    }\n\n    return countEqual(root->left, compare) + countEqual(root->right, compare) + add;"
-      ]
-    },
-    {
-      "group": 135,
+      "group": 119,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -1677,7 +1531,7 @@
       ]
     },
     {
-      "group": 136,
+      "group": 120,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -1687,7 +1541,7 @@
       ]
     },
     {
-      "group": 137,
+      "group": 121,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -1697,7 +1551,7 @@
       ]
     },
     {
-      "group": 138,
+      "group": 122,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -1705,7 +1559,7 @@
       ]
     },
     {
-      "group": 139,
+      "group": 123,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -1713,15 +1567,7 @@
       ]
     },
     {
-      "group": 140,
-      "parsed": true,
-      "num": 1,
-      "submissions": [
-        "if (!root){\n    return 0; \n}\nelse{\n    if (root->datum == compare){\n        return 1 + countEqual(root->left) + countEqual(root->right);\n    }\n    else{\n         return countEqual(root->left) + countEqual(root->right);\n     }\n}\n\n"
-      ]
-    },
-    {
-      "group": 141,
+      "group": 124,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1729,7 +1575,7 @@
       ]
     },
     {
-      "group": 142,
+      "group": 125,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1737,7 +1583,7 @@
       ]
     },
     {
-      "group": 143,
+      "group": 126,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -1747,7 +1593,7 @@
       ]
     },
     {
-      "group": 144,
+      "group": 127,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -1757,7 +1603,7 @@
       ]
     },
     {
-      "group": 145,
+      "group": 128,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1765,7 +1611,7 @@
       ]
     },
     {
-      "group": 146,
+      "group": 129,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -1773,7 +1619,7 @@
       ]
     },
     {
-      "group": 147,
+      "group": 130,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1781,7 +1627,7 @@
       ]
     },
     {
-      "group": 148,
+      "group": 131,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -1789,7 +1635,7 @@
       ]
     },
     {
-      "group": 149,
+      "group": 132,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -1797,7 +1643,7 @@
       ]
     },
     {
-      "group": 150,
+      "group": 133,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -1805,17 +1651,7 @@
       ]
     },
     {
-      "group": 151,
-      "parsed": true,
-      "num": 1,
-      "testCasesPassed": true,
-      "runtimeEvent": false,
-      "submissions": [
-        "if (root == 0) {\n    return 0;\n}\n\nelse if (root->datum == compare) {\n    return 1 + countEqual(root->right, compare) + countEqual(root->left, compare);\n}\n\nelse {\n    return 0 + countEqual(root->right, compare) + countEqual(root->left, compare);\n}"
-      ]
-    },
-    {
-      "group": 152,
+      "group": 134,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -1825,7 +1661,7 @@
       ]
     },
     {
-      "group": 153,
+      "group": 135,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1833,7 +1669,7 @@
       ]
     },
     {
-      "group": 154,
+      "group": 136,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -1843,7 +1679,7 @@
       ]
     },
     {
-      "group": 155,
+      "group": 137,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -1853,7 +1689,7 @@
       ]
     },
     {
-      "group": 156,
+      "group": 138,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1861,7 +1697,7 @@
       ]
     },
     {
-      "group": 157,
+      "group": 139,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -1871,7 +1707,7 @@
       ]
     },
     {
-      "group": 158,
+      "group": 140,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1879,7 +1715,7 @@
       ]
     },
     {
-      "group": 159,
+      "group": 141,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -1889,17 +1725,7 @@
       ]
     },
     {
-      "group": 160,
-      "parsed": true,
-      "num": 1,
-      "testCasesPassed": false,
-      "runtimeEvent": true,
-      "submissions": [
-        "if (!root) {\n    return 0;\n}\nif (root->datum == compare) {\n    return 1 + countEqual(root->right, compare), countEqual(root->left, compare);\n}\nelse {\n    return countEqual(root->right, compare), countEqual(root->left, compare);\n}\n"
-      ]
-    },
-    {
-      "group": 161,
+      "group": 142,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -1907,7 +1733,7 @@
       ]
     },
     {
-      "group": 162,
+      "group": 143,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -1915,27 +1741,7 @@
       ]
     },
     {
-      "group": 163,
-      "parsed": true,
-      "num": 1,
-      "testCasesPassed": true,
-      "runtimeEvent": false,
-      "submissions": [
-        "if (!root) {\n    return 0;}\nint countLeft = countEqual (root -> left, compare);\nint countRight = countEqual (root -> right, compare);\nreturn (root->datum == compare ? 1 : 0)+countLeft+countRight;"
-      ]
-    },
-    {
-      "group": 164,
-      "parsed": true,
-      "num": 1,
-      "testCasesPassed": true,
-      "runtimeEvent": false,
-      "submissions": [
-        "int num = 0;\n\nif (root == 0) {\n    return 0;\n} \n\nif (root->datum == compare) num++;\n\nif (root->left != 0) {\n    num += countEqual(root->left, compare);\n}\n\nif (root ->right != 0) {\n    num += countEqual(root->right, compare);\n}\n\nreturn num;"
-      ]
-    },
-    {
-      "group": 165,
+      "group": 144,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1943,7 +1749,7 @@
       ]
     },
     {
-      "group": 166,
+      "group": 145,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1951,7 +1757,7 @@
       ]
     },
     {
-      "group": 167,
+      "group": 146,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1959,7 +1765,7 @@
       ]
     },
     {
-      "group": 168,
+      "group": 147,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1967,7 +1773,7 @@
       ]
     },
     {
-      "group": 169,
+      "group": 148,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -1977,7 +1783,7 @@
       ]
     },
     {
-      "group": 170,
+      "group": 149,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -1987,7 +1793,7 @@
       ]
     },
     {
-      "group": 171,
+      "group": 150,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -1995,7 +1801,7 @@
       ]
     },
     {
-      "group": 172,
+      "group": 151,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -2003,7 +1809,7 @@
       ]
     },
     {
-      "group": 173,
+      "group": 152,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -2011,17 +1817,7 @@
       ]
     },
     {
-      "group": 174,
-      "parsed": true,
-      "num": 1,
-      "testCasesPassed": false,
-      "runtimeEvent": true,
-      "submissions": [
-        "if (!root) {\n return 0;\n}\nif (root->datum == compare) {\n return 1;\n}\n return countEqual(root->right, compare) + countEqual(root->left, compare);"
-      ]
-    },
-    {
-      "group": 175,
+      "group": 153,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -2029,7 +1825,7 @@
       ]
     },
     {
-      "group": 176,
+      "group": 154,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -2039,7 +1835,7 @@
       ]
     },
     {
-      "group": 177,
+      "group": 155,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -2047,7 +1843,7 @@
       ]
     },
     {
-      "group": 178,
+      "group": 156,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -2055,7 +1851,7 @@
       ]
     },
     {
-      "group": 179,
+      "group": 157,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -2063,7 +1859,7 @@
       ]
     },
     {
-      "group": 180,
+      "group": 158,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -2073,7 +1869,7 @@
       ]
     },
     {
-      "group": 181,
+      "group": 159,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -2083,7 +1879,7 @@
       ]
     },
     {
-      "group": 182,
+      "group": 160,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -2093,7 +1889,7 @@
       ]
     },
     {
-      "group": 183,
+      "group": 161,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -2101,7 +1897,7 @@
       ]
     },
     {
-      "group": 184,
+      "group": 162,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -2109,7 +1905,7 @@
       ]
     },
     {
-      "group": 185,
+      "group": 163,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -2119,7 +1915,7 @@
       ]
     },
     {
-      "group": 186,
+      "group": 164,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -2129,7 +1925,7 @@
       ]
     },
     {
-      "group": 187,
+      "group": 165,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -2137,7 +1933,7 @@
       ]
     },
     {
-      "group": 188,
+      "group": 166,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -2145,7 +1941,7 @@
       ]
     },
     {
-      "group": 189,
+      "group": 167,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -2153,7 +1949,7 @@
       ]
     },
     {
-      "group": 190,
+      "group": 168,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -2161,7 +1957,7 @@
       ]
     },
     {
-      "group": 191,
+      "group": 169,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -2169,7 +1965,7 @@
       ]
     },
     {
-      "group": 192,
+      "group": 170,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -2177,7 +1973,7 @@
       ]
     },
     {
-      "group": 193,
+      "group": 171,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -2187,7 +1983,7 @@
       ]
     },
     {
-      "group": 194,
+      "group": 172,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -2197,7 +1993,7 @@
       ]
     },
     {
-      "group": 195,
+      "group": 173,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -2207,7 +2003,7 @@
       ]
     },
     {
-      "group": 196,
+      "group": 174,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -2215,7 +2011,7 @@
       ]
     },
     {
-      "group": 197,
+      "group": 175,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -2223,7 +2019,7 @@
       ]
     },
     {
-      "group": 198,
+      "group": 176,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -2233,7 +2029,7 @@
       ]
     },
     {
-      "group": 199,
+      "group": 177,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -2241,7 +2037,7 @@
       ]
     },
     {
-      "group": 200,
+      "group": 178,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -2251,7 +2047,7 @@
       ]
     },
     {
-      "group": 201,
+      "group": 179,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -2261,7 +2057,7 @@
       ]
     },
     {
-      "group": 202,
+      "group": 180,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -2269,25 +2065,7 @@
       ]
     },
     {
-      "group": 203,
-      "parsed": true,
-      "num": 1,
-      "submissions": [
-        "if (!root) { return 0; }\nelse if (root->datum == compare) {\n    return countEqual(root->left) + countEqual(root->right) + 1;\n}\nelse {\n    return countEqual(root->left) + countEqual(root->right);\n} "
-      ]
-    },
-    {
-      "group": 204,
-      "parsed": true,
-      "num": 1,
-      "testCasesPassed": false,
-      "runtimeEvent": true,
-      "submissions": [
-        "if(root == 0){\n    return 0;\n}\nif(root->datum == compare){\n    return 1+countEqual(root->right, compare) + (root->left,compare);\n}\nelse{\n    return countEqual(root->right, compare) + (root->left,compare);\n}"
-      ]
-    },
-    {
-      "group": 205,
+      "group": 181,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -2297,7 +2075,7 @@
       ]
     },
     {
-      "group": 206,
+      "group": 182,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -2307,7 +2085,7 @@
       ]
     },
     {
-      "group": 207,
+      "group": 183,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -2315,7 +2093,7 @@
       ]
     },
     {
-      "group": 208,
+      "group": 184,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -2325,7 +2103,7 @@
       ]
     },
     {
-      "group": 209,
+      "group": 185,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -2333,7 +2111,7 @@
       ]
     },
     {
-      "group": 210,
+      "group": 186,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -2343,15 +2121,7 @@
       ]
     },
     {
-      "group": 211,
-      "parsed": true,
-      "num": 1,
-      "submissions": [
-        "if (!node) return false;\nif (node->datum == compare) return 1+countEqual(node->left, compare)+countEqual(node->right, compare);\nreturn countEqual(node->left, compare)+countEqual(node->right, compare);"
-      ]
-    },
-    {
-      "group": 212,
+      "group": 187,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -2359,7 +2129,7 @@
       ]
     },
     {
-      "group": 213,
+      "group": 188,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -2369,15 +2139,7 @@
       ]
     },
     {
-      "group": 214,
-      "parsed": true,
-      "num": 1,
-      "submissions": [
-        "if(!root){\n    return 0;\n}\nif(root->datum == compare){\n    return 1 + countEqual(root->right) + countEqual(root->left);\n}\nreturn countEqual(root->right) + countEqual(root->left);"
-      ]
-    },
-    {
-      "group": 215,
+      "group": 189,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -2387,7 +2149,7 @@
       ]
     },
     {
-      "group": 216,
+      "group": 190,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -2397,7 +2159,7 @@
       ]
     },
     {
-      "group": 217,
+      "group": 191,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -2405,7 +2167,7 @@
       ]
     },
     {
-      "group": 218,
+      "group": 192,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -2413,7 +2175,7 @@
       ]
     },
     {
-      "group": 219,
+      "group": 193,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -2421,7 +2183,7 @@
       ]
     },
     {
-      "group": 220,
+      "group": 194,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -2429,15 +2191,7 @@
       ]
     },
     {
-      "group": 221,
-      "parsed": true,
-      "num": 1,
-      "submissions": [
-        "if (!node) {\n    return 0;\n}\n\nif (root->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nelse {\n    return 0 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\n"
-      ]
-    },
-    {
-      "group": 222,
+      "group": 195,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -2445,7 +2199,7 @@
       ]
     },
     {
-      "group": 223,
+      "group": 196,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -2453,7 +2207,7 @@
       ]
     },
     {
-      "group": 224,
+      "group": 197,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -2463,7 +2217,7 @@
       ]
     },
     {
-      "group": 225,
+      "group": 198,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -2471,7 +2225,7 @@
       ]
     },
     {
-      "group": 226,
+      "group": 199,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -2481,7 +2235,7 @@
       ]
     },
     {
-      "group": 227,
+      "group": 200,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -2489,7 +2243,7 @@
       ]
     },
     {
-      "group": 228,
+      "group": 201,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -2499,7 +2253,7 @@
       ]
     },
     {
-      "group": 229,
+      "group": 202,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -2507,35 +2261,7 @@
       ]
     },
     {
-      "group": 230,
-      "parsed": true,
-      "num": 1,
-      "testCasesPassed": false,
-      "runtimeEvent": true,
-      "submissions": [
-        "if(!root){\n    return 1;\n}\nif(root->datum == compare){\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);"
-      ]
-    },
-    {
-      "group": 231,
-      "parsed": true,
-      "num": 1,
-      "submissions": [
-        "if(!root) {return 0;}\nint count = 0;\nif(root->datum == compare) {++count;}\nreturn count + countEqual(node->left,compare) + countEqual(node->right,compare);"
-      ]
-    },
-    {
-      "group": 232,
-      "parsed": true,
-      "num": 1,
-      "testCasesPassed": true,
-      "runtimeEvent": false,
-      "submissions": [
-        "if(!root)\n    return 0;\n\nint left_equal = countEqual(root->left, compare);\nint right_equal = countEqual(root->right, compare);\n\n    \nreturn (root->datum == compare) + left_equal + right_equal;"
-      ]
-    },
-    {
-      "group": 233,
+      "group": 203,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -2543,7 +2269,7 @@
       ]
     },
     {
-      "group": 234,
+      "group": 204,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -2551,7 +2277,7 @@
       ]
     },
     {
-      "group": 235,
+      "group": 205,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -2561,7 +2287,7 @@
       ]
     },
     {
-      "group": 236,
+      "group": 206,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -2569,7 +2295,7 @@
       ]
     },
     {
-      "group": 237,
+      "group": 207,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -2579,7 +2305,7 @@
       ]
     },
     {
-      "group": 238,
+      "group": 208,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -2587,7 +2313,7 @@
       ]
     },
     {
-      "group": 239,
+      "group": 209,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -2595,7 +2321,7 @@
       ]
     },
     {
-      "group": 240,
+      "group": 210,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -2603,7 +2329,7 @@
       ]
     },
     {
-      "group": 241,
+      "group": 211,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -2613,7 +2339,7 @@
       ]
     },
     {
-      "group": 242,
+      "group": 212,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -2621,7 +2347,7 @@
       ]
     },
     {
-      "group": 243,
+      "group": 213,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -2629,7 +2355,7 @@
       ]
     },
     {
-      "group": 244,
+      "group": 214,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -2639,7 +2365,7 @@
       ]
     },
     {
-      "group": 245,
+      "group": 215,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -2649,7 +2375,7 @@
       ]
     },
     {
-      "group": 246,
+      "group": 216,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -2657,7 +2383,7 @@
       ]
     },
     {
-      "group": 247,
+      "group": 217,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -2667,7 +2393,7 @@
       ]
     },
     {
-      "group": 248,
+      "group": 218,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -2675,7 +2401,7 @@
       ]
     },
     {
-      "group": 249,
+      "group": 219,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -2685,7 +2411,7 @@
       ]
     },
     {
-      "group": 250,
+      "group": 220,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -2695,7 +2421,7 @@
       ]
     },
     {
-      "group": 251,
+      "group": 221,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -2705,7 +2431,7 @@
       ]
     },
     {
-      "group": 252,
+      "group": 222,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -2713,25 +2439,7 @@
       ]
     },
     {
-      "group": 253,
-      "parsed": true,
-      "num": 1,
-      "testCasesPassed": true,
-      "runtimeEvent": false,
-      "submissions": [
-        "int num_nodes = 0;\nif (root == 0) {\n    return num_nodes;\n}\nif (root->datum == compare) {\n    num_nodes++;\n}\nif (root->left != 0) {\n    num_nodes += countEqual(root->left, compare);\n}\nif (root->right != 0) {\n    num_nodes += countEqual(root->right, compare);\n}\nreturn num_nodes;"
-      ]
-    },
-    {
-      "group": 254,
-      "parsed": true,
-      "num": 1,
-      "submissions": [
-        "if (!root) {\n    return 0;\n}\nint counter = 0;\nif (root->datum == compare) {\n    counter += 1;\n}\nreturn counter + countEqual(root->left, compare) + countEqual(root->right_compare);"
-      ]
-    },
-    {
-      "group": 255,
+      "group": 223,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -2741,15 +2449,7 @@
       ]
     },
     {
-      "group": 256,
-      "parsed": true,
-      "num": 1,
-      "submissions": [
-        "if(!root) {return 0;}\nelse if(root->datum == compare) {\n    return 1 + countEqual(root-left, compare) + countEqual(root->left, compare);\n} else {\n    return countEqual(root-left, compare) + countEqual(root->left, compare);\n}\n\n\n"
-      ]
-    },
-    {
-      "group": 257,
+      "group": 224,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -2757,7 +2457,7 @@
       ]
     },
     {
-      "group": 258,
+      "group": 225,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -2765,7 +2465,7 @@
       ]
     },
     {
-      "group": 259,
+      "group": 226,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -2775,7 +2475,7 @@
       ]
     },
     {
-      "group": 260,
+      "group": 227,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -2785,7 +2485,7 @@
       ]
     },
     {
-      "group": 261,
+      "group": 228,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -2793,7 +2493,7 @@
       ]
     },
     {
-      "group": 262,
+      "group": 229,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -2803,17 +2503,7 @@
       ]
     },
     {
-      "group": 263,
-      "parsed": true,
-      "num": 1,
-      "testCasesPassed": true,
-      "runtimeEvent": false,
-      "submissions": [
-        "if(root == 0) return 0;\nif(root->datum == compare) {\n    return 1 + countEqual(root->left, compare) + countEqual(root->right, compare);\n} else {\n    return 0 + countEqual(root->left, compare) + countEqual(root->right, compare);\n}"
-      ]
-    },
-    {
-      "group": 264,
+      "group": 230,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -2823,27 +2513,7 @@
       ]
     },
     {
-      "group": 265,
-      "parsed": true,
-      "num": 1,
-      "testCasesPassed": true,
-      "runtimeEvent": false,
-      "submissions": [
-        "if(!root) return 0; //if no node, count is 0\nint sum_below = countEqual(root->left, compare) + countEqual(root->right, compare);\n//down left sum + down right sum\nif(root->datum == compare){\n    sum_below += 1;    //add in 1 if the current node matches\n}\nreturn sum_below; //send it up the chains"
-      ]
-    },
-    {
-      "group": 266,
-      "parsed": true,
-      "num": 1,
-      "testCasesPassed": false,
-      "runtimeEvent": true,
-      "submissions": [
-        "if (!root) return 0;\nint sum = 0;\nif (root->datum == compare) sum++;\nreturn sum + (countEqual(root->left, compare) || countEqual(root->right, compare));"
-      ]
-    },
-    {
-      "group": 267,
+      "group": 231,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -2853,7 +2523,7 @@
       ]
     },
     {
-      "group": 268,
+      "group": 232,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -2863,7 +2533,7 @@
       ]
     },
     {
-      "group": 269,
+      "group": 233,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -2873,7 +2543,7 @@
       ]
     },
     {
-      "group": 270,
+      "group": 234,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -2881,27 +2551,7 @@
       ]
     },
     {
-      "group": 271,
-      "parsed": true,
-      "num": 1,
-      "testCasesPassed": true,
-      "runtimeEvent": false,
-      "submissions": [
-        "if(!root) {\n    return 0;\n}\nif(root->datum == compare) {\n    return (1 + countEqual(root->right, compare) + countEqual(root->left,compare));\n}\nreturn (0 + countEqual(root->right, compare) + countEqual(root->left,compare));"
-      ]
-    },
-    {
-      "group": 272,
-      "parsed": true,
-      "num": 1,
-      "testCasesPassed": true,
-      "runtimeEvent": false,
-      "submissions": [
-        "if (!root) {\n    return 0;\n}\nreturn countEqual(root->left, compare) + countEqual(root->right, compare) + (root->datum == compare);"
-      ]
-    },
-    {
-      "group": 273,
+      "group": 235,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -2911,7 +2561,7 @@
       ]
     },
     {
-      "group": 274,
+      "group": 236,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -2921,7 +2571,7 @@
       ]
     },
     {
-      "group": 275,
+      "group": 237,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -2929,7 +2579,7 @@
       ]
     },
     {
-      "group": 276,
+      "group": 238,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -2939,7 +2589,7 @@
       ]
     },
     {
-      "group": 277,
+      "group": 239,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -2947,7 +2597,7 @@
       ]
     },
     {
-      "group": 278,
+      "group": 240,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -2957,7 +2607,7 @@
       ]
     },
     {
-      "group": 279,
+      "group": 241,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -2965,7 +2615,7 @@
       ]
     },
     {
-      "group": 280,
+      "group": 242,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -2973,7 +2623,7 @@
       ]
     },
     {
-      "group": 281,
+      "group": 243,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -2981,15 +2631,7 @@
       ]
     },
     {
-      "group": 282,
-      "parsed": true,
-      "num": 1,
-      "submissions": [
-        "if (root == 0) {return 0;}\nbool isEqual = (root->datum == compare);\nreturn ((int)isEqual) + countEqual(root->left,compare) + countEqual(root->right, compare);"
-      ]
-    },
-    {
-      "group": 283,
+      "group": 244,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -2999,7 +2641,7 @@
       ]
     },
     {
-      "group": 284,
+      "group": 245,
       "parsed": true,
       "num": 1,
       "testCasesPassed": false,
@@ -3009,7 +2651,7 @@
       ]
     },
     {
-      "group": 285,
+      "group": 246,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -3017,7 +2659,7 @@
       ]
     },
     {
-      "group": 286,
+      "group": 247,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -3025,7 +2667,7 @@
       ]
     },
     {
-      "group": 287,
+      "group": 248,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -3035,25 +2677,7 @@
       ]
     },
     {
-      "group": 288,
-      "parsed": true,
-      "num": 1,
-      "testCasesPassed": false,
-      "runtimeEvent": true,
-      "submissions": [
-        "if(!root) {return 0;}\n\nreturn countEqual(root->left, compare) + countEqual(root->right, compare);"
-      ]
-    },
-    {
-      "group": 289,
-      "parsed": true,
-      "num": 1,
-      "submissions": [
-        "if(!root){return 0;}\nif(root->datum == compare){\n    return 1 + countEqual(root->next,compare);\n}\nelse{\n    return countEqual(root->next,compare);\n}"
-      ]
-    },
-    {
-      "group": 290,
+      "group": 249,
       "parsed": false,
       "num": 1,
       "submissions": [
@@ -3061,7 +2685,7 @@
       ]
     },
     {
-      "group": 291,
+      "group": 250,
       "parsed": true,
       "num": 1,
       "testCasesPassed": true,
@@ -3071,7 +2695,7 @@
       ]
     },
     {
-      "group": 292,
+      "group": 251,
       "parsed": true,
       "num": 1,
       "submissions": [
@@ -3079,17 +2703,7 @@
       ]
     },
     {
-      "group": 293,
-      "parsed": true,
-      "num": 1,
-      "testCasesPassed": true,
-      "runtimeEvent": false,
-      "submissions": [
-        "if (root == 0) {\n\treturn 0;\n}\nreturn (root->datum == compare ? 1 : 0)\n\t+ countEqual(root->left, compare)\n\t+ countEqual(root->right, compare);"
-      ]
-    },
-    {
-      "group": 294,
+      "group": 252,
       "parsed": true,
       "num": 1,
       "submissions": [
