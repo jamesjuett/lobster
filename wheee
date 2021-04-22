@@ -1,2 +1,0 @@
-  "int main() { int count = 0;\nif (!first) {\n    return 0;\n}\n\nfor(Node *n = first; n; n = n->next) {\n    count++;\n}\n\nreturn count;\n}",
-  "int main() { int s=0;\nif (!first) {\n    return 0; \n}\nfor (Node *n = first; n; n = n->next) {\n    s=s+(n->datum);\n}\nreturn s;}",
