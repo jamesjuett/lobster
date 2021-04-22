@@ -1,8 +1,7 @@
 {
-    "name": "lobster",
+    "name": "lobster-vis",
     "version": "1.0.0",
     "description": "A C++ Program Visualization Tool",
-    "private": true,
     "main": "dist/lobster.js",
     "types": "dist/lobster.d.ts",
     "keywords": [],
@@ -17,7 +16,6 @@
     },
     "homepage": "https://github.com/jamesjuett/lobster#readme",
     "devDependencies": {
-        "@svgdotjs/svg.js": "^3.0.16",
         "@types/bootstrap": "^5.0.12",
         "@types/chai": "^4.2.15",
         "@types/codemirror": "0.0.80",
@@ -38,6 +36,7 @@
         "webpack-cli": "^4.3.0"
     },
     "dependencies": {
+        "@svgdotjs/svg.js": "^3.0.16",
         "@types/estree": "^0.0.47",
         "axios": "^0.21.1",
         "codemirror": "^5.49.2",
