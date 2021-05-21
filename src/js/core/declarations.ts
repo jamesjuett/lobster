@@ -1637,6 +1637,8 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, Funct
     public readonly ctorInitializer?: CtorInitializer | InvalidConstruct;
     public readonly body: Block;
 
+    public isOutOfLineMemberFunctionDefinition: boolean;
+
     /**
      * Only defined for destructors. A deallocator for the member
      * variables of the receiver that will run after the destructor itself.
@@ -1655,17 +1657,19 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, Funct
             declaration = decl;
         }
 
+        let outOfLine = false;
         // Consider "out-of-line" definitions as if they were in the class scope.
         // Need to change the parent to the context in which the definition occurs, though.
         if (isMemberSpecificationContext(declaration.context) && !isMemberSpecificationContext(context)) {
             context = createOutOfLineFunctionDefinitionContext(declaration.context, context);
+            outOfLine = true;
         }
 
         // Create implementation and body block (before params and body statements added yet)
         let receiverType: CompleteClassType | undefined;
         if (declaration.isMemberFunction) {
-            assert(context.containingClass?.isComplete(), "Member function definitions may not be compiled until their containing class definition has been completed.");
-            receiverType = context.containingClass.type;
+            assert(declaration.context.containingClass?.isComplete(), "Member function definitions may not be compiled until their containing class definition has been completed.");
+            receiverType = declaration.context.containingClass.type;
         }
         
         let functionContext = createFunctionContext(context, declaration.declaredEntity, receiverType);
@@ -1702,12 +1706,12 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, Funct
         // We can't use the createFromAST function for the body Block, because that would create a new, nested block context.
         let body = new Block(bodyContext, ast.body, ast.body.statements.map(s => createStatementFromAST(s, bodyContext)));
 
-        return new FunctionDefinition(functionContext, ast, declaration, declaration.parameterDeclarations, ctorInitializer, body);
+        return new FunctionDefinition(functionContext, ast, declaration, declaration.parameterDeclarations, ctorInitializer, body, outOfLine);
     }
 
     // i_childrenToExecute: ["memberInitializers", "body"], // TODO: why do regular functions have member initializers??
 
-    public constructor(context: FunctionContext, ast: FunctionDefinitionASTNode, declaration: FunctionDeclaration, parameters: readonly ParameterDeclaration[], ctorInitializer: CtorInitializer | InvalidConstruct | undefined, body: Block) {
+    public constructor(context: FunctionContext, ast: FunctionDefinitionASTNode, declaration: FunctionDeclaration, parameters: readonly ParameterDeclaration[], ctorInitializer: CtorInitializer | InvalidConstruct | undefined, body: Block, outOfLineMemberFunction: boolean) {
         super(context, ast);
 
         this.attach(this.declaration = declaration);
@@ -1719,6 +1723,7 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, Funct
 
         this.name = declaration.name;
         this.type = declaration.type;
+        this.isOutOfLineMemberFunctionDefinition = outOfLineMemberFunction;
 
         if (this.declaration.isDestructor) {
             // TODO: the cast on the line below seems kinda sus

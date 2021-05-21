@@ -295,6 +295,7 @@ export class AsynchronousSimulationRunner {
     public async stepToEndOfMain(delay: number = this.delay, stepLimit?: number, stopOnCinBlock: boolean = false) {
         let stepsTaken = 0;
         while (this.simulation.top()?.model !== this.simulation.program.mainFunction.body.localDeallocator
+            && this.simulation.top()?.model !== this.simulation.program.mainFunction
             && (!stopOnCinBlock || !this.simulation.isBlockingUntilCin)
             && (stepLimit === undefined || stepsTaken < stepLimit)) {
 

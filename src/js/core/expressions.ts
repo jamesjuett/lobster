@@ -2069,9 +2069,54 @@ export class RelationalBinaryOperatorExpression extends BinaryOperatorExpression
 
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, ec: SemanticContext): boolean {
         if (other.construct_type === this.construct_type) {
-            return other.operator === this.operator
-                && this.areChildrenSemanticallyEquivalent(other, ec);
+            if(other.operator === this.operator && this.areChildrenSemanticallyEquivalent(other, ec)) {
+                return true;
+            }
+
+            switch(this.operator) {
+                // commutative operators
+                case "!=":
+                case "==":
+                    if (other.operator === this.operator
+                        && areSemanticallyEquivalent(this.left, other.right, ec)
+                        && areSemanticallyEquivalent(this.right, other.left, ec)) {
+                        return true;
+                    }
+                    break;
+                case "<":
+                    if (other.operator === ">"
+                        && areSemanticallyEquivalent(this.left, other.right, ec)
+                        && areSemanticallyEquivalent(this.right, other.left, ec)) {
+                        return true;
+                    }
+                    break;
+                case "<=":
+                    if (other.operator === ">="
+                        && areSemanticallyEquivalent(this.left, other.right, ec)
+                        && areSemanticallyEquivalent(this.right, other.left, ec)) {
+                        return true;
+                    }
+                    break;
+                case ">":
+                    if (other.operator === "<"
+                        && areSemanticallyEquivalent(this.left, other.right, ec)
+                        && areSemanticallyEquivalent(this.right, other.left, ec)) {
+                        return true;
+                    }
+                    break;
+                case ">=":
+                    if (other.operator === "<="
+                        && areSemanticallyEquivalent(this.left, other.right, ec)
+                        && areSemanticallyEquivalent(this.right, other.left, ec)) {
+                        return true;
+                    }
+                    break;
+                default:
+                    assertNever(this.operator);
+                
+            }
         }
+
         if (other instanceof IntegralToBooleanConversion) {
             return checkForZeroEquivalence(other, this, ec);
         }
@@ -4656,6 +4701,18 @@ export class ParenthesesExpression extends Expression<ParenthesesExpressionASTNo
 
     public describeEvalResult(depth: number): ConstructDescription {
         throw new Error("Method not implemented.");
+    }
+
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, ec: SemanticContext): boolean {
+        if (other.construct_type === this.construct_type) {
+            return areSemanticallyEquivalent(this.subexpression, other.subexpression, ec);
+        }
+
+        if (areSemanticallyEquivalent(this.subexpression, other, ec)) {
+            return true;
+        }
+
+        return false;
     }
 
     // isTailChild : function(child){
