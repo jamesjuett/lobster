@@ -1,6 +1,6 @@
 {
     "name": "lobster-vis",
-    "version": "1.0.1",
+    "version": "1.0.6",
     "description": "A C++ Program Visualization Tool",
     "main": "dist/lobster.js",
     "types": "dist/lobster.d.ts",
@@ -46,8 +46,7 @@
         "lodash": "^4.17.19",
         "mocha": "^8.3.2",
         "pegjs": "^0.10.0",
-        "ts-node": "^9.1.1",
-        "tsc": "^1.20150623.0"
+        "ts-node": "^9.1.1"
     },
     "scripts": {
         "build": "webpack --config webpack.config.js",

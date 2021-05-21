@@ -201,13 +201,24 @@ export function areAllSemanticallyEquivalent(constructs: readonly CPPConstruct[]
     constructs = constructs.filter(c => c.construct_type !== "TemporaryDeallocator" && c.construct_type !== "LocalDeallocator");
     others = others.filter(c => c.construct_type !== "TemporaryDeallocator" && c.construct_type !== "LocalDeallocator");
 
-    let n = Math.max(constructs.length, others.length);
-    for(let i = 0; i < n; ++i) {
-        if (!areSemanticallyEquivalent(constructs[i] ?? undefined, others[i] ?? undefined, equivalenceContext)) {
-            return false;
-        }
+    return all_equiv_helper(constructs, others, equivalenceContext);
+}
+
+function all_equiv_helper(constructs: readonly CPPConstruct[], others: readonly CPPConstruct[], ec: SemanticContext) : boolean {
+    if (constructs.length === 0 && others.length === 0) {
+        return true;
     }
-    return true;
+    else if (constructs.length === 0) {
+        return others.every(o => isAnythingConstruct(o));
+    }
+    else if (others.length === 0) {
+        return constructs.every(c => isAnythingConstruct(c));
+    }
+    else {
+        return areSemanticallyEquivalent(constructs[0], others[0], ec) && all_equiv_helper(constructs.slice(1), others.slice(1), ec)
+            || isAnythingConstruct(constructs[0]) && all_equiv_helper(constructs.slice(1), others, ec)
+            || isAnythingConstruct(others[0]) && all_equiv_helper(constructs, others.slice(1), ec);
+    }
 }
 
 export function isAnythingConstruct(construct: CPPConstruct | undefined) : boolean {
@@ -227,7 +238,8 @@ export function areSemanticallyEquivalent(construct: CPPConstruct | undefined, o
     return !!(construct === other // also handles case of both undefined
         || isAnythingConstruct(construct)
         || isAnythingConstruct(other)
-        || construct && other && construct.isSemanticallyEquivalent(other, equivalenceContext));
+        || construct && other && construct.isSemanticallyEquivalent(other, equivalenceContext)
+        || construct && other && other.isSemanticallyEquivalent(construct, equivalenceContext));
 }
 
 export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramContext, ASTType extends ASTNode = ASTNode> {

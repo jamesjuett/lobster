@@ -169,7 +169,11 @@ export class Program {
             // a conflicting overload that violates ODR
             let conflictingDef = selectOverloadedDefinition(prevDef.definitions, def.declaration.type);
             if (conflictingDef) {
-                this.addNote(CPPError.link.multiple_def(def, qualifiedName.str));
+                if (!def.declaration.isMemberFunction || def.isOutOfLineMemberFunctionDefinition) {
+                    this.addNote(CPPError.link.multiple_def(def, qualifiedName.str));
+                }
+                // else ignore inline member functions with conflicting definitions
+                // those errors would be caught in the check for conflicting class definitions
             }
             else {
                 prevDef.addDefinition(def);
@@ -202,9 +206,7 @@ export class Program {
             }
 
             // Same tokens - ok
-            let prevDefText = prevDef.ast?.source.text;
-            let defText = def.ast?.source.text;
-            if (prevDefText && defText && prevDefText.replace(/\s/g, '') === defText.replace(/\s/g, '')) {
+            if (sameTokens(prevDef.ast, def.ast)) {
                 return prevDef;
             }
 
@@ -250,6 +252,12 @@ export class Program {
     //     }
     // }
 };
+
+function sameTokens(ast1: ASTNode | undefined, ast2: ASTNode | undefined) {
+    let ast1text = ast1?.source.text;
+    let ast2Text = ast2?.source.text;
+    return ast1text && ast2Text && ast1text.replace(/\s/g, '') === ast2Text.replace(/\s/g, '');
+}
 
 export interface CompiledProgram extends Program {
     readonly mainFunction?: CompiledFunctionDefinition;
