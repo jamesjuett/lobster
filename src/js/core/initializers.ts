@@ -1,4 +1,4 @@
-import { SuccessfullyCompiled, TranslationUnitContext, RuntimeConstruct, CPPConstruct, ExpressionContext, BlockContext, ClassContext, MemberFunctionContext, MemberBlockContext, BasicCPPConstruct, createImplicitContext, InvalidConstruct, SemanticContext } from "./constructs";
+import { SuccessfullyCompiled, TranslationUnitContext, RuntimeConstruct, CPPConstruct, ExpressionContext, BlockContext, ClassContext, MemberFunctionContext, MemberBlockContext, BasicCPPConstruct, createImplicitContext, InvalidConstruct, SemanticContext, areAllSemanticallyEquivalent } from "./constructs";
 import { ASTNode } from "../ast/ASTNode";
 import { CompiledTemporaryDeallocator, PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { CompiledFunctionCall, FunctionCall, RuntimeFunctionCall } from "./FunctionCall";
@@ -1583,8 +1583,9 @@ export class CtorInitializer extends BasicCPPConstruct<MemberBlockContext, CtorI
         return new CtorInitializerOutlet(element, this, parent);
     }
 
-    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return other.construct_type === this.construct_type;
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, ec: SemanticContext): boolean {
+        return other.construct_type === this.construct_type
+            && areAllSemanticallyEquivalent(this.children, other.children, ec);
         // TODO semantic equivalence
     }
 }
