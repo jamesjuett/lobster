@@ -1,6 +1,6 @@
 import { CPPObject, InvalidObject, TemporaryObject } from "./objects";
 import { Simulation, SimulationEvent } from "./Simulation";
-import { CompleteObjectType, AtomicType, IntegralType, PointerType, ReferenceType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointerType, Int, PotentialParameterType, Float, Double, Char, PeelReference, peelReference, ArrayOfUnknownBoundType, referenceCompatible, similarType, subType, ArrayElemType, FloatingPointType, isCvConvertible, CompleteClassType, isAtomicType, isArithmeticType, isIntegralType, isPointerType, isBoundedArrayType, isFunctionType, isCompleteObjectType, isPotentiallyCompleteClassType, isCompleteClassType, isFloatingPointType, PotentiallyCompleteObjectType, ExpressionType, CompleteReturnType, PointerToCompleteType as PointerToCompleteObjectType, IncompleteClassType, PotentiallyCompleteClassType, isPotentiallyCompleteArrayType, isPointerToCompleteType } from "./types";
+import { CompleteObjectType, AtomicType, IntegralType, PointerType, ReferenceType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointerType, Int, PotentialParameterType, Float, Double, Char, PeelReference, peelReference, ArrayOfUnknownBoundType, referenceCompatible, similarType, subType, ArrayElemType, FloatingPointType, isCvConvertible, CompleteClassType, isAtomicType, isArithmeticType, isIntegralType, isPointerType, isBoundedArrayType, isFunctionType, isCompleteObjectType, isPotentiallyCompleteClassType, isCompleteClassType, isFloatingPointType, PotentiallyCompleteObjectType, ExpressionType, CompleteReturnType, PointerToCompleteType as PointerToCompleteObjectType, IncompleteClassType, PotentiallyCompleteClassType, isPotentiallyCompleteArrayType, isPointerToCompleteObjectType } from "./types";
 import { SuccessfullyCompiled, RuntimeConstruct, CPPConstruct, ExpressionContext, ConstructDescription, createExpressionContextWithReceiverType, isMemberFunctionContext, SemanticContext, areSemanticallyEquivalent, areAllSemanticallyEquivalent } from "./constructs";
 import { AnythingConstructASTNode, ASTNode } from "../ast/ASTNode";
 import { Note, CPPError, NoteHandler } from "./errors";
@@ -414,7 +414,7 @@ export function createRuntimeExpression(construct: InvalidOperatorOverloadExpres
 export function createRuntimeExpression<T extends ExpressionType, V extends ValueCategory>(construct: CompiledCommaExpression<T, V>, parent: RuntimeConstruct): RuntimeComma<T, V>;
 export function createRuntimeExpression<T extends ExpressionType, V extends ValueCategory>(construct: CompiledTernaryExpression<T, V>, parent: RuntimeConstruct): RuntimeTernary<T, V>;
 export function createRuntimeExpression<T extends AtomicType>(construct: CompiledAssignmentExpression<T>, parent: RuntimeConstruct): RuntimeAssignment<T>;
-export function createRuntimeExpression<T extends AtomicType>(construct: CompiledCompoundAssignmentExpression<T>, parent: RuntimeConstruct): RuntimeCompoundAssignment<T>;
+export function createRuntimeExpression<T extends ArithmeticType | PointerToCompleteObjectType>(construct: CompiledCompoundAssignmentExpression<T>, parent: RuntimeConstruct): RuntimeCompoundAssignment<T>;
 export function createRuntimeExpression<T extends ArithmeticType>(construct: CompiledArithmeticBinaryOperatorExpression<T>, parent: RuntimeConstruct): RuntimeArithmeticBinaryOperator<T>;
 export function createRuntimeExpression(construct: CompiledPointerDifferenceExpression, parent: RuntimeConstruct): RuntimePointerDifference;
 export function createRuntimeExpression<T extends PointerToCompleteObjectType>(construct: CompiledPointerOffsetExpression<T>, parent: RuntimeConstruct): RuntimePointerOffset<T>;
@@ -970,7 +970,7 @@ export class RuntimeAssignment<T extends AtomicType = AtomicType> extends Simple
 export class CompoundAssignmentExpression extends Expression<CompoundAssignmentExpressionASTNode> {
     public readonly construct_type = "compound_assignment_expression";
 
-    public readonly type?: AtomicType;
+    public readonly type?: PointerToCompleteObjectType | ArithmeticType;
     public readonly valueCategory = "lvalue";
 
     public readonly lhs: Expression;
@@ -991,23 +991,6 @@ export class CompoundAssignmentExpression extends Expression<CompoundAssignmentE
             this.attach(this.rhs = rhs);
             return;
         }
-        
-        // Arithmetic types are required
-        if (!Predicates.isTypedExpression(lhs, isArithmeticType) || !Predicates.isTypedExpression(rhs, isArithmeticType)) {
-            this.addNote(CPPError.expr.binary.arithmetic_operands(this, this.operator, lhs, rhs));
-            this.attach(this.lhs = lhs);
-            this.attach(this.rhs = rhs);
-            return;
-        }
-
-        // % operator and shift operators require integral operands
-        if ((this.equivalentBinaryOp === "%" || this.equivalentBinaryOp === "<<" || this.equivalentBinaryOp == ">>") &&
-            (!Predicates.isTypedExpression(lhs, isIntegralType) || !Predicates.isTypedExpression(rhs, isIntegralType))) {
-            this.addNote(CPPError.expr.binary.integral_operands(this, this.operator, lhs, rhs));
-            this.attach(this.lhs = lhs);
-            this.attach(this.rhs = rhs);
-            return;
-        }
 
         if (lhs.valueCategory != "lvalue") {
             this.addNote(CPPError.expr.assignment.lhs_lvalue(this));
@@ -1016,20 +999,39 @@ export class CompoundAssignmentExpression extends Expression<CompoundAssignmentE
             this.addNote(CPPError.expr.assignment.lhs_const(this));
         }
 
-        rhs = standardConversion(rhs, lhs.type.cvUnqualified());
-
-
         // TODO: add a check for a modifiable type (e.g. an array type is not modifiable)
 
         if (lhs.type.isConst) {
             this.addNote(CPPError.expr.assignment.lhs_const(this));
         }
-
-        if (rhs.isWellTyped() && !sameType(rhs.type, lhs.type.cvUnqualified())) {
-            this.addNote(CPPError.expr.assignment.convert(this, lhs, rhs));
+        
+        // Check if it's a pointer offset
+        if ((this.equivalentBinaryOp === "+" || this.equivalentBinaryOp === "-" ) && 
+            Predicates.isTypedExpression(lhs, isPointerToCompleteObjectType) && Predicates.isTypedExpression(rhs, isIntegralType)) {
+            rhs = convertToPRValue(rhs);
         }
+        // otherwise it's an arithmetic binary operation
+        else {
 
-        // TODO: do we need to check that lhs is an AtomicType? or is that necessary given all the other checks?
+            // % operator and shift operators require integral operands
+            if ((this.equivalentBinaryOp === "%" || this.equivalentBinaryOp === "<<" || this.equivalentBinaryOp == ">>") &&
+                (!Predicates.isTypedExpression(lhs, isIntegralType) || !Predicates.isTypedExpression(rhs, isIntegralType))) {
+                this.addNote(CPPError.expr.binary.integral_operands(this, this.operator, lhs, rhs));
+                this.attach(this.lhs = lhs);
+                this.attach(this.rhs = rhs);
+                return;
+            }
+
+            //Otherwise, Arithmetic types are required
+            if (!Predicates.isTypedExpression(lhs, isArithmeticType) || !Predicates.isTypedExpression(rhs, isArithmeticType)) {
+                this.addNote(CPPError.expr.binary.arithmetic_operands(this, this.operator, lhs, rhs));
+                this.attach(this.lhs = lhs);
+                this.attach(this.rhs = rhs);
+                return;
+            }
+            
+            rhs = standardConversion(rhs, lhs.type.cvUnqualified());
+        }
 
         this.type = lhs.type;
         this.attach(this.lhs = lhs);
@@ -1083,20 +1085,20 @@ export class CompoundAssignmentExpression extends Expression<CompoundAssignmentE
     }
 }
 
-export interface TypedCompoundAssignmentExpression<T extends AtomicType = AtomicType> extends CompoundAssignmentExpression, t_TypedExpression {
+export interface TypedCompoundAssignmentExpression<T extends PointerToCompleteObjectType | ArithmeticType = PointerToCompleteObjectType | ArithmeticType> extends CompoundAssignmentExpression, t_TypedExpression {
     readonly type: T;
     readonly lhs: TypedExpression<T>;
 }
 
 
-export interface CompiledCompoundAssignmentExpression<T extends AtomicType = AtomicType> extends TypedCompoundAssignmentExpression<T>, SuccessfullyCompiled {
+export interface CompiledCompoundAssignmentExpression<T extends PointerToCompleteObjectType | ArithmeticType = PointerToCompleteObjectType | ArithmeticType> extends TypedCompoundAssignmentExpression<T>, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly lhs: CompiledExpression<T, "lvalue">;
     readonly rhs: CompiledExpression<T, "prvalue">;
 }
 
 
-export class RuntimeCompoundAssignment<T extends AtomicType = AtomicType> extends SimpleRuntimeExpression<T, "lvalue", CompiledCompoundAssignmentExpression<T>> {
+export class RuntimeCompoundAssignment<T extends PointerToCompleteObjectType | ArithmeticType = PointerToCompleteObjectType | ArithmeticType> extends SimpleRuntimeExpression<T, "lvalue", CompiledCompoundAssignmentExpression<T>> {
 
     public readonly lhs: RuntimeExpression<T, "lvalue">;
     public readonly rhs: RuntimeExpression<T, "prvalue">;
@@ -1109,11 +1111,26 @@ export class RuntimeCompoundAssignment<T extends AtomicType = AtomicType> extend
     }
 
     protected operate() {
-        let lhsObj = this.lhs.evalResult;
-        let newVal = ARITHMETIC_BINARY_OPERATIONS[this.model.equivalentBinaryOp](this.lhs.evalResult.getValue(), this.rhs.evalResult);
+        let lhsObj : CPPObject<ArithmeticType> | CPPObject<PointerToCompleteObjectType> = this.lhs.evalResult;
+        
+        if (lhsObj.isTyped(isArithmeticType)) {
+            let newVal = ARITHMETIC_BINARY_OPERATIONS[this.model.equivalentBinaryOp](lhsObj.getValue(), <Value<ArithmeticType>>this.rhs.evalResult);
+            lhsObj.writeValue(newVal);
+        }
+        else if (lhsObj.isTyped(isPointerToCompleteObjectType)) {
+            // operator must be + or -, otherwise wouldn't have compiled
+            let delta = (<RuntimeExpression<IntegralType, "prvalue">><unknown>this.rhs).evalResult;
+            if (this.model.equivalentBinaryOp === "-") {
+                delta = delta.arithmeticNegate();
+            }
+            let newVal = lhsObj.getValue().pointerOffset(delta);
+            lhsObj.writeValue(newVal);
+        }
+        else {
+            assertFalse();
+        }
 
-        lhsObj.writeValue(newVal);
-        this.setEvalResult(lhsObj);
+        this.setEvalResult(<VCResultTypes<T, "lvalue">>lhsObj);
     }
 }
 
@@ -2463,7 +2480,7 @@ export class PrefixIncrementExpression extends UnaryOperatorExpression<PrefixInc
         else if (this.operator === "--" && Predicates.isTypedExpression(operand, isType(Bool))) {
             this.addNote(CPPError.expr.prefixIncrement.decrement_bool_prohibited(this));
         }
-        else if (Predicates.isTypedExpression(operand, isArithmeticType) || Predicates.isTypedExpression(operand, isPointerToCompleteType)) {
+        else if (Predicates.isTypedExpression(operand, isArithmeticType) || Predicates.isTypedExpression(operand, isPointerToCompleteObjectType)) {
             this.type = operand.type;
             if (operand.type.isConst) {
                 this.addNote(CPPError.expr.prefixIncrement.const_prohibited(this));
@@ -3867,7 +3884,7 @@ export class PostfixIncrementExpression extends Expression<PostfixIncrementExpre
         else if (this.operator === "--" && Predicates.isTypedExpression(operand, isType(Bool))) {
             this.addNote(CPPError.expr.postfixIncrement.decrement_bool_prohibited(this));
         }
-        else if (Predicates.isTypedExpression(operand, isArithmeticType) || Predicates.isTypedExpression(operand, isPointerToCompleteType)) {
+        else if (Predicates.isTypedExpression(operand, isArithmeticType) || Predicates.isTypedExpression(operand, isPointerToCompleteObjectType)) {
 
             // Use cv-unqualified type since result is a prvalue
             this.type = operand.type.cvUnqualified();

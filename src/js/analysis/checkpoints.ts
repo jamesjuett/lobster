@@ -7,7 +7,7 @@ import { Project } from "../core/Project";
 import { Simulation } from "../core/Simulation";
 import { AsynchronousSimulationRunner } from "../core/simulationRunners";
 import { ForStatement, WhileStatement } from "../core/statements";
-import { BoundedArrayType, isArrayPointerToType, isBoundedArrayType, isPointerToCompleteType, isPointerToType } from "../core/types";
+import { BoundedArrayType, isArrayPointerToType, isBoundedArrayType, isPointerToCompleteObjectType, isPointerToType } from "../core/types";
 
 export abstract class Checkpoint {
 
