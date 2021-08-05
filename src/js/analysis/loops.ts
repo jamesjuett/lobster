@@ -1,6 +1,7 @@
 import { Predicates } from "../core/predicates";
 import { WhileStatement, ForStatement } from "../core/statements";
-import { containsConstruct } from "./analysis";
+import { isPointerType } from "../core/types";
+import { containsConstruct, findFirstConstruct } from "./analysis";
 
 // Note that this doesn't account for traversal by iterator at all
 export function findLoopControlVars(loop: WhileStatement | ForStatement) {

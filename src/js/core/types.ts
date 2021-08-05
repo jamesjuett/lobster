@@ -438,7 +438,7 @@ export function isPointerToType<T extends PotentiallyCompleteObjectType>(ctor: C
     return <(type: Type) => type is PointerType<T>>((type: Type) => type.isPointerToType(ctor));
 }
 
-export function isPointerToCompleteType(type: Type): type is PointerToCompleteType {
+export function isPointerToCompleteObjectType(type: Type): type is PointerToCompleteType {
     return type.isPointerToCompleteObjectType();
 }
 
