@@ -382,6 +382,8 @@ class PreprocessedSource {
     public readonly numLines: number;
     public readonly length: number;
 
+    private currentOffset: number;
+
     public constructor(sourceFile: SourceFile, availableToInclude: { [index: string]: SourceFile | undefined }, alreadyIncluded: { [index: string]: boolean } = {}) {
         this.primarySourceFile = sourceFile;
         this.name = sourceFile.name;
@@ -391,7 +393,8 @@ class PreprocessedSource {
 
         let codeStr = sourceFile.text;
 
-        codeStr = this.filterSourceCode(codeStr);
+        codeStr = this.cleanCode(codeStr);
+        codeStr = this.filterUnsupportedDirectives(codeStr);
 
         let currentIncludeOffset = 0;
         let currentIncludeLineNumber = 1;
@@ -399,9 +402,47 @@ class PreprocessedSource {
 
         this.includedSourceFiles[this.primarySourceFile.name] = this.primarySourceFile;
 
+        // All preprocessor directives must be on their own line,
+        // so we can process line-by-line
+        let lines = codeStr.split("\n");
+        let m : RegExpMatchArray | null = null; // placeholder for preprocessor directive match attempts below
+
+        this.currentOffset = 0;
+        let newLines = lines.map((line, i) => {
+            let newLine = this.processLine(line, i+1);
+            this.currentOffset += line.length + 1; // +1 for the newline
+            return newLine;
+        });
+
+        this.preprocessedText = newLines.join("\n");
+        this.length = this.preprocessedText.length;
+    }
+
+    private processLine(line: string, lineNum: number) {
+
+        // ignore lines that do not start with #
+        if (!line.trim().startsWith("#")) {
+            return line;
+        }
+    
+        else if (m = line.match(/^\s*#\s*define(\s+(?<identifier>\S+))? *( +(?<replacement>\S.+))?$/)) {
+            this.notes.addNote(CPPError.preprocess.fileNotFound(
+                new SourceReference(sourceFile, currentIncludeLineNumber, 0, offset, currentIncludeOffset), filename));
+
+        }
+    
+        else if (m = line.match(/^\s*#\s*include/)) {
+            if (m = line.match(/^\s*#\s*include\s*(["<](?<name>.*)[">])?\s*$/)) {
+            }
+            else {
+
+            }
+        }
+    }
+
         // Find and replace #include lines. Will also populate i_includes array.
         // [^\S\n] is a character class for all whitespace other than newlines
-        this.preprocessedText = codeStr.replace(/#include[^\S\n]+["<](.*)[">]/g,
+        codeStr = codeStr.replace(/#include[^\S\n]+["<](.*)[">]/g,
             (includeLine, filename, offset, original) => {
 
                 let mapping: Mutable<Partial<IncludeMapping>> = {};
@@ -467,6 +508,7 @@ class PreprocessedSource {
             }
         );
 
+
         // Count lines for the rest of the file after any #includes
         for (var i = currentIncludeOffset; i < codeStr.length; ++i) {
             if (codeStr[i] === "\n") {
@@ -475,32 +517,91 @@ class PreprocessedSource {
         }
 
         this.numLines = currentIncludeLineNumber;
-        this.length = this.preprocessedText.length;
+
+        codeStr = this.processDefines(codeStr);
+
+        
     }
 
-    private filterSourceCode(codeStr: string) {
-
+    private cleanCode(codeStr: string) {
         // remove carriage returns
-        codeStr = codeStr.replace(/\r/g, "");
+        return codeStr.replace(/\r/g, "");
+    }
 
-        if (codeStr.includes("#ifndef")) {
-            codeStr = codeStr.replace(/#ifndef.*/g, function (match) {
-                return Array(match.length + 1).join(" ");
-            });
-            // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
-        }
-        if (codeStr.includes("#define")) {
-            codeStr = codeStr.replace(/#define.*/g, function (match) {
-                return Array(match.length + 1).join(" ");
-            });
-            // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
-        }
-        if (codeStr.includes("#endif")) {
-            codeStr = codeStr.replace(/#endif.*/g, function (match) {
-                return Array(match.length + 1).join(" ");
-            });
-            // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
-        }
+    private processDefines(codeStr: string) {
+
+        // All preprocessor directives must be on their own line,
+        // so we can process line-by-line
+        let lines = codeStr.split("\n");
+
+        let newLines = lines.map((line, i) => {
+            
+            // ignore lines that do not start with #
+            if (!line.trim().startsWith("#")) {
+                return line;
+            }
+            
+            let m : RegExpMatchArray | null = null;
+            
+            if (m = line.match(/^\s*#\s*define( +(?<identifier>\S+))? *( +(?<replacement>\S.+))?$/)) {
+
+                if (m.groups?.identifier) {
+
+                    if (m.groups.replacement) {
+
+                    }
+                    else {
+
+                    }
+                }
+                else {
+                    this.notes.addNote(CPPError.preprocess.fileNotFound(
+                        new SourceReference(sourceFile, currentIncludeLineNumber, 0, offset, currentIncludeOffset), filename));
+
+                }
+
+                line = line.replace(/#define.*/g, function (match) {
+                    return Array(match.length + 1).join(" ");
+                });
+                // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
+            }
+
+            else if (line.match(/# *ifndef/)) {
+                line = line.replace(/#ifndef.*/g, function (match) {
+                    return Array(match.length + 1).join(" ");
+                });
+                // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
+            }
+            
+    
+            else if (line.match("# *ifndef")) {
+                line = line.replace(/#ifndef.*/g, function (match) {
+                    return Array(match.length + 1).join(" ");
+                });
+                // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
+            }
+            else if (line.match("# *define")) {
+                line = line.replace(/#define.*/g, function (match) {
+                    return Array(match.length + 1).join(" ");
+                });
+                // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
+            }
+            else if (line.match("# *endif")) {
+                line = line.replace(/#endif.*/g, function (match) {
+                    return Array(match.length + 1).join(" ");
+                });
+                // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
+            }
+        });
+
+        // Join preprocessed lines back together
+        codeStr = newLines.join("\n");
+
+        return codeStr;
+    }
+
+    private filterUnsupportedDirectives(codeStr: string) {
+
         // if (codeStr.contains(/#include.*<.*>/g)){
         // codeStr = codeStr.replace(/#include.*<.*>/g, function (match) {
         //     return Array(match.length + 1).join(" ");
