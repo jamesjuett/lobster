@@ -314,7 +314,6 @@ div .tabPane {
 	left: 0px;
 	bottom: 0px;
 	background-color: rgb(229, 229, 229);
-	background-image: url(../favicon.ico);
 	background-size: contain;
 	transition: width 0.25s ease-out, height 0.25s ease-out, left 0.25s ease-out, bottom 0.25s ease-out;
 }

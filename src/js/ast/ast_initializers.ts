@@ -4,8 +4,12 @@ import { ExpressionASTNode, InitializerListExpressionASTNode } from "./ast_expre
 
 export type InitializerASTNode = DirectInitializerASTNode | CopyInitializerASTNode | ListInitializerASTNode;
 
-export type NewInitializerASTNode = DirectInitializerASTNode | ListInitializerASTNode;
+export type NewInitializerASTNode = ValueInitializerASTNode | DirectInitializerASTNode | ListInitializerASTNode;
 
+
+export interface ValueInitializerASTNode extends ASTNode {
+    construct_type: "value_initializer";
+}
 
 export interface DirectInitializerASTNode extends ASTNode {
     construct_type: "direct_initializer";

@@ -14,57 +14,68 @@ import { isUnqualifiedIdentifier } from "../core/lexical";
 
 export type CPPConstructTest<Original extends CPPConstruct, T extends Original> = (construct: Original) => construct is T;
 
-export type CPPConstructFunctor<T extends CPPConstruct> = (construct: T) => void;
+export type CPPConstructFunctor<T extends CPPConstruct> = (construct: T, stop: () => void ) => void;
 
 export function constructTest<Original extends CPPConstruct, T extends Original>(constructClass: Function & { prototype: T }) {
     return <CPPConstructTest<Original, T>>((construct: Original) => construct instanceof constructClass);
 }
 
-export function exploreConstructs<T extends CPPConstruct>(root: CPPConstruct | CPPConstruct[] | TranslationUnit | Program, test: CPPConstructTest<CPPConstruct, T>, fn: CPPConstructFunctor<T>) {
+export function exploreConstructs<T extends CPPConstruct>(root: CPPConstruct | CPPConstruct[] | TranslationUnit | Program, test: CPPConstructTest<CPPConstruct, T>, fn: CPPConstructFunctor<T>, keepGoing?: {b: boolean}) : void;
+export function exploreConstructs(root: CPPConstruct | CPPConstruct[] | TranslationUnit | Program, test: (construct: CPPConstruct) => boolean, fn: CPPConstructFunctor<CPPConstruct>, keepGoing?: {b: boolean}) : void;
+export function exploreConstructs(root: CPPConstruct | CPPConstruct[] | TranslationUnit | Program, test: (construct: AnalyticConstruct) => boolean, fn: CPPConstructFunctor<AnalyticConstruct>, keepGoing?: {b: boolean}) : void;
+export function exploreConstructs(root: CPPConstruct | CPPConstruct[] | TranslationUnit | Program, test: (construct: AnalyticConstruct) => boolean, fn: CPPConstructFunctor<AnalyticConstruct>, keepGoing: {b: boolean} = {b: true}) {
 
     if (root instanceof Program) {
         for (let tuName in root.translationUnits) {
-            exploreConstructs(root.translationUnits[tuName], test, fn);
+            exploreConstructs(root.translationUnits[tuName], test, fn, keepGoing);
         }
         return;
     }
 
     if (root instanceof TranslationUnit) {
-        root.topLevelDeclarations.forEach(decl => exploreConstructs(decl, test, fn));
+        root.topLevelDeclarations.forEach(decl => exploreConstructs(decl, test, fn, keepGoing));
         return;
     }
 
     if (Array.isArray(root)) {
-        root.forEach(r => exploreConstructs(r, test, fn));
+        root.forEach(r => exploreConstructs(r, test, fn, keepGoing));
         return;
     }
 
-    if (test(root)) {
-        fn(root);
+    if (keepGoing.b && test(<AnalyticConstruct>root)) {
+        fn(<AnalyticConstruct>root, () => { keepGoing.b = false; });
     }
 
-    root.children.forEach(child => exploreConstructs(child, test, fn));
+    root.children.forEach(child => exploreConstructs(child, test, fn, keepGoing));
 }
 
-export function findConstructs<T extends AnalyticConstruct>(root: CPPConstruct | CPPConstruct[] | TranslationUnit | Program, test: CPPConstructTest<AnalyticConstruct, T>) {
-    let found: T[] = [];
-    exploreConstructs(root, test, (matchedConstruct: T) => {
+export function findConstructs<T extends AnalyticConstruct>(root: CPPConstruct | CPPConstruct[] | TranslationUnit | Program, test: CPPConstructTest<AnalyticConstruct, T>) : T[];
+export function findConstructs(root: CPPConstruct | CPPConstruct[] | TranslationUnit | Program, test: (construct: CPPConstruct) => boolean) : CPPConstruct[];
+export function findConstructs(root: CPPConstruct | CPPConstruct[] | TranslationUnit | Program, test: (construct: AnalyticConstruct) => boolean) : AnalyticConstruct[];
+export function findConstructs(root: CPPConstruct | CPPConstruct[] | TranslationUnit | Program, test: (construct: AnalyticConstruct) => boolean) {
+    let found: CPPConstruct[] = [];
+    exploreConstructs(root, test, (matchedConstruct: CPPConstruct) => {
         found.push(matchedConstruct);
     });
     return found;
 }
 
-export function findFirstConstruct<T extends AnalyticConstruct>(root: CPPConstruct | CPPConstruct[] | TranslationUnit | Program, test: CPPConstructTest<AnalyticConstruct, T>) {
-    let constructs = findConstructs(root, test);
-    if (constructs.length > 0) {
-        return constructs[0];
-    }
-    else {
-        return undefined;
-    }
+export function findFirstConstruct<T extends AnalyticConstruct>(root: CPPConstruct | CPPConstruct[] | TranslationUnit | Program, test: CPPConstructTest<AnalyticConstruct, T>) : T | undefined;
+export function findFirstConstruct(root: CPPConstruct | CPPConstruct[] | TranslationUnit | Program, test: (construct: CPPConstruct) => boolean) : CPPConstruct | undefined;
+export function findFirstConstruct(root: CPPConstruct | CPPConstruct[] | TranslationUnit | Program, test: (construct: AnalyticConstruct) => boolean) : AnalyticConstruct | undefined;
+export function findFirstConstruct(root: CPPConstruct | CPPConstruct[] | TranslationUnit | Program, test: (construct: AnalyticConstruct) => boolean) {
+    let found: CPPConstruct | undefined;
+    exploreConstructs(root, test, (matchedConstruct: CPPConstruct, stop: () => void) => {
+        found = matchedConstruct;
+        stop();
+    });
+    return found;
 }
 
-export function containsConstruct<T extends AnalyticConstruct>(root: CPPConstruct | CPPConstruct[] | TranslationUnit | Program, test: CPPConstructTest<AnalyticConstruct, T>) {
+export function containsConstruct<T extends AnalyticConstruct>(root: CPPConstruct | CPPConstruct[] | TranslationUnit | Program, test: CPPConstructTest<AnalyticConstruct, T>) : boolean;
+export function containsConstruct(root: CPPConstruct | CPPConstruct[] | TranslationUnit | Program, test: (construct: CPPConstruct) => boolean) : boolean;
+export function containsConstruct(root: CPPConstruct | CPPConstruct[] | TranslationUnit | Program, test: (construct: AnalyticConstruct) => boolean) : boolean;
+export function containsConstruct(root: CPPConstruct | CPPConstruct[] | TranslationUnit | Program, test: (construct: AnalyticConstruct) => boolean) {
     return !!findFirstConstruct(root, test);
 }
 

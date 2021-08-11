@@ -1,4 +1,4 @@
-import { SuccessfullyCompiled, RuntimeConstruct, ExpressionContext, createExpressionContextWithParameterTypes, ConstructDescription } from "./constructs";
+import { SuccessfullyCompiled, RuntimeConstruct, ExpressionContext, createExpressionContextWithParameterTypes, ConstructDescription, SemanticContext, areSemanticallyEquivalent, areAllSemanticallyEquivalent } from "./constructs";
 import { ASTNode } from "../ast/ASTNode";
 import { CompiledTemporaryDeallocator } from "./PotentialFullExpression";
 import { CompiledFunctionCall, FunctionCall, RuntimeFunctionCall, TypedFunctionCall } from "./FunctionCall";
@@ -12,6 +12,7 @@ import { allWellTyped, CompiledExpression, RuntimeExpression, VCResultTypes, Val
 import { MAGIC_FUNCTION_NAMES, LOBSTER_MAGIC_FUNCTIONS, identifierToString, astToIdentifier } from "./lexical";
 import { FunctionCallExpressionOutlet, ConstructOutlet } from "../view/codeOutlets";
 import { Mutable } from "../util/util";
+import { AnalyticConstruct } from "./predicates";
 
 
 
@@ -108,7 +109,11 @@ export class FunctionCallExpression extends Expression<FunctionCallExpressionAST
         throw new Error("Method not implemented.");
     }
 
-
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, ec: SemanticContext): boolean {
+        return other.construct_type === this.construct_type
+            && areSemanticallyEquivalent(this.operand, other.operand, ec)
+            && areAllSemanticallyEquivalent(this.originalArgs, other.originalArgs, ec);
+    }
 
 
 }

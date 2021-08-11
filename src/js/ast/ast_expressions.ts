@@ -1,5 +1,5 @@
 import { escapeString } from "../util/util";
-import { ASTNode } from "./ASTNode";
+import { AnythingConstructASTNode, ASTNode } from "./ASTNode";
 import { TypeSpecifierASTNode } from "./ast_declarations";
 import { ArrayPostfixDeclaratorASTNode, FunctionPostfixDeclaratorASTNode } from "./ast_declarators";
 import { IdentifierASTNode } from "./ast_identifiers";
@@ -27,7 +27,8 @@ export type ExpressionASTNode =
     StringLiteralASTNode |
     ParenthesesExpressionASTNode |
     InitializerListExpressionASTNode |
-    OpaqueExpressionASTNode;
+    OpaqueExpressionASTNode |
+    AnythingConstructASTNode;
 
 export interface CommaASTNode extends ASTNode {
     readonly construct_type: "comma_expression";
@@ -85,7 +86,6 @@ export interface ArithmeticBinaryOperatorExpressionASTNode extends ASTNode {
 }
 
 export type t_ArithmeticBinaryOperators = "+" | "-" | "*" | "/" | "%" | "&" | "^" | "|" | "<<" | ">>";
-
 
 
 export interface RelationalBinaryOperatorExpressionASTNode extends ASTNode {

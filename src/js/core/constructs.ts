@@ -1,5 +1,5 @@
 import { Program, TranslationUnit, SourceReference } from "./Program";
-import { Scope, FunctionEntity, LocalObjectEntity, LocalVariableEntity, LocalReferenceEntity, BlockScope, ClassEntity, MemberVariableEntity, ClassScope, CompleteClassEntity, TemporaryObjectEntity } from "./entities";
+import { Scope, FunctionEntity, LocalObjectEntity, LocalVariableEntity, LocalReferenceEntity, BlockScope, ClassEntity, MemberVariableEntity, ClassScope, CompleteClassEntity, TemporaryObjectEntity, CPPEntity } from "./entities";
 import { Note, NoteKind, CPPError, NoteRecorder } from "./errors";
 import { asMutable, Mutable, assertFalse, assert } from "../util/util";
 import { Simulation } from "./Simulation";
@@ -8,10 +8,11 @@ import { CompleteObjectType, ReferenceType, PeelReference, VoidType, PotentialRe
 import { GlobalVariableDefinition, CompiledGlobalVariableDefinition, CompiledFunctionDefinition, ClassDefinition, Declarator, FunctionDefinition, ClassDeclaration } from "./declarations";
 import { RuntimeFunction } from "./functions";
 import { CPPObject, TemporaryObject } from "./objects";
-import { ForStatement, WhileStatement } from "./statements";
+import { Block, ForStatement, WhileStatement } from "./statements";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { ASTNode } from "../ast/ASTNode";
 import { AccessSpecifier } from "../ast/ast_declarations";
+import { AnalyticConstruct } from "./predicates";
 
 
 
@@ -190,8 +191,60 @@ export function createMemberSpecificationContext(classContext: ClassContext, acc
     });
 }
 
+export type SemanticContext = {
+
+};
+
+export function areAllSemanticallyEquivalent(constructs: readonly CPPConstruct[], others: readonly CPPConstruct[], equivalenceContext: SemanticContext) : boolean{
+
+    // Don't care about deallocators in semantic analysis
+    constructs = constructs.filter(c => c.construct_type !== "TemporaryDeallocator" && c.construct_type !== "LocalDeallocator");
+    others = others.filter(c => c.construct_type !== "TemporaryDeallocator" && c.construct_type !== "LocalDeallocator");
+
+    return all_equiv_helper(constructs, others, equivalenceContext);
+}
+
+function all_equiv_helper(constructs: readonly CPPConstruct[], others: readonly CPPConstruct[], ec: SemanticContext) : boolean {
+    if (constructs.length === 0 && others.length === 0) {
+        return true;
+    }
+    else if (constructs.length === 0) {
+        return others.every(o => isAnythingConstruct(o));
+    }
+    else if (others.length === 0) {
+        return constructs.every(c => isAnythingConstruct(c));
+    }
+    else {
+        return areSemanticallyEquivalent(constructs[0], others[0], ec) && all_equiv_helper(constructs.slice(1), others.slice(1), ec)
+            || isAnythingConstruct(constructs[0]) && all_equiv_helper(constructs.slice(1), others, ec)
+            || isAnythingConstruct(others[0]) && all_equiv_helper(constructs, others.slice(1), ec);
+    }
+}
+
+export function isAnythingConstruct(construct: CPPConstruct | undefined) : boolean {
+    if (construct?.construct_type === "anything_construct") {
+        return true;
+    }
+    
+    let ac = <AnalyticConstruct>construct;
+    if (ac?.construct_type === "block" && ac.statements.length === 1 && isAnythingConstruct(ac.statements[0])) {
+        return true;
+    }
+
+    return false;
+}
+
+export function areSemanticallyEquivalent(construct: CPPConstruct | undefined, other: CPPConstruct | undefined, equivalenceContext: SemanticContext) : boolean{
+    return !!(construct === other // also handles case of both undefined
+        || isAnythingConstruct(construct)
+        || isAnythingConstruct(other)
+        || construct && other && construct.isSemanticallyEquivalent(other, equivalenceContext)
+        || construct && other && other.isSemanticallyEquivalent(construct, equivalenceContext));
+}
+
 export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramContext, ASTType extends ASTNode = ASTNode> {
     public abstract readonly construct_type: string;
+    public readonly t_analytic!: AnalyticConstruct;
     private static NEXT_ID = 0;
     // initIndex: "pushChildren",
 
@@ -325,6 +378,22 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
 
     public isSuccessfullyCompiled(): this is CompiledConstruct {
         return !this.getContainedNotes().hasErrors;
+    }
+
+    public isSemanticallyEquivalent(other: CPPConstruct, equivalenceContext: SemanticContext) : boolean {
+        return this.isSemanticallyEquivalent_impl(<AnalyticConstruct>other, equivalenceContext);
+    };
+
+    public abstract isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext) : boolean;
+
+    public areChildrenSemanticallyEquivalent(other: CPPConstruct, equivalenceContext: SemanticContext) : boolean{
+        return areAllSemanticallyEquivalent(this.children, other.children, equivalenceContext);
+    }
+
+    public entitiesUsed() : CPPEntity[] {
+        let ents : CPPEntity[] = [];
+        this.children.forEach(c => c.entitiesUsed().forEach(e => ents.push(e)));
+        return ents;
     }
 }
 
@@ -582,7 +651,14 @@ export class InvalidConstruct extends BasicCPPConstruct<TranslationUnitContext, 
         children?.forEach(child => this.attach(child));
     }
 
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext) : boolean {
+        return other.construct_type === this.construct_type
+            && other.note.id === this.note.id
+            && this.areChildrenSemanticallyEquivalent(other, equivalenceContext);
+    }
 }
+
+
 
 export class ContextualLocals {
 
@@ -755,6 +831,12 @@ export class GlobalObjectAllocator extends CPPConstruct {
     // public isTailChild(child: ExecutableConstruct) {
     //     return {isTail: true};
     // }
+
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
+        return other.construct_type === this.construct_type
+            && areAllSemanticallyEquivalent(this.globalObjects, other.globalObjects, equivalenceContext);
+    }
+    
 }
 
 export interface CompiledGlobalObjectAllocator extends GlobalObjectAllocator, SuccessfullyCompiled {

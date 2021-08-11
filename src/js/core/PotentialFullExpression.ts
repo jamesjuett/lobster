@@ -2,10 +2,11 @@ import { TemporaryObjectEntity } from "./entities";
 import { Mutable, assertFalse, assert } from "../util/util";
 import { CompleteClassType, CompleteObjectType, isCompleteClassType } from "./types";
 import { TemporaryObject } from "./objects";
-import { TranslationUnitContext, BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, StackType, CPPConstruct } from "./constructs";
+import { TranslationUnitContext, BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, StackType, CPPConstruct, SemanticContext } from "./constructs";
 import { ASTNode } from "../ast/ASTNode";
 import { CPPError } from "./errors";
 import { FunctionCall, CompiledFunctionCall } from "./FunctionCall";
+import { AnalyticConstruct } from "./predicates";
 
 export abstract class PotentialFullExpression<ContextType extends TranslationUnitContext = TranslationUnitContext, ASTType extends ASTNode = ASTNode> extends BasicCPPConstruct<ContextType, ASTType> {
     public readonly temporaryObjects: TemporaryObjectEntity[] = [];
@@ -129,6 +130,10 @@ export class TemporaryDeallocator extends BasicCPPConstruct<TranslationUnitConte
         return new RuntimeTemporaryDeallocator(this, parent);
     }
 
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
+        return other.construct_type === this.construct_type;
+        // TODO semantic equivalence
+    }
 }
 
 export interface CompiledTemporaryDeallocator extends TemporaryDeallocator, SuccessfullyCompiled {
@@ -166,6 +171,11 @@ export class RuntimeTemporaryDeallocator extends RuntimeConstruct<CompiledTempor
                 // a temp class-type object, so we call the dtor
                 assert(dtor);
                 let obj = temp.runtimeLookup(this.parent);
+                if (!obj) {
+                    // some obscure cases (e.g. non-evaluated operand of ternary operator)
+                    // where the temporary object might not ever have been allocated
+                    continue;
+                }
                 this.sim.push(dtor.createRuntimeFunctionCall(this, obj));
 
                 // need to destroy the object once dtor is done, so we keep track of it here
@@ -175,8 +185,14 @@ export class RuntimeTemporaryDeallocator extends RuntimeConstruct<CompiledTempor
                 return;
             }
             else {
+                let obj = temp.runtimeLookup(this.parent);
+                if (!obj) {
+                    // some obscure cases (e.g. non-evaluated operand of ternary operator)
+                    // where the temporary object might not ever have been allocated
+                    return;
+                }
                 // a temp non-class-type object, no dtor needed.
-                this.sim.memory.deallocateTemporaryObject(temp.runtimeLookup(this.parent), this);
+                this.sim.memory.deallocateTemporaryObject(obj, this);
             }
         }
 
