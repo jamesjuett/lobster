@@ -435,6 +435,7 @@ export class Memory {
             // length + 1 below is for null character
             let object = new StringLiteralObject(new BoundedArrayType(Char.CHAR, contents.length + 1), this, this.staticTop);
             this.allocateObject(object);
+            object.beginLifetime();
 
             // record the string literal in case we see more that are the same in the future
             this.stringLiteralMap[contents] = object;

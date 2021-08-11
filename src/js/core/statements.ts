@@ -1,4 +1,4 @@
-import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, CPPConstruct, BlockContext, FunctionContext, InvalidConstruct, createLoopContext, createBlockContext } from "./constructs";
+import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, CPPConstruct, BlockContext, FunctionContext, InvalidConstruct, createLoopContext, createBlockContext, SemanticContext, areSemanticallyEquivalent, areAllSemanticallyEquivalent } from "./constructs";
 import { CPPError } from "./errors";
 import { createExpressionFromAST, createRuntimeExpression, standardConversion } from "./expressions";
 import { ExpressionASTNode } from "../ast/ast_expressions";
@@ -10,12 +10,13 @@ import { Mutable, asMutable, assertNever, assert } from "../util/util";
 import { Expression, CompiledExpression, RuntimeExpression } from "./expressionBase";
 import { StatementOutlet, ConstructOutlet, ExpressionStatementOutlet, NullStatementOutlet, DeclarationStatementOutlet, ReturnStatementOutlet, BlockOutlet, IfStatementOutlet, WhileStatementOutlet, ForStatementOutlet, BreakStatementOutlet } from "../view/codeOutlets";
 import { RuntimeFunction } from "./functions";
-import { Predicates } from "./predicates";
+import { AnalyticConstruct, Predicates } from "./predicates";
 import { Value } from "./runtimeEnvironment";
 import { RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { ArraySubobject, AutoObject } from "./objects";
 import { LabeledStatementASTNode, BlockASTNode, IfStatementASTNode, WhileStatementASTNode, DoWhileStatementASTNode, ForStatementASTNode, BreakStatementASTNode, ContinueStatementASTNode, ReturnStatementASTNode, DeclarationStatementASTNode, ExpressionStatementASTNode, NullStatementASTNode, StatementASTNode } from "../ast/ast_statements";
 import { ObjectDeallocator, CompiledObjectDeallocator, createLocalDeallocator, RuntimeObjectDeallocator} from "./ObjectDeallocator";
+import { AnythingConstructASTNode } from "../ast/ASTNode";
 
 
 const StatementConstructsMap = {
@@ -30,7 +31,8 @@ const StatementConstructsMap = {
     "return_statement": (ast: ReturnStatementASTNode, context: BlockContext) => ReturnStatement.createFromAST(ast, context),
     "declaration_statement": (ast: DeclarationStatementASTNode, context: BlockContext) => DeclarationStatement.createFromAST(ast, context),
     "expression_statement": (ast: ExpressionStatementASTNode, context: BlockContext) => ExpressionStatement.createFromAST(ast, context),
-    "null_statement": (ast: NullStatementASTNode, context: BlockContext) => new NullStatement(context, ast)
+    "null_statement": (ast: NullStatementASTNode, context: BlockContext) => new NullStatement(context, ast),
+    "anything_construct": (ast: AnythingConstructASTNode, context: BlockContext) => new AnythingStatement(context, ast)
 }
 
 export function createStatementFromAST<ASTType extends StatementASTNode>(ast: ASTType, context: BlockContext): ReturnType<(typeof StatementConstructsMap)[ASTType["construct_type"]]> {
@@ -136,6 +138,27 @@ export class UnsupportedStatement extends Statement {
     public createDefaultOutlet(element: JQuery, parent?: ConstructOutlet): never {
         throw new Error("Cannot create an outlet for an unsupported construct.");
     }
+    
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
+        return other.construct_type === this.construct_type;
+    }
+}
+
+export class AnythingStatement extends Statement {
+    public readonly construct_type = "anything_construct";
+
+    public constructor(context: BlockContext, ast: AnythingConstructASTNode | undefined) {
+        super(context, ast);
+        this.addNote(CPPError.lobster.anything_construct(this));
+    }
+
+    public createDefaultOutlet(element: JQuery, parent?: ConstructOutlet): never {
+        throw new Error("Cannot create an outlet for an \"anything\" placeholder construct.");
+    }
+
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext) : boolean {
+        return true;
+    }
 }
 
 
@@ -161,6 +184,11 @@ export class ExpressionStatement extends Statement<ExpressionStatementASTNode> {
 
     public isTailChild(child: CPPConstruct) {
         return { isTail: true };
+    }
+    
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
+        return other.construct_type === this.construct_type
+            && areSemanticallyEquivalent(this.expression, other.expression, equivalenceContext);
     }
 }
 
@@ -206,6 +234,10 @@ export class NullStatement extends Statement<NullStatementASTNode> {
 
     public isTailChild(child: CPPConstruct) {
         return { isTail: true }; // Note: NullStatement will never actually have children, so this isn't used
+    }
+    
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
+        return other.construct_type === this.construct_type;
     }
 }
 
@@ -270,6 +302,12 @@ export class DeclarationStatement extends Statement<DeclarationStatementASTNode>
 
     public isTailChild(child: CPPConstruct) {
         return { isTail: true };
+    }
+    
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
+        return other.construct_type === this.construct_type
+            && Array.isArray(this.declarations) && Array.isArray(other.declarations)
+            && areAllSemanticallyEquivalent(this.declarations, other.declarations, equivalenceContext);
     }
 }
 
@@ -337,6 +375,10 @@ export class BreakStatement extends Statement<BreakStatementASTNode> {
     //     return {isTail: true,
     //         reason: "The recursive call is immediately followed by a return."};
     // }
+    
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
+        return other.construct_type === this.construct_type;
+    }
 }
 
 export interface CompiledBreakStatement extends BreakStatement, SuccessfullyCompiled {
@@ -422,6 +464,7 @@ export class ReturnStatement extends Statement<ReturnStatementASTNode> {
         }
 
         // Note: The expression is NOT attached directly here, since it's attached under the initializer.
+        this.expression = expression;
         this.attach(this.returnInitializer);
     }
 
@@ -435,6 +478,11 @@ export class ReturnStatement extends Statement<ReturnStatementASTNode> {
     //     return {isTail: true,
     //         reason: "The recursive call is immediately followed by a return."};
     // }
+    
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
+        return other.construct_type === this.construct_type
+            && areSemanticallyEquivalent(this.expression, other.expression, equivalenceContext);
+    }
 }
 
 export interface CompiledReturnStatement extends ReturnStatement, SuccessfullyCompiled {
@@ -533,7 +581,71 @@ export class Block extends Statement<BlockASTNode> {
     //         return {isTail: true};
     //     }
     // }
+    
+    
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, ec: SemanticContext): boolean {
+        if (other.construct_type === this.construct_type
+            && areAllSemanticallyEquivalent(this.statements, other.statements, ec)
+            && areSemanticallyEquivalent(this.localDeallocator, other.localDeallocator, ec)) {
+            return true;
+        }
 
+
+        if (other.construct_type === this.construct_type) {
+
+            // Try identifying chunks that can be rearranged
+            let chunks = this.getChunks();
+            let otherChunks = other.getChunks();
+    
+            // Now our condition is just that each chunk is equivalent
+            if (chunks.length === otherChunks.length && chunks.every((c, i) => areChunksEquivalent(c, otherChunks[i], ec))
+                && areSemanticallyEquivalent(this.localDeallocator, other.localDeallocator, ec)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+
+    private getChunks() {
+        let chunks: Statement[][] = [];
+        let currentChunk: { stmts: Statement[]; entitiesUsed: Set<number>; } | undefined;
+        (<AnalyticStatement[]>this.statements).forEach(stmt => {
+            if (stmt.construct_type === "declaration_statement" || stmt.construct_type === "expression_statement") {
+                if (currentChunk) {
+                    if (stmt.entitiesUsed().some(e => currentChunk!.entitiesUsed.has(e.entityId))) {
+                        // some entity was used, start a new chunk
+                        chunks.push(currentChunk.stmts);
+                        currentChunk = { stmts: [stmt], entitiesUsed: new Set(stmt.entitiesUsed().map(e => e.entityId)) };
+                    }
+                    else {
+                        currentChunk.stmts.push(stmt);
+                        stmt.entitiesUsed().forEach(e => currentChunk!.entitiesUsed.add(e.entityId));
+                    }
+                }
+                else {
+                    currentChunk = { stmts: [stmt], entitiesUsed: new Set(stmt.entitiesUsed().map(e => e.entityId)) };
+                }
+            }
+            else {
+                // control flow statements
+                if (currentChunk) {
+                    chunks.push(currentChunk.stmts);
+                    currentChunk = undefined;
+                }
+                chunks.push([stmt]);
+            }
+        });
+        if (currentChunk) {
+            chunks.push(currentChunk.stmts);
+        }
+        return chunks;
+    }
+}
+
+function areChunksEquivalent(chunk1: Statement[], chunk2: Statement[], ec: SemanticContext) {
+    return areAllSemanticallyEquivalent(chunk1, chunk2, ec) || areAllSemanticallyEquivalent(chunk1, chunk2.slice().reverse(), ec);
 }
 
 export interface CompiledBlock extends Block, SuccessfullyCompiled {
@@ -842,8 +954,8 @@ export class IfStatement extends Statement<IfStatementASTNode> {
     public readonly construct_type = "if_statement";
 
     public readonly condition: Expression;
-    public readonly then: Statement;
-    public readonly otherwise?: Statement;
+    public readonly then: Block;
+    public readonly otherwise?: Block;
 
     public static createFromAST(ast: IfStatementASTNode, context: BlockContext): IfStatement {
 
@@ -853,7 +965,11 @@ export class IfStatement extends Statement<IfStatementASTNode> {
         // (If the substatement is a block, it creates its own block context, so we don't do that here.)
         let then = ast.then.construct_type === "block" ?
             createStatementFromAST(ast.then, context) :
-            createStatementFromAST(ast.then, createBlockContext(context));
+            createStatementFromAST({
+                construct_type: "block",
+                source: ast.then.source,
+                statements: [ast.then]
+            }, context);
 
         if (!ast.otherwise) { // no else branch
             return new IfStatement(context, ast, condition, then);
@@ -862,13 +978,17 @@ export class IfStatement extends Statement<IfStatementASTNode> {
             // See note above about substatement implicit block context
             let otherwise = ast.otherwise.construct_type === "block" ?
                 createStatementFromAST(ast.otherwise, context) :
-                createStatementFromAST(ast.otherwise, createBlockContext(context));
+                createStatementFromAST({
+                    construct_type: "block",
+                    source: ast.then.source,
+                    statements: [ast.otherwise]
+                }, context);
 
             return new IfStatement(context, ast, condition, then, otherwise);
         }
     }
 
-    public constructor(context: BlockContext, ast: IfStatementASTNode, condition: Expression, then: Statement, otherwise?: Statement) {
+    public constructor(context: BlockContext, ast: IfStatementASTNode, condition: Expression, then: Block, otherwise?: Block) {
         super(context, ast);
 
         if (condition.isWellTyped()) {
@@ -921,19 +1041,26 @@ export class IfStatement extends Statement<IfStatementASTNode> {
     //         }
     //     }
 
+    
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
+        return other.construct_type === this.construct_type
+            && areSemanticallyEquivalent(this.condition, other.condition, equivalenceContext)
+            && areSemanticallyEquivalent(this.then, other.then, equivalenceContext)
+            && areSemanticallyEquivalent(this.otherwise, other.otherwise, equivalenceContext);
+    }
 }
 
 export interface CompiledIfStatement extends IfStatement, SuccessfullyCompiled {
     readonly condition: CompiledExpression<Bool, "prvalue">;
-    readonly then: CompiledStatement;
-    readonly otherwise?: CompiledStatement;
+    readonly then: CompiledBlock;
+    readonly otherwise?: CompiledBlock;
 }
 
 export class RuntimeIfStatement extends RuntimeStatement<CompiledIfStatement> {
 
     public readonly condition: RuntimeExpression<Bool, "prvalue">;
-    public readonly then: RuntimeStatement;
-    public readonly otherwise?: RuntimeStatement;
+    public readonly then: RuntimeBlock;
+    public readonly otherwise?: RuntimeBlock;
 
     private index = 0;
 
@@ -1018,6 +1145,11 @@ export class WhileStatement extends Statement<WhileStatementASTNode> {
         return new WhileStatementOutlet(element, this, parent);
     }
 
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
+        return other.construct_type === this.construct_type
+            && areSemanticallyEquivalent(this.condition, other.condition, equivalenceContext)
+            && areSemanticallyEquivalent(this.body, other.body, equivalenceContext);
+    }
 }
 
 export interface CompiledWhileStatement extends WhileStatement, SuccessfullyCompiled {
@@ -1243,6 +1375,13 @@ export class ForStatement extends Statement<ForStatementASTNode> {
       return new ForStatementOutlet(element, this, parent);
     }
   
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
+        return other.construct_type === this.construct_type
+            && areSemanticallyEquivalent(this.initial, other.initial, equivalenceContext)
+            && areSemanticallyEquivalent(this.condition, other.condition, equivalenceContext)
+            && areSemanticallyEquivalent(this.body, other.body, equivalenceContext)
+            && areSemanticallyEquivalent(this.post, other.post, equivalenceContext);
+    }
   }
 
 export interface CompiledForStatement extends ForStatement, SuccessfullyCompiled {
@@ -1375,6 +1514,5 @@ export class RuntimeForStatement extends RuntimeStatement<CompiledForStatement> 
 //     _name: "Statements.Continue",
 //     englishName: "continue statement"
 // });
-
 
 

@@ -139,6 +139,8 @@ export class Simulation {
         [p in SimulationEvent]: readonly string[];
     } = this._eventsOccurred;
 
+    public readonly hasAnyEventOccurred : boolean = false;
+
     // MAX_SPEED: -13445, // lol TODO
 
 
@@ -380,7 +382,8 @@ export class Simulation {
     }
 
     public atEndOfMain() {
-        return this.top()?.model === this.program.mainFunction;
+        return this.top()?.model === this.program.mainFunction.body.localDeallocator
+        || this.top()?.model === this.program.mainFunction;
     }
 
     // stepOver: function(options){
@@ -602,6 +605,7 @@ export class Simulation {
 
     public eventOccurred(event: SimulationEvent, message: string, showAlert: boolean = false) {
         this._eventsOccurred[event].push(message);
+        (<Mutable<this>>this).hasAnyEventOccurred = true;
 
         this.observable.send("eventOccurred", { event, message });
     }

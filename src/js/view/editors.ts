@@ -155,6 +155,12 @@ export class ProjectEditor {
     //     this.recompile();
     // }
 
+    @messageResponse("fileContentsSet", "unwrap")
+    private onFileContentsSet(file: SourceFile) {
+        let fileEd = this.fileEditorsMap[file.name];
+        fileEd?.setContents(file.text);
+    }
+
     @messageResponse("fileAdded", "unwrap")
     private onFileAdded(file: SourceFile) {
 
@@ -624,6 +630,8 @@ export class FileEditor {
     private readonly gutterErrors: {elem: JQuery, num: number}[] = [];
     private syntaxErrorLineHandle?: CodeMirror.LineHandle;
 
+    private ignoreContentsSet: boolean = false;
+
      /**
      *
      * @param {SourceFile} sourceFile The initial contents of this editor.
@@ -637,6 +645,11 @@ export class FileEditor {
         // FileEditor.instances.push(this);
     }
 
+    public setContents(contents: string) {
+        if (!this.ignoreContentsSet) {
+            this.doc.setValue(contents);
+        }
+    }
     // public setFile() {
 
     // }
@@ -658,7 +671,11 @@ export class FileEditor {
             return $(this).html().trim() === "*";
         }).removeClass("cm-type").addClass("cm-operator");
 
+        
+        this.ignoreContentsSet = true;
         this.observable.send("textChanged", this.file);
+        this.ignoreContentsSet = false;
+        
 
 
 

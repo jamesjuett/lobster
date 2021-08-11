@@ -1243,6 +1243,57 @@ int main() {
   );
 
 
+// Pointer Compound Assignment---------------------
+
+new SingleTranslationUnitTest(
+  "Pointer Compound Assignment Test",
+  `#include <iostream>
+using namespace std;
+
+int main() {
+
+int arr[5] = {1, 2, 3, 4, 5};
+int *p0 = &arr[0];
+int *p1 = &arr[1];
+int *p2 = &arr[2];
+int *p3 = &arr[3];
+int *p4 = &arr[4];
+
+int *ptr = &arr[0];
+assert(ptr == p0);
+
+ptr += 1;
+assert(ptr == p1);
+
+ptr += 1;
+assert(ptr == p2);
+
+ptr += 2;
+assert(ptr == p4);
+
+ptr -= 4;
+assert(ptr == p0);
+
+ptr += 0;
+assert(ptr == p0);
+
+ptr -= 0;
+assert(ptr == p0);
+
+ptr = p4;
+
+ptr -= 1;
+assert(ptr == p3);
+
+ptr -= 1;
+assert(ptr == p2);
+
+}`,
+  [
+      new NoErrorsNoWarningsVerifier(),
+      new NoBadRuntimeEventsVerifier(true)
+  ]
+);
 
 // Basic Array Aggregate Initialization---------------------
 

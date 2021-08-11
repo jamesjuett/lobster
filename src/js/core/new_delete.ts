@@ -9,7 +9,7 @@ import { RuntimeExpression, VCResultTypes, Expression, CompiledExpression, t_Typ
 import { ConstructOutlet, NewExpressionOutlet, DeleteExpressionOutlet, NewArrayExpressionOutlet, DeleteArrayExpressionOutlet } from "../view/codeOutlets";
 import { CompiledTemporaryDeallocator } from "./PotentialFullExpression";
 import { CompiledFunctionCall, FunctionCall, RuntimeFunctionCall } from "./FunctionCall";
-import { CompiledDefaultInitializer, CompiledDirectInitializer, CompiledInitializer, DefaultInitializer, DirectInitializer, Initializer, ListInitializer, RuntimeDefaultInitializer, RuntimeDirectInitializer, RuntimeInitializer } from "./initializers";
+import { CompiledDefaultInitializer, CompiledDirectInitializer, CompiledInitializer, DefaultInitializer, DirectInitializer, Initializer, ListInitializer, RuntimeDefaultInitializer, RuntimeDirectInitializer, RuntimeInitializer, ValueInitializer } from "./initializers";
 import { CompiledDeclarator, CompiledTypeSpecifier, Declarator, TypeSpecifier } from "./declarations";
 import { convertToPRValue, createExpressionFromAST, createRuntimeExpression, standardConversion } from "./expressions";
 import { NewExpressionASTNode, DeleteExpressionASTNode, DeleteArrayExpressionASTNode } from "../ast/ast_expressions";
@@ -70,13 +70,12 @@ export class NewExpression extends Expression<NewExpressionASTNode> {
 
         let initAST = ast.initializer;
         let newEntity = new NewObjectEntity(createdType);
-        let initializer = !initAST ?
-            DefaultInitializer.create(context, newEntity) :
-            initAST.construct_type === "direct_initializer" ?
-                DirectInitializer.create(context, newEntity, initAST.args.map((a) => createExpressionFromAST(a, context)), "direct") :
-                initAST.construct_type === "list_initializer" ?
-                    ListInitializer.create(context, newEntity, initAST.arg.elements.map((a) => createExpressionFromAST(a, context))) :
-                    assertNever(initAST);
+        let initializer =
+            !initAST ? DefaultInitializer.create(context, newEntity) :
+            initAST.construct_type === "value_initializer" ? ValueInitializer.create(context, newEntity) :
+            initAST.construct_type === "direct_initializer" ? DirectInitializer.create(context, newEntity, initAST.args.map((a) => createExpressionFromAST(a, context)), "direct") :
+            initAST.construct_type === "list_initializer" ? ListInitializer.create(context, newEntity, initAST.arg.elements.map((a) => createExpressionFromAST(a, context))) :
+            assertNever(initAST);
 
         if (initializer.construct_type !== "invalid_construct") {
             this.attach(this.initializer = initializer);
@@ -119,7 +118,6 @@ export class RuntimeNewExpression<T extends PointerType<NewObjectType> = Pointer
 
     public constructor(model: CompiledNewExpression<T>, parent: RuntimeConstruct) {
         super(model, parent);
-        this.initializer = this.model.initializer?.createRuntimeInitializer(this);
     }
 
     protected upNextImpl() {
@@ -132,6 +130,7 @@ export class RuntimeNewExpression<T extends PointerType<NewObjectType> = Pointer
     protected stepForwardImpl(): void {
         if (this.index === 0) {
             (<Mutable<this>>this).allocatedObject = this.sim.memory.heap.allocateNewObject(this.model.createdType);
+            (<Mutable<this>>this).initializer = this.model.initializer?.createRuntimeInitializer(this);
             ++this.index;
         }
         else {

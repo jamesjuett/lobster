@@ -7,7 +7,7 @@ import { ClassDefinition } from "./declarations";
 import { ClassScope } from "./entities";
 import { RuntimeExpression } from "./expressionBase";
 import { SimulationEvent } from "./Simulation";
-import { QualifiedName } from "./lexical";
+import { qualifiedNamesEq, QualifiedName } from "./lexical";
 
 
 
@@ -46,12 +46,14 @@ export function isType<T extends Type>(typeOrCtor: Type | Constructor<T>, ctor?:
     }
 };
 
-export function sameType(type1: Type, type2: Type) {
-    return type1.sameType(type2);
+export function sameType(type1: Type | undefined, type2: Type | undefined) {
+    // console.log(`comparing ${type1} and ${type2}`);
+    // console.log(!!(type1 === type2 || type1 && type2 && type1.sameType(type2)));
+    return !!(type1 === type2 || type1 && type2 && type1.sameType(type2));
 };
 
-export function similarType(type1: Type, type2: Type) {
-    return type1.similarType(type2);
+export function similarType(type1: Type | undefined, type2: Type | undefined) {
+    return !!(type1 === type2 || type1 && type2 && type1.similarType(type2));
 };
 
 export function subType(type1: Type, type2: Type) {
@@ -436,7 +438,7 @@ export function isPointerToType<T extends PotentiallyCompleteObjectType>(ctor: C
     return <(type: Type) => type is PointerType<T>>((type: Type) => type.isPointerToType(ctor));
 }
 
-export function isPointerToCompleteType(type: Type): type is PointerToCompleteType {
+export function isPointerToCompleteObjectType(type: Type): type is PointerToCompleteType {
     return type.isPointerToCompleteObjectType();
 }
 
@@ -1560,7 +1562,7 @@ class ClassTypeBase extends TypeBase implements Omit<ObjectTypeInterface, "size"
 function sameClassType(thisClass: ClassTypeBase, otherClass: ClassTypeBase) {
     // Note the any casts are to grant "friend" access to private members of ClassTypeBase
     return (thisClass as any).classId === (otherClass as any).classId
-        || thisClass.qualifiedName === otherClass.qualifiedName
+        || qualifiedNamesEq(thisClass.qualifiedName, otherClass.qualifiedName)
         || (!!(thisClass as any).shared.classDefinition && (thisClass as any).shared.classDefinition === (otherClass as any).shared.classDefinition);
 }
 

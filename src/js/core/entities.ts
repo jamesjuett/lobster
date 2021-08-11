@@ -1,7 +1,7 @@
 import { PotentialParameterType, Type, CompleteObjectType, sameType, ReferenceType, BoundedArrayType, Char, ArrayElemType, FunctionType, referenceCompatible, createClassType, PotentiallyCompleteClassType, CompleteClassType, PotentiallyCompleteObjectType, PeelReference, Completed, VoidType, CompleteReturnType, PointerType, ArrayOfUnknownBoundType, PotentiallyCompleteArrayType } from "./types";
 import { assert, Mutable, unescapeString, assertFalse, asMutable, assertNever } from "../util/util";
 import { Observable } from "../util/observe";
-import { RuntimeConstruct, isClassContext } from "./constructs";
+import { RuntimeConstruct, isClassContext, SemanticContext } from "./constructs";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { FunctionCall } from "./FunctionCall";
 import { LocalVariableDefinition, ParameterDefinition, GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, ParameterDeclaration, FunctionDeclaration, ClassDefinition, FunctionDefinitionGroup, ClassDeclaration, MemberVariableDeclaration, SimpleDeclaration, CompiledClassDefinition } from "./declarations";
@@ -522,6 +522,16 @@ export abstract class CPPEntity<T extends Type = Type> {
     // }
 
     //TODO: function for isOdrUsed()?
+
+    public isSemanticallyEquivalent(other: CPPEntity, equivalenceContext: SemanticContext): boolean {
+        return sameType(other.type, this.type);
+        // TODO semantic equivalence
+    }
+}
+
+export function areEntitiesSemanticallyEquivalent(entity: CPPEntity | undefined, other: CPPEntity | undefined, equivalenceContext: SemanticContext) {
+    return !!(entity === other // also handles case of both undefined
+        || entity && other && entity.isSemanticallyEquivalent(other, equivalenceContext));
 }
 
 export abstract class NamedEntity<T extends Type = Type> extends CPPEntity<T> {

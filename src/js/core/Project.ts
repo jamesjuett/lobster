@@ -296,9 +296,10 @@ export class Exercise {
         assert(this.project);
 
         asMutable(this).checkpointEvaluationsFinished = this.checkpoints.map(c => false);
+        asMutable(this).checkpointCompletions = this.checkpoints.map(c => false);
         this.observable.send("allCheckpointEvaluationStarted", this);
 
-        (<Mutable<this>>this).checkpointCompletions = await Promise.all(this.checkpoints.map(
+        await Promise.all(this.checkpoints.map(
             async (checkpoint, i) => {
                 try {
                     let result = await checkpoint.evaluate(this.project!);
