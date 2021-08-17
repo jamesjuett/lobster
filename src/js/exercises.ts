@@ -84,6 +84,46 @@ export const EXERCISE_SPECIFICATIONS: { [index: string]: Partial<ExerciseSpecifi
             })
         ]
     },
+    "ch11_01_ex": {
+        starterCode: `#include <iostream>
+        #include <string>
+        using namespace std;
+        
+        int main() {
+        
+          // print a greeting
+          cout << "Let's make some variables!" << endl;
+        
+          // TODO: Declare some variables
+
+          // DON'T CHANGE THE CODE BELOW THIS (this lets Lobster test your program)
+          cout << numPieces << endl;
+          cout << cost << endl;
+          cout << name << endl;
+          cout << category << endl;
+          cout << isGood << endl;
+        }`,
+        checkpoints: [
+            new StaticAnalysisCheckpoint("Declare numPieces", (program: Program) => {
+                return !!findFirstConstruct(program, Predicates.byVariableName("numPieces"));
+            }),
+            new StaticAnalysisCheckpoint("Declare cost", (program: Program) => {
+                return !!findFirstConstruct(program, Predicates.byVariableName("cost"));
+            }),
+            new StaticAnalysisCheckpoint("Declare name", (program: Program) => {
+                return !!findFirstConstruct(program, Predicates.byVariableName("name"));
+            }),
+            new StaticAnalysisCheckpoint("Declare category", (program: Program) => {
+                return !!findFirstConstruct(program, Predicates.byVariableName("category"));
+            }),
+            new StaticAnalysisCheckpoint("Declare isGood", (program: Program) => {
+                return !!findFirstConstruct(program, Predicates.byVariableName("isGood"));
+            }),
+            new OutputCheckpoint("Correct initialization", (output: string) => {
+                return output === "Let's make some variables!\n5\n3.25\npeeps\nK\n0\n";
+            })
+        ]
+    },
     "ch12_01_ex": {
         starterCode: `#include <iostream>
 using namespace std;
