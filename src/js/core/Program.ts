@@ -8,7 +8,7 @@ import { TranslationUnitContext, CPPConstruct, createTranslationUnitContext, Pro
 import { ASTNode } from "../ast/ASTNode";
 import { StringLiteralExpression } from "./expressions";
 import { FunctionType, Int, VoidType, CompleteClassType, Double } from "./types";
-import { startCase } from "lodash";
+import { countBy, startCase } from "lodash";
 import { registerOpaqueExpression, RuntimeOpaqueExpression } from "./opaqueExpression";
 import { getDataPtr } from "../lib/string";
 import { Value } from "./runtimeEnvironment";
@@ -362,7 +362,7 @@ interface IncludeMapping {
     readonly lineDelta: number;
     readonly lengthDelta: number;
     readonly included: PreprocessedSource;
-    readonly lineIncluded: number;
+    readonly lineIncludedFrom: number;
 }
 
 class PreprocessedSource {
@@ -376,229 +376,222 @@ class PreprocessedSource {
     private readonly _includes: IncludeMapping[] = [];
     public readonly includes: readonly IncludeMapping[] = this._includes;
 
-    public readonly includedSourceFiles: { [index: string]: SourceFile } = {};
+    // public readonly includedSourceFiles: { [index: string]: SourceFile } = {};
+
+    private readonly defines: { [index: string]: string } = {};
 
     public readonly preprocessedText: string;
     public readonly numLines: number;
     public readonly length: number;
 
     private currentOffset: number;
+    // private currentIncludeOffset: number;
+    private currentLineNumber: number;
+    private originalIncludeLineNumber: number;
 
-    public constructor(sourceFile: SourceFile, availableToInclude: { [index: string]: SourceFile | undefined }, alreadyIncluded: { [index: string]: boolean } = {}) {
+    private readonly alreadyIncluded: Set<string>;
+
+    public constructor(sourceFile: SourceFile, availableToInclude: { [index: string]: SourceFile | undefined }, alreadyIncluded: ReadonlySet<string> = new Set()) {
         this.primarySourceFile = sourceFile;
         this.name = sourceFile.name;
         this.availableToInclude = availableToInclude;
 
-        alreadyIncluded[this.primarySourceFile.name] = true;
+        this.alreadyIncluded = new Set(alreadyIncluded);
+        this.alreadyIncluded.add(this.primarySourceFile.name);
 
         let codeStr = sourceFile.text;
 
         codeStr = this.cleanCode(codeStr);
         codeStr = this.filterUnsupportedDirectives(codeStr);
 
-        let currentIncludeOffset = 0;
-        let currentIncludeLineNumber = 1;
-        let originalIncludeLineNumber = 1;
-
-        this.includedSourceFiles[this.primarySourceFile.name] = this.primarySourceFile;
+        // this.currentIncludeOffset = 0;
+        this.currentLineNumber = 1;
+        this.originalIncludeLineNumber = 1;
+        this.currentOffset = 0;
+        let newCodeStr = "";
+        // this.includedSourceFiles[this.primarySourceFile.name] = this.primarySourceFile;
 
         // All preprocessor directives must be on their own line,
         // so we can process line-by-line
         let lines = codeStr.split("\n");
-        let m : RegExpMatchArray | null = null; // placeholder for preprocessor directive match attempts below
-
-        this.currentOffset = 0;
-        let newLines = lines.map((line, i) => {
-            let newLine = this.processLine(line, i+1);
-            this.currentOffset += line.length + 1; // +1 for the newline
-            return newLine;
+        lines.forEach((line) => {
+            let newLine = this.processLine(line);
+            newCodeStr += (newLine + "\n");
+            
+            this.currentLineNumber += (1 + countBy(newLine)["\n"]);
+            this.currentOffset += (newLine.length + 1); // +1 for the extra "\n"
+            
         });
 
-        this.preprocessedText = newLines.join("\n");
+        this.preprocessedText = newCodeStr;
         this.length = this.preprocessedText.length;
+        this.numLines = this.currentLineNumber;
     }
 
-    private processLine(line: string, lineNum: number) {
-
+    private processLine(line: string) {
         // ignore lines that do not start with #
         if (!line.trim().startsWith("#")) {
             return line;
         }
-    
-        else if (m = line.match(/^\s*#\s*define(\s+(?<identifier>\S+))? *( +(?<replacement>\S.+))?$/)) {
-            this.notes.addNote(CPPError.preprocess.fileNotFound(
-                new SourceReference(sourceFile, currentIncludeLineNumber, 0, offset, currentIncludeOffset), filename));
-
-        }
-    
-        else if (m = line.match(/^\s*#\s*include/)) {
-            if (m = line.match(/^\s*#\s*include\s*(["<](?<name>.*)[">])?\s*$/)) {
-            }
-            else {
-
-            }
-        }
+        
+        return this.processPoundDefine(line)
+            ?? this.processPoundInclude(line)
+            ?? line;
     }
 
-        // Find and replace #include lines. Will also populate i_includes array.
-        // [^\S\n] is a character class for all whitespace other than newlines
-        codeStr = codeStr.replace(/#include[^\S\n]+["<](.*)[">]/g,
-            (includeLine, filename, offset, original) => {
+    private sourceReferenceForCurrentLine(line: string): SourceReference {
+        return new SourceReference(this.primarySourceFile, this.currentLineNumber, 0, this.currentOffset, this.currentOffset + line.length);
+    }
 
-                let mapping: Mutable<Partial<IncludeMapping>> = {};
+    private replaceLineWithBlanks(line: string) {
+        // Return a string of spaces with the same length as the line in order to preserve
+        // character offsets, line numbers, etc. for source references. The spaces, however,
+        // will be ignored by subsequent compilation.
+        return Array(line.length + 1).join(" ");
+    }
 
-                // Find the line number of this include by adding up the number of newline characters
-                // since the offset of the last match up to the current one. Add this to the line number.
-                for (let i = currentIncludeOffset; i < offset; ++i) {
-                    if (original[i] === "\n") {
-                        ++currentIncludeLineNumber;
-                        ++originalIncludeLineNumber;
-                    }
-                }
+    private processPoundDefine(line: string) {
+        let m = line.match(/^\s*#\s*define(\s+(?<identifier>\S+))? *( +(?<replacement>\S.+))?$/);
+        if (!m) { return; }
+        
+        let identifier = m.groups?.identifier;
+        let replacement = m.groups?.replacement;
 
-                mapping.startLine = currentIncludeLineNumber;
-                mapping.startOffset = offset;
+        if (identifier) {
 
-                currentIncludeOffset = offset + includeLine.length;
-
-                // TODO: I think this is not needed because the filename was a part of the original match
-                //       and is thus passed in to the function used for replacement.
-                // // extract the filename from the #include line match
-                // // [1] yields only the match for the part of the regex in parentheses
-                // var filename = includeLine.match(/"(.*)"/)[1];
-
-                // check for self inclusion
-                if (alreadyIncluded[filename]) {
-                    this.notes.addNote(CPPError.preprocess.recursiveInclude(
-                        new SourceReference(sourceFile, currentIncludeLineNumber, 0, offset, currentIncludeOffset)));
-
-                    // replace the whole #include line with spaces. Can't just remove or it messes up offsets.
-                    return Array(includeLine.length + 1).join(" ");
-                }
-
-                // Recursively preprocess the included file
-                let includedSourceFile = this.availableToInclude[filename];
-                //TODO: what happens if the file doesn't exist?
-                if (!includedSourceFile) {
-                    this.notes.addNote(CPPError.preprocess.fileNotFound(
-                        new SourceReference(sourceFile, currentIncludeLineNumber, 0, offset, currentIncludeOffset), filename));
-
-                    // replace the whole #include line with spaces. Can't just remove or it messes up offsets.
-                    return Array(includeLine.length + 1).join(" ");
-                }
-
-                let included = new PreprocessedSource(includedSourceFile, this.availableToInclude,
-                    Object.assign({}, alreadyIncluded));
-
-                Object.assign(this.includedSourceFiles, included.includedSourceFiles);
-                this.notes.addNotes(included.notes.allNotes);
-
-                mapping.numLines = included.numLines;
-                mapping.endLine = mapping.startLine + included.numLines;
-
-                mapping.lineDelta = included.numLines - 1;
-                mapping.lengthDelta = included.length - includeLine.length;
-                currentIncludeLineNumber += included.numLines - 1; // -1 since one line from original was replaced
-                mapping.included = included;
-                mapping.lineIncluded = originalIncludeLineNumber;
-
-                this._includes.push(<IncludeMapping>mapping); // TODO: remove cast
-
-                return included.preprocessedText;
+            if (this.defines[identifier]) {
+                this.notes.addNote(CPPError.preprocess.define.redefinition(this.sourceReferenceForCurrentLine(line), identifier));
             }
-        );
 
+            // Note that replacement may be undefined, which is handled by the .define() function
+            this.define(identifier, replacement ?? "");
 
-        // Count lines for the rest of the file after any #includes
-        for (var i = currentIncludeOffset; i < codeStr.length; ++i) {
-            if (codeStr[i] === "\n") {
-                ++currentIncludeLineNumber;
+            // Lobster doesn't actually do any replacements, so issue this error for now.
+            if (m.groups?.replacement) {
+                this.notes.addNote(CPPError.preprocess.define.replacement_unsupported(this.sourceReferenceForCurrentLine(line)));
             }
         }
+        else {
+            this.notes.addNote(CPPError.preprocess.define.identifier_required(this.sourceReferenceForCurrentLine(line)));
+        }
+        return this.replaceLineWithBlanks(line);
+    }
 
-        this.numLines = currentIncludeLineNumber;
+    private processPoundInclude(line: string) {
+        let m = line.match(/^\s*#\s*include/);
+        if (!m) { return; }
 
-        codeStr = this.processDefines(codeStr);
+        // Attempt to match an include and the filename it includes
+        m = line.match(/^\s*#\s*include\s*(["<](?<filename>.*)[">])?\s*$/);
+        if (!m) {
+            this.notes.addNote(CPPError.preprocess.include.malformed(this.sourceReferenceForCurrentLine(line)));
+            return this.replaceLineWithBlanks(line);
+        }
 
-        
+        let filename = m.groups?.filename;
+
+        // empty filename
+        if (!filename) {
+            this.notes.addNote(CPPError.preprocess.include.empty_filename(this.sourceReferenceForCurrentLine(line)));
+            return this.replaceLineWithBlanks(line);
+        }
+
+        // check for self inclusion
+        if (this.alreadyIncluded.has(filename)) {
+            this.notes.addNote(CPPError.preprocess.include.recursive_prohibited(this.sourceReferenceForCurrentLine(line)));
+            return this.replaceLineWithBlanks(line);
+        }
+    
+        let includedSourceFile = this.availableToInclude[filename];
+        //TODO: what happens if the file doesn't exist?
+        if (!includedSourceFile) {
+            this.notes.addNote(CPPError.preprocess.include.file_not_found(this.sourceReferenceForCurrentLine(line), filename));
+            return this.replaceLineWithBlanks(line);
+        }
+
+        // Replace the #include line with the included source.
+        // Will also populate i_includes array.
+        let mapping: Mutable<Partial<IncludeMapping>> = {};
+
+        mapping.startLine = this.currentLineNumber;
+        mapping.startOffset = this.currentOffset;
+
+        // currentIncludeOffset = offset + includeLine.length;
+
+        // Recursively preprocess the included file
+        let included = new PreprocessedSource(includedSourceFile, this.availableToInclude, this.alreadyIncluded);
+        this.notes.addNotes(included.notes.allNotes);
+
+        // Object.assign(this.includedSourceFiles, included.includedSourceFiles);
+
+        mapping.numLines = included.numLines;
+        mapping.endLine = mapping.startLine + included.numLines;
+        mapping.lineDelta = included.numLines - 1;
+        mapping.lengthDelta = included.length - line.length;
+        mapping.included = included;
+        mapping.lineIncludedFrom = mapping.startLine;
+
+        this._includes.push(<IncludeMapping>mapping); // TODO: remove cast
+
+        return included.preprocessedText;
     }
 
     private cleanCode(codeStr: string) {
         // remove carriage returns
         return codeStr.replace(/\r/g, "");
     }
+    
+    private define(identifier: string, replacement: string) {
+        this.defines[identifier] = replacement;
+    }
 
-    private processDefines(codeStr: string) {
+    // private processDefines(codeStr: string) {
 
-        // All preprocessor directives must be on their own line,
-        // so we can process line-by-line
-        let lines = codeStr.split("\n");
+    //     // All preprocessor directives must be on their own line,
+    //     // so we can process line-by-line
+    //     let lines = codeStr.split("\n");
 
-        let newLines = lines.map((line, i) => {
+    //     let newLines = lines.map((line, i) => {
             
-            // ignore lines that do not start with #
-            if (!line.trim().startsWith("#")) {
-                return line;
-            }
+    //         // ignore lines that do not start with #
+    //         if (!line.trim().startsWith("#")) {
+    //             return line;
+    //         }
             
-            let m : RegExpMatchArray | null = null;
-            
-            if (m = line.match(/^\s*#\s*define( +(?<identifier>\S+))? *( +(?<replacement>\S.+))?$/)) {
 
-                if (m.groups?.identifier) {
-
-                    if (m.groups.replacement) {
-
-                    }
-                    else {
-
-                    }
-                }
-                else {
-                    this.notes.addNote(CPPError.preprocess.fileNotFound(
-                        new SourceReference(sourceFile, currentIncludeLineNumber, 0, offset, currentIncludeOffset), filename));
-
-                }
-
-                line = line.replace(/#define.*/g, function (match) {
-                    return Array(match.length + 1).join(" ");
-                });
-                // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
-            }
-
-            else if (line.match(/# *ifndef/)) {
-                line = line.replace(/#ifndef.*/g, function (match) {
-                    return Array(match.length + 1).join(" ");
-                });
-                // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
-            }
+    //         else if (line.match(/# *ifndef/)) {
+    //             line = line.replace(/#ifndef.*/g, function (match) {
+    //                 return Array(match.length + 1).join(" ");
+    //             });
+    //             // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
+    //         }
             
     
-            else if (line.match("# *ifndef")) {
-                line = line.replace(/#ifndef.*/g, function (match) {
-                    return Array(match.length + 1).join(" ");
-                });
-                // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
-            }
-            else if (line.match("# *define")) {
-                line = line.replace(/#define.*/g, function (match) {
-                    return Array(match.length + 1).join(" ");
-                });
-                // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
-            }
-            else if (line.match("# *endif")) {
-                line = line.replace(/#endif.*/g, function (match) {
-                    return Array(match.length + 1).join(" ");
-                });
-                // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
-            }
-        });
+    //         else if (line.match("# *ifndef")) {
+    //             line = line.replace(/#ifndef.*/g, function (match) {
+    //                 return Array(match.length + 1).join(" ");
+    //             });
+    //             // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
+    //         }
+    //         else if (line.match("# *define")) {
+    //             line = line.replace(/#define.*/g, function (match) {
+    //                 return Array(match.length + 1).join(" ");
+    //             });
+    //             // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
+    //         }
+    //         else if (line.match("# *endif")) {
+    //             line = line.replace(/#endif.*/g, function (match) {
+    //                 return Array(match.length + 1).join(" ");
+    //             });
+    //             // this.send("otherError", "It looks like you're trying to use a preprocessor directive (e.g. <span class='code'>#define</span>) that isn't supported at the moement.");
+    //         }
+    //     });
 
-        // Join preprocessed lines back together
-        codeStr = newLines.join("\n");
+    //     // Join preprocessed lines back together
+    //     codeStr = newLines.join("\n");
 
-        return codeStr;
-    }
+    //     return codeStr;
+    // }
 
     private filterUnsupportedDirectives(codeStr: string) {
 
@@ -635,7 +628,7 @@ class PreprocessedSource {
                 return new SourceReference(this.primarySourceFile, line - lineOffset + 1, column, start && start - offset, end && end - offset);
             }
             else if (inc.startLine <= line && line < inc.endLine) {
-                return SourceReference.createIncluded(this.primarySourceFile, inc.lineIncluded,
+                return SourceReference.createIncluded(this.primarySourceFile, inc.lineIncludedFrom,
                     inc.included.getSourceReference(line - inc.startLine + 1, column, start && start - inc.startOffset, end && end - inc.startOffset));
             }
             offset += inc.lengthDelta;

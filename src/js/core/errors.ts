@@ -1074,11 +1074,30 @@ export const CPPError = {
     //     }
     // },
     preprocess: {
-        recursiveInclude: function (sourceRef: SourceReference) {
-            return new PreprocessorNote(sourceRef, NoteKind.WARNING, "preprocess.recursiveInclude", "Recursive #include detected. (i.e. A file #included itself, or #included a different file that then #includes the original, etc.)");
+        include: {
+            recursive_prohibited: function (sourceRef: SourceReference) {
+                return new PreprocessorNote(sourceRef, NoteKind.WARNING, "preprocess.include.recursive_prohibited", "Recursive #include detected. (i.e. A file #included itself, or #included a different file that then #includes the original, etc.)");
+            },
+            malformed: function (sourceRef: SourceReference) {
+                return new PreprocessorNote(sourceRef, NoteKind.ERROR, "preprocess.include.malformed", "This #include line appears to be missing a filename to include or otherwise malformed in some way.");
+            },
+            empty_filename: function (sourceRef: SourceReference) {
+                return new PreprocessorNote(sourceRef, NoteKind.ERROR, "preprocess.include.empty_filename", "This #include appears to request the inclusion of an empty filename.");
+            },
+            file_not_found: function (sourceRef: SourceReference, filename: string) {
+                return new PreprocessorNote(sourceRef, NoteKind.ERROR, "preprocess.include.file_not_found", `Unable to find the requested file, "${filename}";`);
+            },
         },
-        fileNotFound: function (sourceRef: SourceReference, name: string) {
-            return new PreprocessorNote(sourceRef, NoteKind.ERROR, "preprocess.fileNotFound", `The file ${name} does not exist.`);
+        define: {
+            identifier_required: function (sourceRef: SourceReference) {
+                return new PreprocessorNote(sourceRef, NoteKind.ERROR, "preprocess.define.identifier_required", `A #define preprocessor directive cannot be empty (it must specify the identifier it is defining).`);
+            },
+            redefinition: function (sourceRef: SourceReference, identifier: string) {
+                return new PreprocessorNote(sourceRef, NoteKind.WARNING, "preprocess.define.redefinition", `This line redefines "${identifier}", which was already defined previously.`);
+            },
+            replacement_unsupported: function (sourceRef: SourceReference) {
+                return new PreprocessorNote(sourceRef, NoteKind.ERROR, "preprocess.define.replacement_unsupported", `Unfortunately, Lobster currently doesn't perform #define replacements, so this line has no effect.`);
+            }
         }
     },
     lobster: {
