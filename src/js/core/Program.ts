@@ -418,7 +418,7 @@ class PreprocessedSource {
             let newLine = this.processLine(line);
             newCodeStr += (newLine + "\n");
             
-            this.currentLineNumber += (1 + countBy(newLine)["\n"]);
+            this.currentLineNumber += (1 + newLine.split("\n").length - 1);
             this.currentOffset += (newLine.length + 1); // +1 for the extra "\n"
             
         });
@@ -715,7 +715,7 @@ export class TranslationUnit {
                         err.location.start.offset, err.location.start.offset + 1),
                     NoteKind.ERROR,
                     "syntax",
-                    "A syntax error was detected on this line. If there doesn't appear to be an issue here, the error might have occurred on a previous line that caused the compiler to get off track."));
+                    "A syntax error was detected here. If there doesn't appear to be an issue here, the error might have occurred on a previous line that caused the compiler to get off track."));
             }
             else {
                 console.log(err.stack);
