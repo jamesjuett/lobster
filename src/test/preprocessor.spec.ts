@@ -4,7 +4,7 @@ import { Program, SourceFile, SourceReference } from '../js/core/Program';
 import "../js/lib/standard"
 import { assert } from '../js/util/util';
 
-describe('#include', () => {
+describe('#include Basic', () => {
 
   it('includes user files', () => {
     let p1 = new Program([
@@ -39,6 +39,10 @@ int main() {
     expect(p1.notes.hasErrors).is.false;
     expect(p1.notes.hasWarnings).is.false;
   });
+
+});
+
+describe('#include Source Reference Placement', () => {
 
   it('syntax error in included file', () => {
     let test_cpp = new SourceFile("test.cpp",
@@ -128,7 +132,6 @@ int abc3 = 3;`
     let p1 = new Program([test_cpp, test_h, test_h2], new Set<string>(["test.cpp"]));
 
     expect(p1.notes.hasErrors).is.true;
-    console.log("whee" + p1.notes.allNotes[0].primarySourceReference!.line);
     expectEquivalentSourceReferences(
       p1.notes.allNotes[0].primarySourceReference,
       new SourceReference(test_cpp, 2, 7, 24, 25)
@@ -158,10 +161,153 @@ int abc3 = 3;`
     let p1 = new Program([test_cpp, test_h, test_h2], new Set<string>(["test.cpp"]));
 
     expect(p1.notes.hasErrors).is.true;
-    console.log("whee" + p1.notes.allNotes[0].primarySourceReference!.line);
     expectEquivalentSourceReferences(
       p1.notes.allNotes[0].primarySourceReference,
       new SourceReference(test_cpp, 2, 7, 24, 25)
+    );
+  });
+
+});
+
+describe('#include Errors', () => {
+
+  it('file not found', () => {
+    let test_cpp = new SourceFile("test.cpp",
+`#include "none.h"
+int main() {
+  x + 2;
+}`
+    );
+    let test_h = new SourceFile("test.h",
+`int x = 3;
+int y = 4;`
+    );
+
+    let p1 = new Program([test_cpp, test_h], new Set<string>(["test.cpp"]));
+
+    expect(p1.notes.hasErrors).is.true;
+    let err = p1.notes.allNotes[0];
+    expect(err.id).to.equal("preprocess.include.file_not_found");
+    expect(err.message).to.include("none.h");
+    expectEquivalentSourceReferences(
+      err.primarySourceReference,
+      new SourceReference(test_cpp, 1, 0, 0, 17)
+    );
+  });
+
+  it('empty filename', () => {
+    let test_cpp = new SourceFile("test.cpp",
+`#include ""
+int main() {
+  x + 2;
+}`
+    );
+    let test_h = new SourceFile("test.h",
+`int x = 3;
+int y = 4;`
+    );
+
+    let p1 = new Program([test_cpp, test_h], new Set<string>(["test.cpp"]));
+
+    expect(p1.notes.hasErrors).is.true;
+    let err = p1.notes.allNotes[0];
+    expect(err.id).to.equal("preprocess.include.empty_filename");
+    expectEquivalentSourceReferences(
+      err.primarySourceReference,
+      new SourceReference(test_cpp, 1, 0, 0, 11)
+    );
+  });
+
+  it('malformed 1', () => {
+    let test_cpp = new SourceFile("test.cpp",
+`#include "none.h
+int main() {
+  x + 2;
+}`
+    );
+    let test_h = new SourceFile("test.h",
+`int x = 3;
+int y = 4;`
+    );
+
+    let p1 = new Program([test_cpp, test_h], new Set<string>(["test.cpp"]));
+
+    expect(p1.notes.hasErrors).is.true;
+    let err = p1.notes.allNotes[0];
+    expect(err.id).to.equal("preprocess.include.malformed");
+    expectEquivalentSourceReferences(
+      err.primarySourceReference,
+      new SourceReference(test_cpp, 1, 0, 0, 16)
+    );
+  });
+
+  it('malformed 2', () => {
+    let test_cpp = new SourceFile("test.cpp",
+`#include none.h
+int main() {
+  x + 2;
+}`
+    );
+    let test_h = new SourceFile("test.h",
+`int x = 3;
+int y = 4;`
+    );
+
+    let p1 = new Program([test_cpp, test_h], new Set<string>(["test.cpp"]));
+
+    expect(p1.notes.hasErrors).is.true;
+    let err = p1.notes.allNotes[0];
+    expect(err.id).to.equal("preprocess.include.malformed");
+    expectEquivalentSourceReferences(
+      err.primarySourceReference,
+      new SourceReference(test_cpp, 1, 0, 0, 15)
+    );
+  });
+
+  it('recursive prohibited 1', () => {
+    let test_cpp = new SourceFile("test.cpp",
+`#include "test.cpp"
+int main() {
+  x + 2;
+}`
+    );
+    let test_h = new SourceFile("test.h",
+`int x = 3;
+int y = 4;`
+    );
+
+    let p1 = new Program([test_cpp, test_h], new Set<string>(["test.cpp"]));
+
+    expect(p1.notes.hasErrors).is.true;
+    let err = p1.notes.allNotes[0];
+    expect(err.id).to.equal("preprocess.include.recursive_prohibited");
+    expectEquivalentSourceReferences(
+      err.primarySourceReference,
+      new SourceReference(test_cpp, 1, 0, 0, 19)
+    );
+  });
+
+  it('recursive prohibited 2', () => {
+    let test_cpp = new SourceFile("test.cpp",
+`#include "test.h"
+int main() {
+  x + 2;
+}`
+    );
+    let test_h = new SourceFile("test.h",
+`#include "test.cpp"
+int x = 3;
+int y = 4;`
+    );
+
+    let p1 = new Program([test_cpp, test_h], new Set<string>(["test.cpp"]));
+
+    expect(p1.notes.hasWarnings).is.true;
+    let err = p1.notes.allNotes[0];
+    expect(err.id).to.equal("preprocess.include.recursive_prohibited");
+    expectEquivalentSourceReferences(
+      err.primarySourceReference,
+      new SourceReference(test_h, 1, 0, 0, 19)
     );
   });
 

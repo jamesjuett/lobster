@@ -1085,7 +1085,7 @@ export const CPPError = {
                 return new PreprocessorNote(sourceRef, NoteKind.ERROR, "preprocess.include.empty_filename", "This #include appears to request the inclusion of an empty filename.");
             },
             file_not_found: function (sourceRef: SourceReference, filename: string) {
-                return new PreprocessorNote(sourceRef, NoteKind.ERROR, "preprocess.include.file_not_found", `Unable to find the requested file, "${filename}";`);
+                return new PreprocessorNote(sourceRef, NoteKind.ERROR, "preprocess.include.file_not_found", `Unable to find the requested file "${filename}".`);
             },
         },
         define: {
