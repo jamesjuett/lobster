@@ -3,7 +3,7 @@ import { expect } from 'chai';
 import { Program, SourceFile } from '../js/core/Program';
 import { areSemanticallyEquivalent } from '../js/core/constructs';
 
-describe('mk2html() function', () => {
+describe('semantic equivalence', () => {
 
   // it('treats implicit conversion of pointers to bool as equivalent to ptr != 0', () => {
   //   let p1 = new Program([
