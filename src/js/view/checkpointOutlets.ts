@@ -32,6 +32,13 @@ export class CheckpointsOutlet {
             listenTo(this, exercise);
         }
 
+        if (exercise.checkpoints.length > 0) {
+            this.element.show();
+        }
+        else {
+            this.element.hide();
+        }
+
         this.onCheckpointEvaluationFinished(exercise);
 
         return exercise;
