@@ -1,5 +1,5 @@
 
-import { Program, SimpleProgram, SourceFile } from './src/js/core/Program';
+import { Program, SimpleProgram } from './src/js/core/Program';
 import { readFileSync, writeFileSync } from 'fs';
 import { encode } from 'he';
 import { Simulation } from './src/js/core/Simulation';

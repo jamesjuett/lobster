@@ -1,10 +1,11 @@
 
-import { registerLibraryHeader, SourceFile } from "../core/Program";
+import { registerLibraryHeader } from "../core/Program";
 import { registerOpaqueExpression, OpaqueExpressionImpl, RuntimeOpaqueExpression, getLocal } from "../core/opaqueExpression";
 import { Int, CompleteClassType, Bool, VoidType, Double } from "../core/types";
 import { getDataPtr } from "./string";
 import { Value } from "../core/runtimeEnvironment";
 import { assertNever } from "../util/util";
+import { SourceFile } from "../core/preprocessor";
 
 type NoArgMathFn = {
     n: 0,

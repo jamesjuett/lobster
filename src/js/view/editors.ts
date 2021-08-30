@@ -1,4 +1,4 @@
-import { Program, SourceFile, SourceReference } from "../core/Program";
+import { Program } from "../core/Program";
 import CodeMirror from 'codemirror';
 import 'codemirror/lib/codemirror.css';
 import '../../css/lobster.css';
@@ -11,6 +11,7 @@ import { assert, Mutable, asMutable } from "../util/util";
 import { Observable, messageResponse, Message, addListener, MessageResponses, listenTo, removeListener, stopListeningTo } from "../util/observe";
 import { Note, SyntaxNote, NoteKind } from "../core/errors";
 import { Project } from "../core/Project";
+import { SourceReference, SourceFile } from "../core/preprocessor";
 
 /**
  * This class manages all of the source files associated with a project and the editors

@@ -1,5 +1,5 @@
 
-import {Program, SourceFile} from "../core/Program";
+import { Program } from "../core/Program";
 import { Simulation, SimulationEvent } from "../core/Simulation";
 import { assert, Mutable } from "../util/util";
 import { SynchronousSimulationRunner } from "../core/simulationRunners";

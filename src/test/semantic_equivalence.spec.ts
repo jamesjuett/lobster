@@ -1,7 +1,8 @@
 import 'mocha';
 import { expect } from 'chai';
-import { Program, SourceFile } from '../js/core/Program';
+import { Program } from '../js/core/Program';
 import { areSemanticallyEquivalent } from '../js/core/constructs';
+import { SourceFile } from '../js/core/preprocessor';
 
 describe('semantic equivalence', () => {
 

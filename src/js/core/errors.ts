@@ -6,7 +6,7 @@ import { LocalObjectEntity, TemporaryObjectEntity, ObjectEntity, DeclaredEntity,
 import { Expression, TypedExpression } from "./expressionBase";
 import { t_OverloadableOperators } from "./expressions";
 import { CPPObject } from "./objects";
-import { SourceReference } from "./Program";
+import { SourceReference } from "./preprocessor";
 import { CompleteObjectType, ReferenceType, CompleteClassType, Type, AtomicType, PotentiallyCompleteArrayType, PotentiallyCompleteClassType, FunctionType, VoidType, PointerType, ExpressionType, sameType, PotentialParameterType, PotentialReturnType, IncompleteObjectType, BoundedArrayType } from "./types";
 
 export enum NoteKind {

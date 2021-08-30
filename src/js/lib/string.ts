@@ -1,4 +1,4 @@
-import { registerLibraryHeader, SourceFile } from "../core/Program";
+import { registerLibraryHeader } from "../core/Program";
 import { MemberSubobject, CPPObject } from "../core/objects";
 import { Int, Char, PointerType, BoundedArrayType, CompleteObjectType, ReferenceType, CompleteClassType, ArrayPointerType, Size_t, VoidType, PotentiallyCompleteClassType, Bool, isArrayPointerType, Double } from "../core/types";
 import { runtimeObjectLookup, VariableEntity, LocalVariableEntity, LocalObjectEntity, LocalReferenceEntity } from "../core/entities";
@@ -9,6 +9,7 @@ import { ExpressionContext } from "../core/constructs";
 import { assert } from "../util/util";
 import { Expression, RuntimeExpression } from "../core/expressionBase";
 import { nth } from "lodash";
+import { SourceFile } from "../core/preprocessor";
 
 
 function extractCharsFromCString(rt: RuntimeExpression, ptrValue: Value<PointerType<Char>>, nToCopy?: Value<Int>, generateEvents: boolean = true) {

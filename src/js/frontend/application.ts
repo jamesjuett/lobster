@@ -13,7 +13,7 @@ import axios from 'axios';
 import { CourseData, getCourses as getPublicCourses } from "./courses";
 import { ExerciseData, getFullExercise, saveExercise } from "./exercises";
 import { getExtras } from "../analysis/extras";
-import { SourceFile } from "../core/Program";
+import { SourceFile } from "../core/preprocessor";
 
 
 

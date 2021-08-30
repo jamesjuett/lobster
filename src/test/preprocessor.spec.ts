@@ -1,8 +1,9 @@
 import 'mocha';
 import { expect } from 'chai';
-import { Program, SourceFile, SourceReference } from '../js/core/Program';
+import { Program } from '../js/core/Program';
 import "../js/lib/standard"
 import { assert } from '../js/util/util';
+import { SourceFile, SourceReference } from '../js/core/preprocessor';
 
 describe('#include Basic', () => {
 

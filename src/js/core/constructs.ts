@@ -1,4 +1,4 @@
-import { Program, TranslationUnit, SourceReference } from "./Program";
+import { Program, TranslationUnit } from "./Program";
 import { Scope, FunctionEntity, LocalObjectEntity, LocalVariableEntity, LocalReferenceEntity, BlockScope, ClassEntity, MemberVariableEntity, ClassScope, CompleteClassEntity, TemporaryObjectEntity, CPPEntity } from "./entities";
 import { Note, NoteKind, CPPError, NoteRecorder } from "./errors";
 import { asMutable, Mutable, assertFalse, assert } from "../util/util";
@@ -13,6 +13,7 @@ import { PotentialFullExpression, RuntimePotentialFullExpression } from "./Poten
 import { ASTNode } from "../ast/ASTNode";
 import { AccessSpecifier } from "../ast/ast_declarations";
 import { AnalyticConstruct } from "./predicates";
+import { SourceReference } from "./preprocessor";
 
 
 
