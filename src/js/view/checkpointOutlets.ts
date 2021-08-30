@@ -34,9 +34,11 @@ export class CheckpointsOutlet {
 
         if (exercise.checkpoints.length > 0) {
             this.element.show();
+            $(".lobster-simulation-height").css("height", "calc(100vh - 250px)");
         }
         else {
             this.element.hide();
+            $(".lobster-simulation-height").css("height", "calc(100vh - 120px)");
         }
 
         this.onCheckpointEvaluationFinished(exercise);
