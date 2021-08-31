@@ -271,35 +271,35 @@ export class SimulationOutlet {
         let stepBackwardNumElem = findExactlyOne(element, ".stepBackwardNum").val(1);
 
         this.buttonElems = {
-            restart : element.find(".restart").click(() => {
+            restart : element.find(".restart").on("click", () => {
                 this.restart().catch(() => {});
             }),
     
-            stepForward : element.find(".stepForward").click(() => {
+            stepForward : element.find(".stepForward").on("click", () => {
                 this.stepForward(parseInt(""+stepForwardNumElem.val())).catch(() => {});
             }),
     
-            stepOver : element.find("button.stepOver").click(() => {
+            stepOver : element.find("button.stepOver").on("click", () => {
                 this.stepOver().catch(() => {});
             }),
     
-            stepOut : element.find("button.stepOut").click(() => {
+            stepOut : element.find("button.stepOut").on("click", () => {
                 this.stepOut().catch(() => {});
             }),
     
-            // skipToEnd : element.find("button.skipToEnd").click(() => {
+            // skipToEnd : element.find("button.skipToEnd").on("click", () => {
             //     this.skipToEnd().catch(() => {});
             // }),
     
-            runToEnd : element.find("button.runToEnd").click(() => {
+            runToEnd : element.find("button.runToEnd").on("click", () => {
                 this.runToEnd().catch(() => {});
             }),
     
-            pause : element.find("button.pause").click(() => {
+            pause : element.find("button.pause").on("click", () => {
                 this.pause();
             }),
     
-            stepBackward : element.find(".stepBackward").click(() => {
+            stepBackward : element.find(".stepBackward").on("click", () => {
                 this.stepBackward(parseInt(""+stepBackwardNumElem.val())).catch(() => {});
             }),
         };
@@ -680,7 +680,7 @@ export class DefaultLobsterOutlet {
         this.projectEditor = new ProjectEditor(element.find(".lobster-source-pane"), this.project);
 
         // TODO: HACK to make codeMirror refresh correctly when sourcePane becomes visible
-        this.tabsElem.find('a.lobster-sim-tab').on("shown.bs.tab", () => {
+        this.tabsElem.find('a.lobster-source-tab').on("shown.bs.tab", () => {
             this.projectEditor.refreshEditorView();
         });
 
@@ -699,6 +699,12 @@ export class DefaultLobsterOutlet {
             }
             this.element.find(".lobster-simulate-tab").tab("show");
         });
+
+        
+        element.find(".lobster-return-to-source").on("click", () => {
+            this.clearSimulation();
+            this.element.find(".lobster-source-tab").tab("show");
+        }),
 
         new CompilationOutlet(element.find(".lobster-compilation-pane"), this.project);
 
