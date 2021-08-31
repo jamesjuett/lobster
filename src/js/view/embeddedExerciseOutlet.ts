@@ -8,7 +8,7 @@ export function createRunestoneExerciseOutlet(id: string) {
 
         </ul>
 
-        <div class="tab-content" style="height: calc(100vh - 250px); overflow: hidden;">
+        <div class="tab-content" style="height: calc(100vh - 200px); overflow: hidden;">
             <div id="lobster-ex-${id}-compilation-pane" class="lobster-compilation-pane tab-pane fade" style="height: 100%; overflow-y: scroll;">
                 
             </div>
