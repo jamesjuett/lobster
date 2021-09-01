@@ -20,7 +20,6 @@ export function createSimpleExerciseOutlet(id: string) {
                 </button>
                 <div style="display: inline-block" class = "lobster-project-save-outlet"></div>
             </div>
-            <li><a data-toggle="tab" href="#lobster-ex-${id}-compilation-pane">Compilation</a></li>
             <li class="active"><a class="lobster-source-tab" data-toggle="tab" href="#lobster-ex-${id}-source-pane">Source Code</a></li>
             <li><a class="lobster-simulate-tab" data-toggle="tab" href="#lobster-ex-${id}-sim-pane">Simulation</a></li>
 
