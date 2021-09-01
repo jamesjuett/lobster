@@ -342,7 +342,7 @@ function createCompilationOutletHTML() {
         <b>Compilation Errors</b>
         <!-- <p>These errors were based on your last compilation. -->
         </p>
-        <ul class="compilation-notes-list">
+        <ul class="list-group compilation-notes-list">
         </ul>
     </div>`;
 }
@@ -450,7 +450,7 @@ export class CompilationNotesOutlet {
 
         program.notes.allNotes.forEach(note => {
 
-            let item = $('<li></li>').append(this.createBadgeForNote(note)).append(" ");
+            let item = $('<li class="list-group-item"></li>').append(this.createBadgeForNote(note)).append(" ");
 
             let ref = note.primarySourceReference;
             if (ref) {
