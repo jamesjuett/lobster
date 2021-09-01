@@ -27,9 +27,6 @@ export function createSimpleExerciseOutlet(id: string) {
         </ul>
 
         <div class="tab-content lobster-simulation-height" style="overflow: hidden;">
-            <div id="lobster-ex-${id}-compilation-pane" class="lobster-compilation-pane tab-pane fade" style="height: 100%; overflow-y: scroll;">
-                
-            </div>
 
             <div id="lobster-ex-${id}-source-pane" class="lobster-source-pane tab-pane fade active in" style="height: 100%; overflow-y: hidden;">
                 <div style="height: 100%; overflow-y: hidden; display: flex; flex-direction: column;">

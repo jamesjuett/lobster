@@ -704,9 +704,11 @@ export class DefaultLobsterOutlet {
         element.find(".lobster-return-to-source").on("click", () => {
             this.clearSimulation();
             this.element.find(".lobster-source-tab").tab("show");
-        }),
+        });
 
-        new CompilationOutlet(element.find(".lobster-compilation-pane"), this.project);
+        let co = element.find(".lobster-compilation-pane");
+        if (co.length === 0) { co = $("#lobster-compilation-pane"); }
+        new CompilationOutlet(co, this.project);
 
         new CompilationStatusOutlet(element.find(".compilation-status-outlet"), this.project);
         // new ProjectSaveOutlet(element.find(".project-save-outlet"), this.projectEditor);

@@ -324,23 +324,23 @@ export class ProjectEditor {
 function createCompilationOutletHTML() {
     return `
     <div>
-        <h3>Compilation Units</h3>
-        <p>A program may be composed of many different compilation units (a.k.a translation units), one for each source file
+        <b>Compilation Units</b>
+        <!-- <p>A program may be composed of many different compilation units (a.k.a translation units), one for each source file
             that needs to be compiled into the executable program. Generally, you want a compilation
             unit for each .cpp file, and these are the files you would list out in a compile command.
             The files being used for this purpose are highlighted below. Note that files may be
             indirectly used if they are #included in other compilation units, even if they are not
             selected to form a compilation unit here.
-        </p>
-        <p style="font-weight: bold;">
-            Click files below to toggle whether they are being used to create a compilation unit.
+        </p> -->
+        <p style="font-size: smaller;">
+            Toggle which <code>.cpp</code> files are being compiled. (Do not include <code>.h</code> files here.)
         </p>
         <ul class="translation-units-list list-inline">
         </ul>
     </div>
     <div>
-        <h3>Compilation Errors</h3>
-        <p>These errors were based on your last compilation.
+        <b>Compilation Errors</b>
+        <!-- <p>These errors were based on your last compilation. -->
         </p>
         <ul class="compilation-notes-list">
         </ul>
@@ -578,7 +578,13 @@ export class CompilationStatusOutlet {
 
         this.compileButton.removeClass("btn-warning-muted");
         this.compileButton.addClass("btn-success-muted");
-        this.compileButton.html('<span class="glyphicon glyphicon-ok"></span> Compiled');
+
+        if (this.project.program.isCompiled()) {
+            this.compileButton.html('<span class="glyphicon glyphicon-ok"></span> Compiled');
+        }
+        else {
+            this.compileButton.html('<span class="glyphicon glyphicon-remove"></span> Errors Detected');
+        }
     }
 
     @messageResponse("compilationOutOfDate")
