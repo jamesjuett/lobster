@@ -443,6 +443,11 @@ export class CompilationNotesOutlet {
 
         this.element.empty();
 
+        if (program.notes.allNotes.length === 0) {
+            this.element.append("No errors here :)");
+            return;
+        }
+
         program.notes.allNotes.forEach(note => {
 
             let item = $('<li></li>').append(this.createBadgeForNote(note)).append(" ");
@@ -577,13 +582,14 @@ export class CompilationStatusOutlet {
         this.numStyleElem.html("" + this.project.program.notes.numNotes(NoteKind.STYLE));
 
         this.compileButton.removeClass("btn-warning-muted");
-        this.compileButton.addClass("btn-success-muted");
 
         if (this.project.program.isCompiled()) {
             this.compileButton.html('<span class="glyphicon glyphicon-ok"></span> Compiled');
+            this.compileButton.addClass("btn-success-muted");
         }
         else {
             this.compileButton.html('<span class="glyphicon glyphicon-remove"></span> Errors Detected');
+            this.compileButton.addClass("btn-danger-muted");
         }
     }
 
