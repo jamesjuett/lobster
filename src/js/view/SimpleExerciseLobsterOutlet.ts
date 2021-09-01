@@ -70,7 +70,9 @@ export class SimpleExerciseLobsterOutlet {
     });
 
     this.projectEditor = new ProjectEditor(element.find(".lobster-source-pane"), project);
-    this.compilationOutlet = new CompilationOutlet(element.find(".lobster-compilation-pane"), project);
+    let co = element.find(".lobster-compilation-pane");
+    if (co.length === 0) { co = $("#lobster-compilation-pane"); }
+    this.compilationOutlet = new CompilationOutlet(co, project);
     this.compilationStatusOutlet = new CompilationStatusOutlet(element.find(".compilation-status-outlet"), project);
     this.checkpointsOutlet = new CheckpointsOutlet(element.find(".lobster-ex-checkpoints"), project.exercise);
     let IMDOElem = element.find(".lobster-instant-memory-diagram");
