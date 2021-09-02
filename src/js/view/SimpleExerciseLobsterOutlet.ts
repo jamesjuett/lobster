@@ -23,6 +23,7 @@ export class SimpleExerciseLobsterOutlet {
 
   private readonly element: JQuery;
   private readonly tabsElem: JQuery;
+  private readonly sourceTabElem: JQuery;
   private readonly simulateTabElem: JQuery;
   // private readonly annotationMessagesElem: JQuery;
   public readonly compilationOutlet: CompilationOutlet;
@@ -44,6 +45,7 @@ export class SimpleExerciseLobsterOutlet {
     });
 
     this.simulationOutlet = new SimulationOutlet(element.find(".lobster-sim-pane"));
+    this.sourceTabElem = element.find(".lobster-source-tab");
     this.simulateTabElem = element.find(".lobster-simulate-tab");
     this.setSimulationTabEnabled(false);
 
@@ -58,10 +60,19 @@ export class SimpleExerciseLobsterOutlet {
           this.setSimulation(sim);
         }
         this.simulateTabElem.tab("show");
-      });
+      }
+    );
+
+    
+    element.find(".lobster-return-to-source").on("click", () => {
+      this.clearSimulation();
+      this.element.find(".lobster-source-tab").tab("show");
+    });
 
     this.projectEditor = new ProjectEditor(element.find(".lobster-source-pane"), project);
-    this.compilationOutlet = new CompilationOutlet(element.find(".lobster-compilation-pane"), project);
+    let co = element.find(".lobster-compilation-pane");
+    if (co.length === 0) { co = $("#lobster-compilation-pane"); }
+    this.compilationOutlet = new CompilationOutlet(co, project);
     this.compilationStatusOutlet = new CompilationStatusOutlet(element.find(".compilation-status-outlet"), project);
     this.checkpointsOutlet = new CheckpointsOutlet(element.find(".lobster-ex-checkpoints"), project.exercise);
     let IMDOElem = element.find(".lobster-instant-memory-diagram");

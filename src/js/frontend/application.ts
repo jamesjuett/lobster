@@ -252,6 +252,9 @@ export class LobsterApplication {
         this.courseProjectsList.setActiveProject(project.id);
         window.location.hash = project.id ? ""+project.id : "";
         this.updateButtons();
+        $("#lobster-left-sidebar-compilation-heading a").trigger("click");
+        // $("#lobster-left-sidebar .collapse").not("#collapse-lobster-compilation").collapse("hide");
+        // $("#collapse-lobster-compilation").collapse("show");
         return project;
     }
 
