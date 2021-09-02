@@ -3,12 +3,12 @@ export function createRunestoneExerciseOutlet(id: string) {
     return $(`
         <ul style="position: relative;" class="lobster-simulation-outlet-tabs nav nav-tabs">
             <li><a data-toggle="tab" href="#lobster-ex-${id}-compilation-pane">Compilation</a></li>
-            <li class="active"><a data-toggle="tab" href="#lobster-ex-${id}-source-pane">Source Code</a></li>
+            <li class="active"><a class="lobster-source-tab" data-toggle="tab" href="#lobster-ex-${id}-source-pane">Source Code</a></li>
             <li><a class="lobster-simulate-tab" data-toggle="tab" href="#lobster-ex-${id}-sim-pane">Simulation</a></li>
 
         </ul>
 
-        <div class="tab-content" style="height: calc(100vh - 250px); overflow: hidden;">
+        <div class="tab-content" style="height: calc(100vh - 200px); overflow: hidden;">
             <div id="lobster-ex-${id}-compilation-pane" class="lobster-compilation-pane tab-pane fade" style="height: 100%; overflow-y: scroll;">
                 
             </div>

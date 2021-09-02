@@ -20,16 +20,12 @@ export function createSimpleExerciseOutlet(id: string) {
                 </button>
                 <div style="display: inline-block" class = "lobster-project-save-outlet"></div>
             </div>
-            <li><a data-toggle="tab" href="#lobster-ex-${id}-compilation-pane">Compilation</a></li>
-            <li class="active"><a data-toggle="tab" href="#lobster-ex-${id}-source-pane">Source Code</a></li>
+            <li class="active"><a class="lobster-source-tab" data-toggle="tab" href="#lobster-ex-${id}-source-pane">Source Code</a></li>
             <li><a class="lobster-simulate-tab" data-toggle="tab" href="#lobster-ex-${id}-sim-pane">Simulation</a></li>
 
         </ul>
 
         <div class="tab-content lobster-simulation-height" style="overflow: hidden;">
-            <div id="lobster-ex-${id}-compilation-pane" class="lobster-compilation-pane tab-pane fade" style="height: 100%; overflow-y: scroll;">
-                
-            </div>
 
             <div id="lobster-ex-${id}-source-pane" class="lobster-source-pane tab-pane fade active in" style="height: 100%; overflow-y: hidden;">
                 <div style="height: 100%; overflow-y: hidden; display: flex; flex-direction: column;">
@@ -76,6 +72,9 @@ export function createSimpleExerciseOutlet(id: string) {
                     <tr>
                         <td style="min-width: 260px; width: 260px; max-width: 260px; vertical-align: top; height: 100%">
                             <div class="lobster-simulation-height" style="position: relative; display: flex; flex-direction: column;">
+                                <div style="margin-bottom: 5px;">
+                                    <button class = "lobster-return-to-source btn btn-primary-muted" style="width: 100%; padding: 6px 6px;">Return to Source Code</button>
+                                </div>
                                 <div style="margin-bottom: 5px;">
                                     <button class = "restart btn btn-warning-muted" style="font-size: 12px; padding: 6px 6px"><span class="glyphicon glyphicon-fast-backward"></span> Restart</button>
                                     <!--<span style = "display: inline-block; width: 4ch"></span>-->

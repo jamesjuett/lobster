@@ -753,7 +753,14 @@ ul.codeStack li{
 	vertical-align: text-top;
 }
 
-.btn.lobster-log-in-button > svg {
+.lobster-log-in-button {
+	max-width: 150px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	font-size: 0.75em;
+}
+
+.lobster-log-in-button > svg {
 	display: inline-block;
 	vertical-align: middle;
 	fill: white;
