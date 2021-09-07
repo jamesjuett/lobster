@@ -23,7 +23,7 @@ int main() {
           y: 2.0,
           ch: "*".charCodeAt(0)
         });
-      }, "2.5 * 2.0")
+      }, "2.5 * 2.0") // input typed to cin
     ]
   );
 
@@ -50,7 +50,7 @@ int main() {
           z: 0,
           ch: "+".charCodeAt(0)
         });
-      }, "3.5 + 3.5")
+      }, "3.5 + 3.5") // input typed to cin
     ]
   );
 }
