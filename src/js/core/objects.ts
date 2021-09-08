@@ -391,6 +391,7 @@ export abstract class CPPObject<T extends CompleteObjectType = CompleteObjectTyp
     public beginLifetime() {
         assert(!this.isAlive);
         asMutable(this).isAlive = true;
+        this.observable.send("lifetimeBegan", this);
     }
 
     public kill(rt?: RuntimeConstruct) {
