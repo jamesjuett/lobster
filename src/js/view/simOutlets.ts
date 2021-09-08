@@ -11,7 +11,7 @@ import { AsynchronousSimulationRunner, SynchronousSimulationRunner, asyncCloneSi
 import { BoundReferenceEntity, UnboundReferenceEntity, NamedEntity, PassByReferenceParameterEntity, PassByValueParameterEntity, MemberReferenceEntity } from "../core/entities";
 import { FunctionOutlet, ConstructOutlet, FunctionCallOutlet, getValueString, cstringToString } from "./codeOutlets";
 import { RuntimeFunctionIdentifierExpression } from "../core/expressions";
-import { RuntimeDirectInitializer } from "../core/initializers";
+import { RuntimeAtomicDirectInitializer, RuntimeDirectInitializer } from "../core/initializers";
 import { RuntimeExpression } from "../core/expressionBase";
 import { RuntimeFunction } from "../core/functions";
 import { Exercise, Project } from "../core/Project";
@@ -932,7 +932,7 @@ export class MemoryOutlet {
         return this.objectOutlets[objectId];
     }
 
-    private addSVGOverlay(overlay: SVGMemoryOverlay) {
+    public addSVGOverlay(overlay: SVGMemoryOverlay) {
         this.svgOverlays.push(overlay);
     }
 
@@ -1376,6 +1376,11 @@ export class PointerMemoryObjectOutlet<T extends PointerType<CompleteObjectType>
         else{
             elem.addClass("invalid");
         }
+    }
+    
+    @messageResponse("lifetimeBegan", "unwrap")
+    private onAtomicObjectInitialized(object: CPPObject<PointerToCompleteType>) {
+        this.memoryOutlet.addSVGOverlay(new SVGPointerArrowMemoryOverlay(object, this.memoryOutlet));
     }
 
     // setPtdArray : function(arrObj) {
