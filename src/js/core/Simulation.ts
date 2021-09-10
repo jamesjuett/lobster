@@ -837,6 +837,10 @@ export class SimulationInputStream {
             return type.parse(this.extractIntFromBuffer());
         }
         else {
+            // Note that this doesn't parse strings - it just
+            // reads a "word" as something delimited by whitespace
+            // which will then be parsed by the arithmetic type, e.g.
+            // the word "2.7" parsed to the floating point 2.7
             return type.parse(this.extractWordFromBuffer());
         }
     }
