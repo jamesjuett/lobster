@@ -774,6 +774,16 @@ export class Simulation {
     // },
 }
 
+enum IOState {
+    goodbit = 0,
+    badbit = 1,
+    eofbit = 2,
+    failbit = 4,
+    bad_eof_bit = 3,
+    bad_fail_bit = 5,
+    eof_fail_bit = 6,
+    bad_eof_fail_bit = 7
+};
 
 type SimulationInputStreamMessages =
     "bufferUpdated";
@@ -786,7 +796,7 @@ export class SimulationInputStream {
 
     public readonly buffer: string = "";
 
-    private failbit: boolean = false;
+    private iostate: IOState = IOState.goodbit;
 
     // public readonly bufferAdditionRecord : readonly {readonly stepsTaken: number; readonly contents: string}[] = [];
     
@@ -862,7 +872,7 @@ export class SimulationInputStream {
             // error, no viable int at start of stream buffer
             // (or stream buffer was empty)
             // buffer contents are not changed
-            this.failbit = true;
+            this.setstate(IOState.failbit)
             return "0"; // return so that we'll parse a 0 according to C++ standard
         }
     }
@@ -902,4 +912,34 @@ export class SimulationInputStream {
             return word;
         }
     }
+
+    public rdstate() {
+        return this.iostate;
+    }
+
+    public setstate(state: IOState) {
+        this.iostate = this.iostate | state;
+    }
+
+    public clear(state: IOState = IOState.goodbit) {
+        this.iostate = state;
+    }
+
+    public good() {
+        return (this.iostate & IOState.goodbit) == IOState.goodbit;
+    }
+
+    public fail() {
+        return (this.iostate & IOState.failbit) == IOState.failbit;
+    }
+
+    public eof() {
+        return (this.iostate & IOState.eofbit) == IOState.eofbit;
+    }
+
+    public bad() {
+        return (this.iostate & IOState.badbit) == IOState.badbit;
+    }
+
+
 }
