@@ -349,11 +349,7 @@ function createDefaultProject() {
         undefined, [
             { name: "file.cpp", code: `#include <iostream>\n\nusing namespace std;\n\nint main() {\n  cout << "Hello World!" << endl;\n}`, isTranslationUnit: true }
         ],
-        new Exercise(makeExerciseSpecification({
-            checkpoints: [
-                    new OutputCheckpoint('Print "Hello World!"', outputComparator("Hello World!", true))
-            ]
-        }))
+        new Exercise(DEFAULT_EXERCISE)
     ).turnOnAutoCompile();
 }
 
