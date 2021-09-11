@@ -15,12 +15,12 @@ export enum IOState {
   bad_eof_fail = 7
 };
 
-type SimulationInputStreamMessages =
+type StandardInputStreamMessages =
   "bufferUpdated";
 
-export class SimulationInputStream {
+export class StandardInputStream {
 
-  public readonly observable = new Observable<SimulationInputStreamMessages>(this);
+  public readonly observable = new Observable<StandardInputStreamMessages>(this);
 
   public readonly trimws: boolean = true;
 

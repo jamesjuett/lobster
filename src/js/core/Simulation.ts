@@ -10,7 +10,7 @@ import { PassByReferenceParameterEntity, PassByValueParameterEntity } from "./en
 import { CompiledExpression, RuntimeExpression } from "./expressionBase";
 import { RuntimeFunction } from "./functions";
 import { first, clone, trimStart } from "lodash";
-import { SimulationInputStream } from "./streams";
+import { StandardInputStream } from "./streams";
 
 
 export enum SimulationEvent {
@@ -84,7 +84,7 @@ export type SimulationMessages =
     "eventOccurred";
 
 type SimulationOptions = {
-    cin?: SimulationInputStream,
+    cin?: StandardInputStream,
     start?: boolean
 };
 
@@ -111,7 +111,7 @@ export class Simulation {
     public readonly allOutput: string;
     public readonly outputProduced: readonly SimulationOutput[] = [];
 
-    public readonly cin: SimulationInputStream;
+    public readonly cin: StandardInputStream;
 
     public readonly rng: CPPRandom;
 
@@ -172,7 +172,7 @@ export class Simulation {
 
         this.allOutput = "";
         asMutable(this.outputProduced).length = 0;
-        this.cin = options.cin ?? new SimulationInputStream();
+        this.cin = options.cin ?? new StandardInputStream();
         this.rng = new CPPRandom();
 
         if(options.start) {
