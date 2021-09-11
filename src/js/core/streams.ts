@@ -16,7 +16,8 @@ export enum IOState {
 };
 
 type StandardInputStreamMessages =
-  "bufferUpdated";
+  "bufferUpdated" |
+  "iostateUpdated";
 
 export class StandardInputStream {
 
@@ -184,11 +185,12 @@ export class StandardInputStream {
   }
 
   public setstate(state: IOState) {
-      this.iostate = this.iostate | state;
+      this.clear(this.iostate | state);
   }
 
   public clear(state: IOState = IOState.good) {
       this.iostate = state;
+      this.observable.send("iostateUpdated", this.iostate);
   }
 
   public good() {

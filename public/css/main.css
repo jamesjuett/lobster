@@ -459,6 +459,15 @@ div .tabPane {
     padding: 5px;
 }
 
+.lobster-istream-iostate {
+	display: inline-block;
+}
+
+.lobster-istream-iostate .label {
+	font-size: 90%;
+	margin-right: 0.2em;
+}
+
 .lobster-istream-buffer-contents {
 	display: inline-block;
 	text-align: left;
