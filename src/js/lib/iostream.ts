@@ -6,7 +6,7 @@ import { getDataPtr } from "./string";
 import { Value } from "../core/runtimeEnvironment";
 import { CPPObject } from "../core/objects";
 import { RuntimeExpression } from "../core/expressionBase";
-import { SimulationInputStream } from "../core/streams";
+import { StandardInputStream } from "../core/streams";
 
 
 registerLibraryHeader("iostream",
@@ -66,7 +66,7 @@ istream cin;
 );
 
 function getStream(rt: RuntimeExpression) {
-    return <SimulationInputStream>rt.contextualReceiver.getAuxiliaryData("stream");
+    return <StandardInputStream>rt.contextualReceiver.getAuxiliaryData("stream");
 }
 
 registerOpaqueExpression("istream::istream_default", {

@@ -16,7 +16,7 @@ import { RuntimeExpression } from "../core/expressionBase";
 import { RuntimeFunction } from "../core/functions";
 import { Exercise, Project } from "../core/Project";
 import { CPP_ANIMATIONS } from "./CPP_ANIMATIONS";
-import { SimulationInputStream } from "../core/streams";
+import { StandardInputStream } from "../core/streams";
 
 const FADE_DURATION = 300;
 const SLIDE_DURATION = 400;
@@ -2700,7 +2700,7 @@ export class CodeStackOutlet extends RunningCodeOutlet {
 export class IstreamBufferOutlet {
 
     public readonly name: string;
-    public readonly istream?: SimulationInputStream;
+    public readonly istream?: StandardInputStream;
     
     private readonly element: JQuery;
     private readonly bufferContentsElem: JQuery;
@@ -2715,7 +2715,7 @@ export class IstreamBufferOutlet {
         this.bufferContentsElem = $('<div class="lobster-istream-buffer-contents"></div>').appendTo(element);
     }
 
-    public setIstream(istream: SimulationInputStream) {
+    public setIstream(istream: StandardInputStream) {
         this.clearIstream();
         (<Mutable<this>>this).istream = istream;
         listenTo(this, istream);
