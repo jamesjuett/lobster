@@ -4,7 +4,7 @@ import * as SVG from "@svgdotjs/svg.js";
 import { CPPObject, ArraySubobject, BaseSubobject, DynamicObject } from "../core/objects";
 import { AtomicType, CompleteObjectType, Char, PointerType, BoundedArrayType, ArrayElemType, Int, CompleteClassType, isCompleteClassType, isPointerType, isBoundedArrayType, ArrayPointerType, ArithmeticType, toHexadecimalString, PointerToCompleteType, isArrayPointerType, isArrayPointerToType } from "../core/types";
 import { Mutable, assert, isInstance, asMutable } from "../util/util";
-import { Simulation, SimulationInputStream, SimulationOutputKind, SimulationEvent } from "../core/Simulation";
+import { Simulation, SimulationOutputKind, SimulationEvent } from "../core/Simulation";
 import { RuntimeConstruct } from "../core/constructs";
 import { ProjectEditor, CompilationOutlet, CompilationStatusOutlet } from "./editors";
 import { AsynchronousSimulationRunner, SynchronousSimulationRunner, asyncCloneSimulation, synchronousCloneSimulation } from "../core/simulationRunners";
@@ -16,6 +16,7 @@ import { RuntimeExpression } from "../core/expressionBase";
 import { RuntimeFunction } from "../core/functions";
 import { Exercise, Project } from "../core/Project";
 import { CPP_ANIMATIONS } from "./CPP_ANIMATIONS";
+import { SimulationInputStream } from "../core/streams";
 
 const FADE_DURATION = 300;
 const SLIDE_DURATION = 400;
