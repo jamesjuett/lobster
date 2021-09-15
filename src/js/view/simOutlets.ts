@@ -1535,7 +1535,8 @@ export class ReferenceMemoryOutlet<T extends CompleteObjectType = CompleteObject
 
 export class ArrayMemoryObjectOutlet<T extends ArrayElemType = ArrayElemType> extends MemoryObjectOutlet<BoundedArrayType<T>> {
 
-    public readonly objElem : JQuery;
+    public readonly addrElem: JQuery;
+    public readonly objElem: JQuery;
 
     public readonly elemOutlets: MemoryObjectOutlet[];
     public readonly onePast: JQuery;
@@ -1543,9 +1544,18 @@ export class ArrayMemoryObjectOutlet<T extends ArrayElemType = ArrayElemType> ex
     public constructor(element: JQuery, object: CPPObject<BoundedArrayType<T>>, memoryOutlet: MemoryOutlet) {
         super(element, object, memoryOutlet);
 
-        this.element.addClass("code-memoryObjectArray");
+        this.element.addClass("code-memoryObject-array");
 
-        this.objElem = $("<div class='array'></div>");
+        let leftContainer = $('<div class="code-memoryObject-array-left"></div>').appendTo(this.element);
+
+        this.addrElem = $(`<div class='address'>${toHexadecimalString(this.object.address)}</div>`);
+        leftContainer.append(this.addrElem);
+        
+        if (this.object.name) {
+            leftContainer.append($("<div class='entity'>" + (this.object.name || "") + "</div>"));
+        }
+
+        this.objElem = $("<div class='code-memoryObject-array-elements'></div>");
 
         this.elemOutlets = this.object.getArrayElemSubobjects().map((elemSubobject: ArraySubobject<T>, i: number) => {
             let elemElem = $('<div></div>');

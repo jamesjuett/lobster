@@ -1963,6 +1963,7 @@ export class RuntimeInputOperatorExpression extends RuntimeExpression<Potentiall
     }
 
     protected stepForwardImpl() {
+        this.sim.cin.skipws();
 
         let result = this.sim.cin.extractAndParseFromBuffer(this.right.evalResult.type);
 
