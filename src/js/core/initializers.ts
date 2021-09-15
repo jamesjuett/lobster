@@ -2223,6 +2223,7 @@ export class RuntimeArrayAggregateInitializer<T extends BoundedArrayType = Bound
         }
         else {
             let target = this.model.target.runtimeLookup(this);
+            target.beginLifetime();
             this.observable.send("arrayObjectInitialized", this);
             this.startCleanup();
         }

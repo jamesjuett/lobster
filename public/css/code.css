@@ -629,13 +629,20 @@
     /*text-decoration: line-through;*/
 }
 
-.code-memoryObject-array{
-    display: inline-block;
+
+.code-memoryObject-array {
+    display: flex;
+    flex-direction: row;
+}
+
+.code-memoryObject-array-left {
+    flex: 0 0 auto;
     text-align: right;
-    padding-left: 2px;
-    padding-right: 2px;
-    border: solid 1px black;
-    transition: background-color 0.5s;
+}
+
+.code-memoryObject-array-elements {
+    flex: 1 1 auto;
+    white-space: normal;
 }
 
 .code-memoryObject .arrayElem{
@@ -674,9 +681,6 @@
     padding: 4px;
 }
 
-.code-memoryObject-array .code-memoryObject-address{
-    padding-top: 0;
-}
 
 .code-memoryObject:last-child{
     /*margin-bottom: 0;*/
