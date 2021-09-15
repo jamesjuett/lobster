@@ -4,7 +4,7 @@ import * as SVG from "@svgdotjs/svg.js";
 import { CPPObject, ArraySubobject, BaseSubobject, DynamicObject } from "../core/objects";
 import { AtomicType, CompleteObjectType, Char, PointerType, BoundedArrayType, ArrayElemType, Int, CompleteClassType, isCompleteClassType, isPointerType, isBoundedArrayType, ArrayPointerType, ArithmeticType, toHexadecimalString, PointerToCompleteType, isArrayPointerType, isArrayPointerToType } from "../core/types";
 import { Mutable, assert, isInstance, asMutable } from "../util/util";
-import { Simulation, SimulationInputStream, SimulationOutputKind, SimulationEvent } from "../core/Simulation";
+import { Simulation, SimulationOutputKind, SimulationEvent } from "../core/Simulation";
 import { RuntimeConstruct } from "../core/constructs";
 import { ProjectEditor, CompilationOutlet, CompilationStatusOutlet } from "./editors";
 import { AsynchronousSimulationRunner, SynchronousSimulationRunner, asyncCloneSimulation, synchronousCloneSimulation } from "../core/simulationRunners";
@@ -16,6 +16,7 @@ import { RuntimeExpression } from "../core/expressionBase";
 import { RuntimeFunction } from "../core/functions";
 import { Exercise, Project } from "../core/Project";
 import { CPP_ANIMATIONS } from "./CPP_ANIMATIONS";
+import { IOState, StandardInputStream } from "../core/streams";
 
 const FADE_DURATION = 300;
 const SLIDE_DURATION = 400;
@@ -2699,10 +2700,11 @@ export class CodeStackOutlet extends RunningCodeOutlet {
 export class IstreamBufferOutlet {
 
     public readonly name: string;
-    public readonly istream?: SimulationInputStream;
+    public readonly istream?: StandardInputStream;
     
     private readonly element: JQuery;
     private readonly bufferContentsElem: JQuery;
+    private readonly iostateElem: JQuery;
     
     public _act!: MessageResponses;
     
@@ -2711,15 +2713,17 @@ export class IstreamBufferOutlet {
         this.element = element.addClass("lobster-istream-buffer");
         element.append(`<span class="lobster-istream-buffer-name">${name} buffer</span>`)
         this.name = name;
-        this.bufferContentsElem = $('<div class="lobster-istream-buffer-contents"></div>').appendTo(element);
+        this.iostateElem = $('<span class="lobster-istream-iostate"></span>').appendTo(element);
+        this.bufferContentsElem = $('<span class="lobster-istream-buffer-contents"></span>').appendTo(element);
     }
 
-    public setIstream(istream: SimulationInputStream) {
+    public setIstream(istream: StandardInputStream) {
         this.clearIstream();
         (<Mutable<this>>this).istream = istream;
         listenTo(this, istream);
 
-        this.onBufferUpdate(istream.buffer);
+        this.onBufferUpdated(istream.buffer);
+        this.onIostateUpdated();
     }
     
     public clearIstream() {
@@ -2732,8 +2736,22 @@ export class IstreamBufferOutlet {
     }
     
     @messageResponse("bufferUpdated", "unwrap")
-    protected onBufferUpdate(contents: string) {
+    protected onBufferUpdated(contents: string) {
         this.bufferContentsElem.html(`cin <span class="glyphicon glyphicon-arrow-left"></span> ${contents}`);
+    }
+    
+    @messageResponse("iostateUpdated", "unwrap")
+    protected onIostateUpdated() {
+        this.iostateElem.hide().html("");
+        if (this.istream?.fail()) {
+            this.iostateElem.show().append('<span class="label label-danger">fail</span>');
+        }
+        if (this.istream?.bad()) {
+            this.iostateElem.show().append('<span class="label label-danger">bad</span>');
+        }
+        if (this.istream?.eof()) {
+            this.iostateElem.show().append('<span class="label label-warning">EOF</span>');
+        }
     }
 
 }

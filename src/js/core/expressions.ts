@@ -1964,13 +1964,10 @@ export class RuntimeInputOperatorExpression extends RuntimeExpression<Potentiall
 
     protected stepForwardImpl() {
 
-        let resultOrError = this.sim.cin.extractAndParseFromBuffer(this.right.evalResult.type);
+        let result = this.sim.cin.extractAndParseFromBuffer(this.right.evalResult.type);
 
-        if (resultOrError.kind === "success") {
-            this.right.evalResult.writeValue(resultOrError.result);
-        }
-        else {
-            this.sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "input parsing error", true);
+        if (result) {
+            this.right.evalResult.writeValue(result.result);
         }
         this.setEvalResult(this.left.evalResult);
         this.startCleanup();
@@ -5387,7 +5384,8 @@ export class StreamToBoolConversion extends ImplicitConversion<CompleteClassType
     }
 
     public operate(fromEvalResult: VCResultTypes<CompleteClassType, "lvalue">) {
-        return new Value(1, Bool.BOOL);
+        // evaluates to false if .fail() is true, otherwise true
+        return new Value(fromEvalResult.getAuxiliaryData("stream").fail() ? 0 : 1, Bool.BOOL);
     }
 
     public createDefaultOutlet(this: CompiledStreamToBoolConversion, element: JQuery, parent?: ConstructOutlet) {
