@@ -313,6 +313,8 @@ export abstract class CPPObject<T extends CompleteObjectType = CompleteObjectTyp
 
     private _isValid: boolean;
 
+    private readonly auxiliaryData : {[index: string]: any} = {};
+
     public constructor(type: T, memory: Memory, address: number) {
         this.type = type;
         this.size = type.size;
@@ -663,6 +665,14 @@ export abstract class CPPObject<T extends CompleteObjectType = CompleteObjectTyp
     }
 
     public abstract describe(): ObjectDescription;
+
+    public setAuxiliaryData(key: string, data: any) {
+        this.auxiliaryData[key] = data;
+    }
+
+    public getAuxiliaryData(key: string) {
+        return this.auxiliaryData[key];
+    }
 
 };
 
