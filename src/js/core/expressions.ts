@@ -1410,7 +1410,7 @@ export class ArithmeticBinaryOperatorExpression extends BinaryOperatorExpression
         // HACK: only consider operator overloads if both are class type.
         // TODO: eventually, all input/output expressions should probably
         // be implemented as overloaded operators. 
-        if (Predicates.isTypedExpression(left, isPotentiallyCompleteClassType) && Predicates.isTypedExpression(right, isPotentiallyCompleteClassType)) {
+        if (Predicates.isTypedExpression(left, isPotentiallyCompleteClassType) || Predicates.isTypedExpression(right, isPotentiallyCompleteClassType)) {
             let overload = selectOperatorOverload(context, ast, op, [left, right]);
             if (overload) {
                 return overload;
