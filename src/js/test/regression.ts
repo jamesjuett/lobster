@@ -1197,6 +1197,52 @@ int main() {
             ]
         );
 
+    // string operators test
+    
+        new SingleTranslationUnitTest(
+            "String Operators Test",
+`#include <iostream>
+#include <string>
+using namespace std;
+
+int main() {
+  string s;
+  cout << s << endl;
+  s = s + 'a'; // a
+  cout << s << endl;
+  s = 'b' + s; // ba
+  cout << s << endl;
+  s += 'b'; // bab
+  cout << s << endl;
+  string c = "c";
+  s = c + s; // cbab
+  cout << s << endl;
+  s = s + c; // cbabc
+  cout << s << endl;
+  s = "d" + s; // dcbabc
+  cout << s << endl;
+  s = s + "d"; // dcbabcd
+  cout << s << endl;
+  s = s += "e"; // dcbabcde
+  cout << s << endl;
+}`,
+            [
+                new NoErrorsNoWarningsVerifier(),
+                new NoBadRuntimeEventsVerifier(true),
+                new OutputVerifier(
+`
+a
+ba
+bab
+cbab
+cbabc
+dcbabc
+dcbabcd
+dcbabcde
+`)
+            ]
+        );
+
         
 
 // Basic Compound Assignment---------------------
