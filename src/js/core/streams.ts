@@ -128,7 +128,7 @@ export class StandardInputStream {
   public extractDoubleFromBuffer() {
 
       // matches anything with numbers and a dot
-      let m = this.buffer.match(/^[+-]?[0123456789]*\.[0123456789]*/);
+      let m = this.buffer.match(/^[+-]?[0123456789]*\.?[0123456789]*/);
 
       if (m && m[0] !== "." && m[0] !== "+." && m[0] !== "-.") { // a match that isn't just a .
           // match found
