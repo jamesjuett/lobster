@@ -1200,7 +1200,7 @@ int main() {
     // string operators test
     
         new SingleTranslationUnitTest(
-            "String Operators Test",
+            "String + Operators Test",
 `#include <iostream>
 #include <string>
 using namespace std;
