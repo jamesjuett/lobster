@@ -190,6 +190,10 @@ int main() {
   assert(cin.rdstate() == ${IOState.good});
 
   cin >> x;
+  assert(x == 3);
+  assert(cin.rdstate() == ${IOState.good});
+
+  cin >> x;
   assert(x == 2.5);
   assert(cin.rdstate() == ${IOState.good});
 
@@ -241,7 +245,7 @@ int main() {
       new NoErrorsNoWarningsVerifier(),
       new NoBadRuntimeEventsVerifier(
         true,
-        "2.5 2.0 2. 2.5blah 2.0whee 2.whoa 2.5.5 0.0005 000.0005 000.0005.234" // input typed to cin
+        "2.5 2.0 2. 3 2.5blah 2.0whee 2.whoa 2.5.5 0.0005 000.0005 000.0005.234" // input typed to cin
       )
     ]
   );
