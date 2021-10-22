@@ -96,7 +96,8 @@ export const EXERCISE_SPECIFICATIONS: { [index: string]: Partial<ExerciseSpecifi
         
           // TODO: Declare some variables
 
-          // DON'T CHANGE THE CODE BELOW THIS (this lets Lobster test your program)
+          // DON'T CHANGE THE CODE BELOW THIS
+          // (this lets Lobster test your program)
           cout << numPieces << endl;
           cout << cost << endl;
           cout << name << endl;
@@ -122,6 +123,21 @@ export const EXERCISE_SPECIFICATIONS: { [index: string]: Partial<ExerciseSpecifi
             new OutputCheckpoint("Correct initialization", (output: string) => {
                 return output === "Let's make some variables!\n5\n3.25\npeeps\nK\n0\n";
             })
+        ]
+    },
+    "ch11_ex_tempConverter": {
+        starterCode: `#include <iostream>
+using namespace std;
+
+int main() {
+  // Your code here
+  
+}`,
+        checkpoints: [
+            new IsCompiledCheckpoint("Compiles"),
+            new OutputCheckpoint("Correct Conversion", (output: string) => {
+                return output.indexOf("86") !== -1;
+            }, "30\n")
         ]
     },
     "ch12_01_ex": {
@@ -447,6 +463,122 @@ int main() {
             // no checkpoints, just an example not an exercise
         ]
     },
+    "ch13_07_ex": {
+        starterCode: `#include <iostream>
+#include <string>
+using namespace std;
+
+int main() {
+  string dna = "AGACTGGGACT";
+  string pattern = "GAC";
+  string pattern2 = "ACT";
+  int PATTERN_LENGTH = 3;
+
+  // go through the dna string
+  for(int i=0; i < dna.length() - PATTERN_LENGTH + 1; ++i) { 
+
+    bool match = true;
+    for(int j=0; j < PATTERN_LENGTH; ++j) { 
+      // check if first pattern matches
+      if(dna[i+j] != pattern[j]) {
+        match = false;
+      }
+
+      // check if second pattern matches
+      // YOUR CODE HERE
+
+
+
+    }
+
+    // print out any matches for first pattern
+    if (match == true) {
+      cout << "Pattern 1: " << i << endl;
+    }
+
+    // print out any matches for second pattern
+    // YOUR CODE HERE
+
+
+
+  }
+}`,
+        checkpoints: [
+          new StaticAnalysisCheckpoint("Compare dna string to pattern2", (program: Program) => {
+            let outerLoop = findFirstConstruct(program, Predicates.byKinds(["for_statement"]));
+            if(outerLoop) {
+              let innerLoop = findFirstConstruct(outerLoop.body, Predicates.byKinds(["for_statement"]));
+              if(innerLoop) {
+                let ifStatements = findConstructs(innerLoop.body, Predicates.byKinds(["if_statement"]));
+                return ifStatements.length == 2;
+              }
+              return false;
+            }
+            return false;
+          }),
+          new OutputCheckpoint("Output \"Pattern Two\"", (output: string) => {
+            return output.includes("Pattern 2");
+          }, "", 5000),
+          new OutputCheckpoint("Correct Output", (output: string) => {
+            return output === "Pattern 1: 1\nPattern 2: 2\nPattern 1: 7\nPattern 2: 8\n";
+          }, "", 5000)
+        ]
+    },
+    "ch14_01_abs": {
+        starterCode: `#include <iostream>
+using namespace std;
+
+int square(int n) {
+  return n*n;
+}
+    
+int abs(int n) {
+  int a;
+  if(n >= 0) {
+    a = n;
+  } else {
+    a = -n;
+  }
+  return a;
+}
+
+int main() {
+  int x = 3;
+  int y = -8;
+
+  cout << "x squared: " << square(x) << endl;
+  cout << "abs x: " << abs(x) << endl;
+  cout << "abs y: " << abs(y) << endl;
+  cout << "x squared + y squared: " << square(x) + square(y) << endl;
+}`,
+        checkpoints: [
+            // no checkpoints, just an example not an exercise
+        ]
+    },
+    "ch14_01_ex": {
+      starterCode: `#include <iostream>
+using namespace std;
+      
+// Swap the values of a and b
+void swap(int &a, int &b) {
+  int oldA = a;
+  a = b;
+  b = oldA;
+}
+
+int main() {
+  int x = 2;
+  int y = 7;
+  
+  swap(x, y);
+
+  cout << "x is now: " << x << endl;
+  cout << "y is now: " << y << endl;
+}`,
+      checkpoints: [
+          // no checkpoints, just an example not an exercise
+      ]
+  },
     "ch14_02_ex": {
         starterCode: `#include <iostream>
         using namespace std;
@@ -526,6 +658,7 @@ int main() {
         starterCode: `#include <iostream>
 #include <string>
 using namespace std;
+
 // A very annoying program: It echoes until you say stop
 int main() {
   
@@ -548,6 +681,61 @@ int main() {
                     && output.indexOf("Stop") !== -1
                     && output.indexOf("Ok fine I'll stop :(") !== -1;
             }, "Hi\nHow are you\nStop\nSTOP\n")
+        ]
+    },
+    "ch14_05_ex": {
+        starterCode: `#include <iostream>
+#include <string>
+using namespace std;
+
+// TODO: Write your function here
+
+
+
+
+int main() {
+
+  /* CODE FROM LAST CHAPTER - LOOKS FOR PATTERN IN DNA STRING
+
+  string dna = "AGACTGGGACT";
+  string pattern = "GAC";
+  int PATTERN_LENGTH = 3;
+
+  // go through the dna string
+  for(int i=0; i < dna.length() - PATTERN_LENGTH + 1; ++i) { 
+
+    //check if pattern matches
+    bool match = true;
+    for(int j=0; j < PATTERN_LENGTH; ++j) { 
+      if(dna[i+j] != pattern[j]) {
+        match = false;
+      }
+    }
+
+    // print out any matches for pattern
+    if (match == true) {
+      cout << "Pattern 1: " << i << endl;
+    }
+  }
+
+  END CODE FROM LAST CHAPTER */ 
+
+  // TODO: After you've created your function,
+  // uncomment the following lines to test your function
+
+  // cout << matchPattern("AGACTGGGACT", "GAC", 3) << endl; // should print out 1 (true)
+  // cout << matchPattern("AGACTGGGACT", "TTA", 3) << endl; // should print out 0 (false)
+  // cout << matchPattern("AGACTGGGACT", "GGGA", 4) << endl; // should print out 1 (true)
+}`,
+        checkpoints: [
+          new IsCompiledCheckpoint("Compiles"),
+          new StaticAnalysisCheckpoint("matchPattern Function", (program: Program) => {
+            let fn = findFirstConstruct(program, Predicates.byFunctionName("matchPattern"));
+            return !!fn;
+          }),
+          new OutputCheckpoint("Correct Output", (output: string) => {
+            return output == '1\n0\n1\n';
+          }, "", 10000)
         ]
     },
     "ch15_ex_repeat": {
@@ -844,6 +1032,42 @@ int main() {
                 ).length >= 6;
 
             })
+        ]
+    },
+    "ch18_ex_structMemory": {
+        starterCode: `#include <iostream>
+#include <string>
+
+using namespace std;
+
+struct Rover {
+  int type;
+  string id;
+  double charge;
+};
+
+int main() {
+  Rover myRover;
+  Rover yourRover;
+}`,
+        checkpoints: [
+            // No checkpoints
+        ]
+    },
+    "ch18_ex_createStruct": {
+        starterCode: `#include <iostream>
+#include <string>
+
+using namespace std;
+
+// Create your struct here
+// TODO
+
+int main() {
+  
+}`,
+        checkpoints: [
+            // No checkpoints
         ]
     },
     "ch18_ex_printRover": {
