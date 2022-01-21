@@ -21,7 +21,7 @@ export abstract class TestVerifier {
         try{
             return Object.assign({verifierName: this.verifierName}, this.verifyImpl(program));
         }
-        catch(e) {
+        catch(e: any) {
             if (e.status && e.status === "failure") {
                 return Object.assign({verifierName: this.verifierName}, e);
             }

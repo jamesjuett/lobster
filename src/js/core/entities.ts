@@ -83,7 +83,7 @@ export class Scope {
         // No previous declaration for this name
         if (!existingEntity) {
             this.variableEntityCreated(newEntity);
-            return this.entities[entityName] = newEntity;
+            return this.entities[entityName] = <any>newEntity; // HACK. <any> cast - this broke with TS 4.4.4
         }
 
         // If there is an existing class entity, it may be displaced and effectively hidden.
@@ -92,7 +92,7 @@ export class Scope {
             // assume that there is no hidden class entity already
             this.hiddenClassEntities[entityName] = existingEntity;
             this.variableEntityCreated(newEntity);
-            return this.entities[entityName] = newEntity;
+            return this.entities[entityName] = <any>newEntity; // HACK. <any> cast - this broke with TS 4.4.4
         }
 
         // Previous declaration for this name, but different kind of symbol

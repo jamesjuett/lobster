@@ -4278,6 +4278,11 @@ export class IdentifierExpression extends Expression<IdentifierExpressionASTNode
     public entitiesUsed() {
         return this.entity ? [this.entity] : [];
     }
+
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, ec: SemanticContext): boolean {
+        return other.construct_type === this.construct_type
+            && areEntitiesSemanticallyEquivalent(this.entity, other.entity, ec);
+    }
 }
 
 type EntityLookupError = "not_found" | "ambiguous" | "class_found";

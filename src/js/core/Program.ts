@@ -614,7 +614,7 @@ export class TranslationUnit {
             this.createBuiltInGlobals();
             this.compileTopLevelDeclarations(this.parsedAST);
         }
-        catch (err) {
+        catch (err: any) {
             if (err.name == "SyntaxError") {
                 this.addNote(new SyntaxNote(
                     this.getSourceReference(err.location.start.line, err.location.start.column,
