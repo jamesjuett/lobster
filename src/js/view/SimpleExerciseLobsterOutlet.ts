@@ -12,7 +12,7 @@ import { InstantMemoryDiagramOutlet } from "./InstantMemoryDiagramOutlet";
 
 export class SimpleExerciseLobsterOutlet {
 
-  private projectEditor: ProjectEditor;
+  public projectEditor: ProjectEditor;
   private simulationOutlet: SimulationOutlet;
   private instantMemoryDiagramOutlet: InstantMemoryDiagramOutlet;
   private isInstantMemoryDiagramActive: boolean;

@@ -320,17 +320,17 @@ export class SimulationOutlet {
 
         $(document).on("keydown", (e) => {
             //console.log(e.which);
-            if (element.find(".lobster-sim-pane").css("display") !== "none") {
+            if (element.find(".lobster-sim-pane").addBack(".lobster-sim-pane").css("display") !== "none") {
                 if (e.which == 39) {
                     this.stepForward().catch(() => {});
-                    e.preventDefault();
-                    e.stopPropagation();
+                    // e.preventDefault();
+                    // e.stopPropagation();
                 }
                 else if (e.which == 37) {
                     if (this.buttonElems["stepBackward"].prop("disabled")) { return; }
                     this.stepBackward().catch(() => {});
-                    e.preventDefault();
-                    e.stopPropagation();
+                    // e.preventDefault();
+                    // e.stopPropagation();
                 }
             }
         });

@@ -1239,7 +1239,7 @@ export function peelReference<T extends Type>(type: T): PeelReference<T> {
         return type;
     }
     if (type instanceof ReferenceType) {
-        return type.refTo;
+        return <PeelReference<T>>type.refTo;
     }
     else {
         return <PeelReference<T>>type; // will either be an object type or void type

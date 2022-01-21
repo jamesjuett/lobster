@@ -1,7 +1,6 @@
-import { assert } from "chai";
 import { trimStart } from "lodash";
 import { Observable } from "../util/observe";
-import { Mutable } from "../util/util";
+import { assert, Mutable } from "../util/util";
 import { ArithmeticType, SuccessParsingResult, ErrorParsingResult, isType, Char, isIntegralType, ParsingResult } from "./types";
 
 export enum IOState {

@@ -41,7 +41,7 @@ export class ProjectEditor {
 
     private currentFileEditor?: string; 
 
-    private codeMirror: CodeMirror.Editor;
+    public codeMirror: CodeMirror.Editor;
     private codeMirrorElem: JQuery;
 
     public readonly project!: Project; // set by setProject call
