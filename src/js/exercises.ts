@@ -84,6 +84,62 @@ export const EXERCISE_SPECIFICATIONS: { [index: string]: Partial<ExerciseSpecifi
             })
         ]
     },
+    "ch11_01_ex": {
+        starterCode: `#include <iostream>
+        #include <string>
+        using namespace std;
+        
+        int main() {
+        
+          // print a greeting
+          cout << "Let's make some variables!" << endl;
+        
+          // TODO: Declare some variables
+
+          // DON'T CHANGE THE CODE BELOW THIS
+          // (this lets Lobster test your program)
+          cout << numPieces << endl;
+          cout << cost << endl;
+          cout << name << endl;
+          cout << category << endl;
+          cout << isGood << endl;
+        }`,
+        checkpoints: [
+            new StaticAnalysisCheckpoint("Declare numPieces", (program: Program) => {
+                return !!findFirstConstruct(program, Predicates.byVariableName("numPieces"));
+            }),
+            new StaticAnalysisCheckpoint("Declare cost", (program: Program) => {
+                return !!findFirstConstruct(program, Predicates.byVariableName("cost"));
+            }),
+            new StaticAnalysisCheckpoint("Declare name", (program: Program) => {
+                return !!findFirstConstruct(program, Predicates.byVariableName("name"));
+            }),
+            new StaticAnalysisCheckpoint("Declare category", (program: Program) => {
+                return !!findFirstConstruct(program, Predicates.byVariableName("category"));
+            }),
+            new StaticAnalysisCheckpoint("Declare isGood", (program: Program) => {
+                return !!findFirstConstruct(program, Predicates.byVariableName("isGood"));
+            }),
+            new OutputCheckpoint("Correct initialization", (output: string) => {
+                return output === "Let's make some variables!\n5\n3.25\npeeps\nK\n0\n";
+            })
+        ]
+    },
+    "ch11_ex_tempConverter": {
+        starterCode: `#include <iostream>
+using namespace std;
+
+int main() {
+  // Your code here
+  
+}`,
+        checkpoints: [
+            new IsCompiledCheckpoint("Compiles"),
+            new OutputCheckpoint("Correct Conversion", (output: string) => {
+                return output.indexOf("86") !== -1;
+            }, "30\n")
+        ]
+    },
     "ch12_01_ex": {
         starterCode: `#include <iostream>
 using namespace std;
@@ -468,12 +524,43 @@ int main() {
           }, "", 5000)
         ]
     },
+    "ch14_01_abs": {
+        starterCode: `#include <iostream>
+using namespace std;
+
+int square(int n) {
+  return n*n;
+}
+    
+int abs(int n) {
+  int a;
+  if(n >= 0) {
+    a = n;
+  } else {
+    a = -n;
+  }
+  return a;
+}
+
+int main() {
+  int x = 3;
+  int y = -8;
+
+  cout << "x squared: " << square(x) << endl;
+  cout << "abs x: " << abs(x) << endl;
+  cout << "abs y: " << abs(y) << endl;
+  cout << "x squared + y squared: " << square(x) + square(y) << endl;
+}`,
+        checkpoints: [
+            // no checkpoints, just an example not an exercise
+        ]
+    },
     "ch14_01_ex": {
       starterCode: `#include <iostream>
 using namespace std;
       
 // Swap the values of a and b
-void swap(int a, int b) {
+void swap(int &a, int &b) {
   int oldA = a;
   a = b;
   b = oldA;
@@ -482,11 +569,6 @@ void swap(int a, int b) {
 int main() {
   int x = 2;
   int y = 7;
-
-  // Swap the values of x and y
-  int oldX = x;
-  x = y;
-  y = oldX;
   
   swap(x, y);
 
@@ -572,13 +654,41 @@ int main() {
   cout << "Circumference: " << circleCircumference(rad) << endl;
 }`
     },
+    "ch15_ex_echo": {
+        starterCode: `#include <iostream>
+#include <string>
+using namespace std;
+
+// A very annoying program: It echoes until you say stop
+int main() {
+  
+  // Use to hold input
+  string word;
+
+  // TODO: read a word and print it back out
+  // continuously until the user enters "STOP"
+
+
+  // Print at the end (don't remove this)
+  cout << "Ok fine I'll stop :(" << endl;
+}`,
+        checkpoints: [
+            new OutputCheckpoint("Correct Output", (output: string) => {
+                return output.indexOf("Hi") !== -1
+                    && output.indexOf("How") !== -1
+                    && output.indexOf("are") !== -1
+                    && output.indexOf("you") !== -1
+                    && output.indexOf("Stop") !== -1
+                    && output.indexOf("Ok fine I'll stop :(") !== -1;
+            }, "Hi\nHow are you\nStop\nSTOP\n")
+        ]
+    },
     "ch14_05_ex": {
-      starterCode: `#include <iostream>
+        starterCode: `#include <iostream>
 #include <string>
 using namespace std;
 
 // TODO: Write your function here
-
 
 
 
@@ -616,45 +726,16 @@ int main() {
   // cout << matchPattern("AGACTGGGACT", "GAC", 3) << endl; // should print out 1 (true)
   // cout << matchPattern("AGACTGGGACT", "TTA", 3) << endl; // should print out 0 (false)
   // cout << matchPattern("AGACTGGGACT", "GGGA", 4) << endl; // should print out 1 (true)
-
-}`,
-      checkpoints: [
-        new IsCompiledCheckpoint("Compiles"),
-        new StaticAnalysisCheckpoint("matchPattern Function", (program: Program) => {
-          let fn = findFirstConstruct(program, Predicates.byFunctionName("matchPattern"));
-          return !!fn;
-        }),
-        new OutputCheckpoint("Correct Output", (output: string) => {
-          return output === "1\n0\n1\n";
-        })
-      ]
-  },
-    "ch15_ex_echo": {
-        starterCode: `#include <iostream>
-#include <string>
-using namespace std;
-// A very annoying program: It echoes until you say stop
-int main() {
-  
-  // Use to hold input
-  string word;
-
-  // TODO: read a word and print it back out
-  // continuously until the user enters "STOP"
-
-
-  // Print at the end (don't remove this)
-  cout << "Ok fine I'll stop :(" << endl;
 }`,
         checkpoints: [
-            new OutputCheckpoint("Correct Output", (output: string) => {
-                return output.indexOf("Hi") !== -1
-                    && output.indexOf("How") !== -1
-                    && output.indexOf("are") !== -1
-                    && output.indexOf("you") !== -1
-                    && output.indexOf("Stop") !== -1
-                    && output.indexOf("Ok fine I'll stop :(") !== -1;
-            }, "Hi\nHow are you\nStop\nSTOP\n")
+          new IsCompiledCheckpoint("Compiles"),
+          new StaticAnalysisCheckpoint("matchPattern Function", (program: Program) => {
+            let fn = findFirstConstruct(program, Predicates.byFunctionName("matchPattern"));
+            return !!fn;
+          }),
+          new OutputCheckpoint("Correct Output", (output: string) => {
+            return output == '1\n0\n1\n';
+          }, "", 10000)
         ]
     },
     "ch15_ex_repeat": {
@@ -973,6 +1054,22 @@ int main() {
             // No checkpoints
         ]
     },
+    "ch18_ex_createStruct": {
+        starterCode: `#include <iostream>
+#include <string>
+
+using namespace std;
+
+// Create your struct here
+// TODO
+
+int main() {
+  
+}`,
+        checkpoints: [
+            // No checkpoints
+        ]
+    },
     "ch18_ex_printRover": {
         starterCode: `#include <iostream>
 #include <string>
@@ -1284,5 +1381,5 @@ int main() {
             //     // return isEqual(elts, [])
             // })
         ]
-    },
+    }
 };

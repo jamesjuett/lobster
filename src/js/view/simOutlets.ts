@@ -4,27 +4,23 @@ import * as SVG from "@svgdotjs/svg.js";
 import { CPPObject, ArraySubobject, BaseSubobject, DynamicObject } from "../core/objects";
 import { AtomicType, CompleteObjectType, Char, PointerType, BoundedArrayType, ArrayElemType, Int, CompleteClassType, isCompleteClassType, isPointerType, isBoundedArrayType, ArrayPointerType, ArithmeticType, toHexadecimalString, PointerToCompleteType, isArrayPointerType, isArrayPointerToType } from "../core/types";
 import { Mutable, assert, isInstance, asMutable } from "../util/util";
-import { Simulation, SimulationInputStream, SimulationOutputKind, SimulationEvent } from "../core/Simulation";
+import { Simulation, SimulationOutputKind, SimulationEvent } from "../core/Simulation";
 import { RuntimeConstruct } from "../core/constructs";
 import { ProjectEditor, CompilationOutlet, CompilationStatusOutlet } from "./editors";
 import { AsynchronousSimulationRunner, SynchronousSimulationRunner, asyncCloneSimulation, synchronousCloneSimulation } from "../core/simulationRunners";
 import { BoundReferenceEntity, UnboundReferenceEntity, NamedEntity, PassByReferenceParameterEntity, PassByValueParameterEntity, MemberReferenceEntity } from "../core/entities";
 import { FunctionOutlet, ConstructOutlet, FunctionCallOutlet, getValueString, cstringToString } from "./codeOutlets";
 import { RuntimeFunctionIdentifierExpression } from "../core/expressions";
-import { RuntimeDirectInitializer } from "../core/initializers";
+import { RuntimeAtomicDirectInitializer, RuntimeDirectInitializer } from "../core/initializers";
 import { RuntimeExpression } from "../core/expressionBase";
 import { RuntimeFunction } from "../core/functions";
 import { Exercise, Project } from "../core/Project";
+import { CPP_ANIMATIONS } from "./CPP_ANIMATIONS";
+import { IOState, StandardInputStream } from "../core/streams";
 
 const FADE_DURATION = 300;
 const SLIDE_DURATION = 400;
 const VALUE_TRANSFER_DURATION = 500;
-
-export var CPP_ANIMATIONS = true;
-
-export function setCPP_ANIMATIONS(onOff: boolean) {
-    CPP_ANIMATIONS = onOff;
-}
 
 // export class CodeList {
     
@@ -276,35 +272,35 @@ export class SimulationOutlet {
         let stepBackwardNumElem = findExactlyOne(element, ".stepBackwardNum").val(1);
 
         this.buttonElems = {
-            restart : element.find(".restart").click(() => {
+            restart : element.find(".restart").on("click", () => {
                 this.restart().catch(() => {});
             }),
     
-            stepForward : element.find(".stepForward").click(() => {
+            stepForward : element.find(".stepForward").on("click", () => {
                 this.stepForward(parseInt(""+stepForwardNumElem.val())).catch(() => {});
             }),
     
-            stepOver : element.find("button.stepOver").click(() => {
+            stepOver : element.find("button.stepOver").on("click", () => {
                 this.stepOver().catch(() => {});
             }),
     
-            stepOut : element.find("button.stepOut").click(() => {
+            stepOut : element.find("button.stepOut").on("click", () => {
                 this.stepOut().catch(() => {});
             }),
     
-            // skipToEnd : element.find("button.skipToEnd").click(() => {
+            // skipToEnd : element.find("button.skipToEnd").on("click", () => {
             //     this.skipToEnd().catch(() => {});
             // }),
     
-            runToEnd : element.find("button.runToEnd").click(() => {
+            runToEnd : element.find("button.runToEnd").on("click", () => {
                 this.runToEnd().catch(() => {});
             }),
     
-            pause : element.find("button.pause").click(() => {
+            pause : element.find("button.pause").on("click", () => {
                 this.pause();
             }),
     
-            stepBackward : element.find(".stepBackward").click(() => {
+            stepBackward : element.find(".stepBackward").on("click", () => {
                 this.stepBackward(parseInt(""+stepBackwardNumElem.val())).catch(() => {});
             }),
         };
@@ -324,17 +320,17 @@ export class SimulationOutlet {
 
         $(document).on("keydown", (e) => {
             //console.log(e.which);
-            if (element.find(".lobster-sim-pane").css("display") !== "none") {
+            if (element.find(".lobster-sim-pane").addBack(".lobster-sim-pane").css("display") !== "none") {
                 if (e.which == 39) {
                     this.stepForward().catch(() => {});
-                    e.preventDefault();
-                    e.stopPropagation();
+                    // e.preventDefault();
+                    // e.stopPropagation();
                 }
                 else if (e.which == 37) {
                     if (this.buttonElems["stepBackward"].prop("disabled")) { return; }
                     this.stepBackward().catch(() => {});
-                    e.preventDefault();
-                    e.stopPropagation();
+                    // e.preventDefault();
+                    // e.stopPropagation();
                 }
             }
         });
@@ -685,7 +681,7 @@ export class DefaultLobsterOutlet {
         this.projectEditor = new ProjectEditor(element.find(".lobster-source-pane"), this.project);
 
         // TODO: HACK to make codeMirror refresh correctly when sourcePane becomes visible
-        this.tabsElem.find('a.lobster-sim-tab').on("shown.bs.tab", () => {
+        this.tabsElem.find('a.lobster-source-tab').on("shown.bs.tab", () => {
             this.projectEditor.refreshEditorView();
         });
 
@@ -705,7 +701,15 @@ export class DefaultLobsterOutlet {
             this.element.find(".lobster-simulate-tab").tab("show");
         });
 
-        new CompilationOutlet(element.find(".lobster-compilation-pane"), this.project);
+        
+        element.find(".lobster-return-to-source").on("click", () => {
+            this.clearSimulation();
+            this.element.find(".lobster-source-tab").tab("show");
+        });
+
+        let co = element.find(".lobster-compilation-pane");
+        if (co.length === 0) { co = $("#lobster-compilation-pane"); }
+        new CompilationOutlet(co, this.project);
 
         new CompilationStatusOutlet(element.find(".compilation-status-outlet"), this.project);
         // new ProjectSaveOutlet(element.find(".project-save-outlet"), this.projectEditor);
@@ -896,7 +900,7 @@ export class MemoryOutlet {
         
         (<Mutable<this>>this).temporaryObjectsOutlet = new TemporaryObjectsOutlet($("<div></div>").appendTo(this.element), memory, this);
         (<Mutable<this>>this).stackFramesOutlet = new StackFramesOutlet($("<div></div>").appendTo(this.element), memory, this);
-        // (<Mutable<this>>this).heapOutlet = new HeapOutlet($("<div></div>").appendTo(this.element), memory, this);
+        (<Mutable<this>>this).heapOutlet = new HeapOutlet($("<div></div>").appendTo(this.element), memory, this);
 
         // Since the simulation has already started, some objects will already be allocated
         memory.allLiveObjects().forEach(obj => this.onObjectAllocated(obj));
@@ -929,7 +933,7 @@ export class MemoryOutlet {
         return this.objectOutlets[objectId];
     }
 
-    private addSVGOverlay(overlay: SVGMemoryOverlay) {
+    public addSVGOverlay(overlay: SVGMemoryOverlay) {
         this.svgOverlays.push(overlay);
     }
 
@@ -987,7 +991,7 @@ export class MemoryOutlet {
 
     @messageResponse("objectAllocated", "unwrap")
     private onObjectAllocated(object: CPPObject) {
-        if (object.type.isPointerToCompleteType()) {
+        if (object.type.isPointerToCompleteObjectType()) {
             this.addSVGOverlay(new SVGPointerArrowMemoryOverlay(
                 <CPPObject<PointerToCompleteType>>object, this))
         }
@@ -1308,6 +1312,12 @@ export class PointerMemoryObjectOutlet<T extends PointerType<CompleteObjectType>
     private readonly ptdArrayElem : JQuery;
     private arrow?: SVG.Polyline;
 
+    private pointedObjectListener = {
+        _act: {
+            "deallocated": () => this.updateObject()
+        }
+    }
+
     public constructor(element: JQuery, object: CPPObject<T>, memoryOutlet: MemoryOutlet) {
         super(element, object, memoryOutlet);
 
@@ -1319,22 +1329,22 @@ export class PointerMemoryObjectOutlet<T extends PointerType<CompleteObjectType>
 
     }
 
-    private updateArrow() {
-        if (!this.pointedObject || !this.pointedObject.isAlive) {
-            this.clearArrow();
-        }
-        else if (this.object.type.isArrayPointerType()) {
-            // this.makeArrayPointerArrow();
-        }
-        else if (this.object.type.isObjectPointerType()) {
-            // this.makeObjectPointerArrow();
-        }
-    }
+    // private updateArrow() {
+    //     if (!this.pointedObject || !this.pointedObject.isAlive) {
+    //         this.clearArrow();
+    //     }
+    //     else if (this.object.type.isArrayPointerType()) {
+    //         // this.makeArrayPointerArrow();
+    //     }
+    //     else if (this.object.type.isObjectPointerType()) {
+    //         // this.makeObjectPointerArrow();
+    //     }
+    // }
 
-    private clearArrow() {
-        if (this.arrow) { this.arrow.remove(); }
-        delete this.arrow;
-    }
+    // private clearArrow() {
+    //     if (this.arrow) { this.arrow.remove(); }
+    //     delete this.arrow;
+    // }
 
     protected updateObject() {
         var elem = this.objElem;
@@ -1348,11 +1358,15 @@ export class PointerMemoryObjectOutlet<T extends PointerType<CompleteObjectType>
         }
 
         if (this.pointedObject !== newPointedObject) {
-            // if (this.pointedObject) {
-            //     stopListeningTo(this, this.pointedObject);
-            // }
+            if (this.pointedObject) {
+                stopListeningTo(this.pointedObjectListener, this.pointedObject, "deallocated");
+            }
 
             (<Mutable<this>>this).pointedObject = newPointedObject;
+
+            if (newPointedObject) {
+                listenTo(this.pointedObjectListener, newPointedObject, "deallocated");
+            }
         }
 
         elem.html(this.object.getValue().valueString());
@@ -1363,6 +1377,11 @@ export class PointerMemoryObjectOutlet<T extends PointerType<CompleteObjectType>
         else{
             elem.addClass("invalid");
         }
+    }
+    
+    @messageResponse("lifetimeBegan", "unwrap")
+    private onAtomicObjectInitialized(object: CPPObject<PointerToCompleteType>) {
+        this.memoryOutlet.addSVGOverlay(new SVGPointerArrowMemoryOverlay(object, this.memoryOutlet));
     }
 
     // setPtdArray : function(arrObj) {
@@ -1516,7 +1535,8 @@ export class ReferenceMemoryOutlet<T extends CompleteObjectType = CompleteObject
 
 export class ArrayMemoryObjectOutlet<T extends ArrayElemType = ArrayElemType> extends MemoryObjectOutlet<BoundedArrayType<T>> {
 
-    public readonly objElem : JQuery;
+    public readonly addrElem: JQuery;
+    public readonly objElem: JQuery;
 
     public readonly elemOutlets: MemoryObjectOutlet[];
     public readonly onePast: JQuery;
@@ -1524,9 +1544,18 @@ export class ArrayMemoryObjectOutlet<T extends ArrayElemType = ArrayElemType> ex
     public constructor(element: JQuery, object: CPPObject<BoundedArrayType<T>>, memoryOutlet: MemoryOutlet) {
         super(element, object, memoryOutlet);
 
-        this.element.addClass("code-memoryObjectArray");
+        this.element.addClass("code-memoryObject-array");
 
-        this.objElem = $("<div class='array'></div>");
+        let leftContainer = $('<div class="code-memoryObject-array-left"></div>').appendTo(this.element);
+
+        this.addrElem = $(`<div class='address'>${toHexadecimalString(this.object.address)}</div>`);
+        leftContainer.append(this.addrElem);
+        
+        if (this.object.name) {
+            leftContainer.append($("<div class='entity'>" + (this.object.name || "") + "</div>"));
+        }
+
+        this.objElem = $("<div class='code-memoryObject-array-elements'></div>");
 
         this.elemOutlets = this.object.getArrayElemSubobjects().map((elemSubobject: ArraySubobject<T>, i: number) => {
             let elemElem = $('<div></div>');
@@ -2681,10 +2710,11 @@ export class CodeStackOutlet extends RunningCodeOutlet {
 export class IstreamBufferOutlet {
 
     public readonly name: string;
-    public readonly istream?: SimulationInputStream;
+    public readonly istream?: StandardInputStream;
     
     private readonly element: JQuery;
     private readonly bufferContentsElem: JQuery;
+    private readonly iostateElem: JQuery;
     
     public _act!: MessageResponses;
     
@@ -2693,15 +2723,17 @@ export class IstreamBufferOutlet {
         this.element = element.addClass("lobster-istream-buffer");
         element.append(`<span class="lobster-istream-buffer-name">${name} buffer</span>`)
         this.name = name;
-        this.bufferContentsElem = $('<div class="lobster-istream-buffer-contents"></div>').appendTo(element);
+        this.iostateElem = $('<span class="lobster-istream-iostate"></span>').appendTo(element);
+        this.bufferContentsElem = $('<span class="lobster-istream-buffer-contents"></span>').appendTo(element);
     }
 
-    public setIstream(istream: SimulationInputStream) {
+    public setIstream(istream: StandardInputStream) {
         this.clearIstream();
         (<Mutable<this>>this).istream = istream;
         listenTo(this, istream);
 
-        this.onBufferUpdate(istream.buffer);
+        this.onBufferUpdated(istream.buffer);
+        this.onIostateUpdated();
     }
     
     public clearIstream() {
@@ -2714,8 +2746,22 @@ export class IstreamBufferOutlet {
     }
     
     @messageResponse("bufferUpdated", "unwrap")
-    protected onBufferUpdate(contents: string) {
+    protected onBufferUpdated(contents: string) {
         this.bufferContentsElem.html(`cin <span class="glyphicon glyphicon-arrow-left"></span> ${contents}`);
+    }
+    
+    @messageResponse("iostateUpdated", "unwrap")
+    protected onIostateUpdated() {
+        this.iostateElem.hide().html("");
+        if (this.istream?.fail()) {
+            this.iostateElem.show().append('<span class="label label-danger">fail</span>');
+        }
+        if (this.istream?.bad()) {
+            this.iostateElem.show().append('<span class="label label-danger">bad</span>');
+        }
+        if (this.istream?.eof()) {
+            this.iostateElem.show().append('<span class="label label-warning">EOF</span>');
+        }
     }
 
 }

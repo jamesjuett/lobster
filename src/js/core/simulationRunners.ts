@@ -1,9 +1,9 @@
 import { Simulation, SimulationAction, STEP_FORWARD_ACTION } from "./Simulation";
 import { Mutable } from "../util/util";
-import { setCPP_ANIMATIONS } from "../view/simOutlets";
+import { setCPP_ANIMATIONS } from "../view/CPP_ANIMATIONS";
 import { DirectInitializer, RuntimeDirectInitializer } from "./initializers";
 import { PassByReferenceParameterEntity, PassByValueParameterEntity } from "./entities";
-import { FunctionCall, RuntimeFunctionCall } from "./PotentialFullExpression";
+import { FunctionCall, RuntimeFunctionCall } from "./FunctionCall";
 
 
 export class SynchronousSimulationRunner {
@@ -66,9 +66,28 @@ export class SynchronousSimulationRunner {
     /**
      * Repeatedly steps forward until the simulation has ended.
      */
-    public stepToEnd() {
-        while (!this.simulation.atEnd) {
-            this.simulation.stepForward();
+    public stepToEnd(stepLimit?: number, stopOnCinBlock: boolean = false) {
+        let stepsTaken = 0;
+        while (!this.simulation.atEnd
+            && (!stopOnCinBlock || !this.simulation.isBlockingUntilCin)
+            && (stepLimit === undefined || stepsTaken < stepLimit)) {
+
+            this.stepForward();
+            ++stepsTaken;
+        }
+    }
+    
+    /**
+     * Repeatedly steps forward until just before main will exit
+     */
+    public async stepToEndOfMain(stepLimit?: number, stopOnCinBlock: boolean = false) {
+        let stepsTaken = 0;
+        while (this.simulation.top()?.model !== this.simulation.program.mainFunction.body.localDeallocator
+            && (!stopOnCinBlock || !this.simulation.isBlockingUntilCin)
+            && (stepLimit === undefined || stepsTaken < stepLimit)) {
+
+            this.stepForward();
+            ++stepsTaken;
         }
     }
 
@@ -275,7 +294,8 @@ export class AsynchronousSimulationRunner {
      */
     public async stepToEndOfMain(delay: number = this.delay, stepLimit?: number, stopOnCinBlock: boolean = false) {
         let stepsTaken = 0;
-        while (this.simulation.top()?.model !== this.simulation.program.mainFunction
+        while (this.simulation.top()?.model !== this.simulation.program.mainFunction.body.localDeallocator
+            && this.simulation.top()?.model !== this.simulation.program.mainFunction
             && (!stopOnCinBlock || !this.simulation.isBlockingUntilCin)
             && (stepLimit === undefined || stepsTaken < stepLimit)) {
 

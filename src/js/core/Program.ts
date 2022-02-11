@@ -2,17 +2,21 @@
 import { parse as cpp_parse } from "../parse/cpp_parser";
 import { NoteKind, SyntaxNote, CPPError, NoteRecorder, Note } from "./errors";
 import { Mutable, asMutable, assertFalse, assert } from "../util/util";
-import { GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, CompiledFunctionDefinition, CompiledGlobalVariableDefinition, DeclarationASTNode, FunctionDeclaration, TypeSpecifier, StorageSpecifier, Declarator, FunctionDefinitionGroup, ClassDefinition, TopLevelDeclarationASTNode, TopLevelDeclaration, createTopLevelDeclarationFromAST, SimpleDeclaration, ClassDefinitionASTNode, SimpleDeclarationASTNode, NonMemberSimpleDeclarationASTNode, DeclaratorASTNode } from "./declarations";
 import { NamespaceScope, GlobalObjectEntity, selectOverloadedDefinition, FunctionEntity, ClassEntity, NameLookupOptions, Scope, NamedScope } from "./entities";
 import { Observable } from "../util/observe";
-import { TranslationUnitContext, CPPConstruct, createTranslationUnitContext, ProgramContext, GlobalObjectAllocator, CompiledGlobalObjectAllocator, ASTNode, createLibraryContext } from "./constructs";
+import { TranslationUnitContext, CPPConstruct, createTranslationUnitContext, ProgramContext, GlobalObjectAllocator, CompiledGlobalObjectAllocator, createLibraryContext } from "./constructs";
+import { ASTNode } from "../ast/ASTNode";
 import { StringLiteralExpression } from "./expressions";
 import { FunctionType, Int, VoidType, CompleteClassType, Double } from "./types";
 import { startCase } from "lodash";
 import { registerOpaqueExpression, RuntimeOpaqueExpression } from "./opaqueExpression";
 import { getDataPtr } from "../lib/string";
 import { Value } from "./runtimeEnvironment";
-import { FunctionCall } from "./PotentialFullExpression";
+import { FunctionCall } from "./FunctionCall";
+import { QualifiedName, identifierToString } from "./lexical";
+import { TranslationUnitAST } from "../ast/ast_program";
+import { GlobalVariableDefinition, FunctionDefinitionGroup, ClassDefinition, FunctionDefinition, CompiledFunctionDefinition, CompiledGlobalVariableDefinition, TopLevelDeclaration, createTopLevelDeclarationFromAST } from "./declarations";
+import { CompiledObjectDeallocator, createStaticDeallocator, ObjectDeallocator } from "./ObjectDeallocator";
 
 
 
@@ -33,8 +37,9 @@ export class Program {
     public readonly sourceFiles: { [index: string]: SourceFile } = Object.assign({}, LIBRARY_FILES);
     public readonly translationUnits: { [index: string]: TranslationUnit } = {};
 
-    public readonly globalObjects: readonly GlobalVariableDefinition[] = [];
-    public readonly globalObjectAllocator!: GlobalObjectAllocator;
+    public readonly staticObjects: readonly GlobalVariableDefinition[] = [];
+    public readonly staticObjectAllocator?: GlobalObjectAllocator;
+    public readonly staticObjectDeallocator?: ObjectDeallocator;
 
     private readonly functionCalls: readonly FunctionCall[] = [];
 
@@ -80,17 +85,20 @@ export class Program {
         // Note that the definition provided might not match at all or might
         // be undefined if there was no match for the qualified name. The entities
         // will take care of adding the appropriate linker errors in these cases.
+        // Note that "multiple definition" errors are handled when the definitions
+        // are registered with the program, so we don't have to take care of them
+        // here and thus don't even call "link" if there was a previous definition.
         this.linkedObjectEntities.forEach(le =>
-            le.definition ?? le.link(this.linkedObjectDefinitions[le.qualifiedName])
+            le.definition ?? le.link(this.linkedObjectDefinitions[le.qualifiedName.str])
         );
         this.linkedFunctionEntities.forEach(le =>
-            le.definition ?? le.link(this.linkedFunctionDefinitions[le.qualifiedName])
+            le.definition ?? le.link(this.linkedFunctionDefinitions[le.qualifiedName.str])
         );
         this.linkedClassEntities.forEach(le =>
-            le.definition ?? le.link(this.linkedClassDefinitions[le.qualifiedName])
+            le.definition ?? le.link(this.linkedClassDefinitions[le.qualifiedName.str])
         );
 
-        let mainLookup = this.linkedFunctionDefinitions["::main"];
+        let mainLookup = this.linkedFunctionDefinitions["main"];
         if (mainLookup) {
             if (mainLookup.definitions.length === 1) {
                 (<Mutable<this>>this).mainFunction = mainLookup.definitions[0];
@@ -100,8 +108,13 @@ export class Program {
             }
         }
 
-        (<Mutable<this>>this).globalObjectAllocator = new GlobalObjectAllocator(this.context, this.globalObjects);
-
+        (<Mutable<this>>this).staticObjectAllocator = new GlobalObjectAllocator(this.context, this.staticObjects);
+        
+        if (this.mainFunction) {
+            // Map from definitions to entities below to avoid any duplicates
+            // (this.linkedObjectEntities might have duplicates)
+            (<Mutable<this>>this).staticObjectDeallocator = createStaticDeallocator(this.mainFunction.context, this.staticObjects.map(def => def.declaredEntity));
+        }
     }
 
     private defineIntrinsics() {
@@ -127,28 +140,40 @@ export class Program {
         asMutable(this.linkedClassEntities).push(entity);
     }
 
-    public registerGlobalObjectDefinition(qualifiedName: string, def: GlobalVariableDefinition) {
-        if (!this.linkedObjectDefinitions[qualifiedName]) {
-            this.linkedObjectDefinitions[qualifiedName] = def;
-            asMutable(this.globalObjects).push(def);
+    public getLinkedFunctionEntity(qualifiedName: QualifiedName) {
+        return this.linkedFunctionEntities.find(le => le.qualifiedName.str === qualifiedName.str);
+    }
+
+    public getLinkedObjectEntity(qualifiedName: QualifiedName) {
+        return this.linkedObjectEntities.find(le => le.qualifiedName.str === qualifiedName.str);
+    }
+
+    public registerGlobalObjectDefinition(qualifiedName: QualifiedName, def: GlobalVariableDefinition) {
+        if (!this.linkedObjectDefinitions[qualifiedName.str]) {
+            this.linkedObjectDefinitions[qualifiedName.str] = def;
+            asMutable(this.staticObjects).push(def);
         }
         else {
             // One definition rule violation
-            this.addNote(CPPError.link.multiple_def(def, qualifiedName));
+            this.addNote(CPPError.link.multiple_def(def, qualifiedName.str));
         }
     }
 
-    public registerFunctionDefinition(qualifiedName: string, def: FunctionDefinition) {
-        let prevDef = this.linkedFunctionDefinitions[qualifiedName];
+    public registerFunctionDefinition(qualifiedName: QualifiedName, def: FunctionDefinition) {
+        let prevDef = this.linkedFunctionDefinitions[qualifiedName.str];
         if (!prevDef) {
-            this.linkedFunctionDefinitions[qualifiedName] = new FunctionDefinitionGroup([def]);
+            this.linkedFunctionDefinitions[qualifiedName.str] = new FunctionDefinitionGroup([def]);
         }
         else {
             // Already some definitions for functions with this same name. Check if there's
             // a conflicting overload that violates ODR
             let conflictingDef = selectOverloadedDefinition(prevDef.definitions, def.declaration.type);
             if (conflictingDef) {
-                this.addNote(CPPError.link.multiple_def(def, qualifiedName));
+                if (!def.declaration.isMemberFunction || def.isOutOfLineMemberFunctionDefinition) {
+                    this.addNote(CPPError.link.multiple_def(def, qualifiedName.str));
+                }
+                // else ignore inline member functions with conflicting definitions
+                // those errors would be caught in the check for conflicting class definitions
             }
             else {
                 prevDef.addDefinition(def);
@@ -164,10 +189,10 @@ export class Program {
      * @param qualifiedName 
      * @param def 
      */
-    public registerClassDefinition(qualifiedName: string, def: ClassDefinition) {
-        let prevDef = this.linkedClassDefinitions[qualifiedName];
+    public registerClassDefinition(qualifiedName: QualifiedName, def: ClassDefinition) {
+        let prevDef = this.linkedClassDefinitions[qualifiedName.str];
         if (!prevDef) {
-            return this.linkedClassDefinitions[qualifiedName] = def;
+            return this.linkedClassDefinitions[qualifiedName.str] = def;
         }
         else {
             // Multiple definitions. If they are from the same translation unit, this is always
@@ -181,9 +206,7 @@ export class Program {
             }
 
             // Same tokens - ok
-            let prevDefText = prevDef.ast?.source.text;
-            let defText = def.ast?.source.text;
-            if (prevDefText && defText && prevDefText.replace(/\s/g, '') === defText.replace(/\s/g, '')) {
+            if (sameTokens(prevDef.ast, def.ast)) {
                 return prevDef;
             }
 
@@ -230,14 +253,28 @@ export class Program {
     // }
 };
 
+function sameTokens(ast1: ASTNode | undefined, ast2: ASTNode | undefined) {
+    let ast1text = ast1?.source.text;
+    let ast2Text = ast2?.source.text;
+    return ast1text && ast2Text && ast1text.replace(/\s/g, '') === ast2Text.replace(/\s/g, '');
+}
+
 export interface CompiledProgram extends Program {
     readonly mainFunction?: CompiledFunctionDefinition;
-    readonly globalObjects: readonly CompiledGlobalVariableDefinition[];
-    readonly globalObjectAllocator: CompiledGlobalObjectAllocator;
+    readonly staticObjects: readonly CompiledGlobalVariableDefinition[];
+    readonly staticObjectAllocator: CompiledGlobalObjectAllocator;
+    readonly staticObjectDeallocator: CompiledObjectDeallocator;
 }
 
 export interface RunnableProgram extends CompiledProgram {
     readonly mainFunction: CompiledFunctionDefinition<FunctionType<Int>>;
+}
+
+export class SimpleProgram extends Program {
+    
+    public constructor(source: string) {
+        super([new SourceFile("main.cpp", source)], new Set<string>(["main.cpp"]));
+    }
 }
 
 /**
@@ -512,10 +549,6 @@ class PreprocessedSource {
 }
 
 
-export interface TranslationUnitAST {
-    readonly construct_type: "translation_unit";
-    readonly declarations: readonly TopLevelDeclarationASTNode[];
-}
 
 /**
  * TranslationUnit
@@ -581,7 +614,7 @@ export class TranslationUnit {
             this.createBuiltInGlobals();
             this.compileTopLevelDeclarations(this.parsedAST);
         }
-        catch (err) {
+        catch (err: any) {
             if (err.name == "SyntaxError") {
                 this.addNote(new SyntaxNote(
                     this.getSourceReference(err.location.start.line, err.location.start.column,
@@ -708,19 +741,20 @@ export class TranslationUnit {
      * If you've got a string like "std::vector", just use .split("::"") to
      * get the corresponding array, like ["std", "vector"].
      */
-    public qualifiedLookup(name: readonly string[], options: NameLookupOptions = {kind: "normal"}){
-        assert(name.length > 0);
+    public qualifiedLookup(name: QualifiedName, options: NameLookupOptions = {kind: "normal"}){
+        let comps = name.components;
+        assert(comps.length > 0);
 
         var scope : NamedScope | undefined = this.globalScope;
-        for(var i = 0; scope && i < name.length - 1; ++i) {
-            scope = scope.children[name[i]];
+        for(var i = 0; scope && i < comps.length - 1; ++i) {
+            scope = scope.children[comps[i]];
         }
 
         if (!scope){
             return undefined;
         }
 
-        var unqualifiedName = name[name.length - 1];
+        var unqualifiedName = comps[comps.length - 1];
         var result = scope.lookup(unqualifiedName, Object.assign({}, options, {noParent: true}));
 
         // Qualified lookup suppresses virtual function call mechanism, so if we
@@ -770,13 +804,6 @@ const LIBRARY_FILES : {[index:string]: SourceFile} = {
            : begin(other.begin), end(other.end) {}
         };
         
-    `, true),
-    iostream: new SourceFile("iostream.h", `
-        class ostream {};
-        ostream cout;
-        const char endl = '\\n';
-        class istream {};
-        istream cin;
     `, true)
 }
 

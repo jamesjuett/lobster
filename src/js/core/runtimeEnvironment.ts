@@ -1,6 +1,6 @@
 import { assert, assertFalse, Mutable, CPPRandom } from "../util/util";
 import { Observable } from "../util/observe";
-import { CPPObject, AutoObject, StringLiteralObject, StaticObject, TemporaryObject, DynamicObject, ThisObject, InvalidObject, ArraySubobject } from "./objects";
+import { CPPObject, AutoObject, StringLiteralObject, StaticObject, TemporaryObject, DynamicObject, InvalidObject, ArraySubobject } from "./objects";
 import { Bool, Char, ObjectPointerType, ArrayPointerType, similarType, subType, PointerType, sameType, AtomicType, IntegralType, Int, ArrayElemType, BoundedArrayType, ReferenceType, PointerToCompleteType, CompleteObjectType } from "./types";
 import last from "lodash/last";
 import { GlobalObjectEntity, LocalObjectEntity, LocalReferenceEntity, TemporaryObjectEntity } from "./entities";
@@ -435,6 +435,7 @@ export class Memory {
             // length + 1 below is for null character
             let object = new StringLiteralObject(new BoundedArrayType(Char.CHAR, contents.length + 1), this, this.staticTop);
             this.allocateObject(object);
+            object.beginLifetime();
 
             // record the string literal in case we see more that are the same in the future
             this.stringLiteralMap[contents] = object;
@@ -458,11 +459,11 @@ export class Memory {
         var obj = new StaticObject(def, def.declaredEntity.type, this, this.staticTop);
         this.allocateObject(obj);
         this.staticTop += obj.size;
-        this.staticObjects[def.declaredEntity.qualifiedName] = obj;
+        this.staticObjects[def.declaredEntity.qualifiedName.str] = obj;
     }
 
     public staticLookup<T extends CompleteObjectType>(staticEntity: GlobalObjectEntity<T>) {
-        return <StaticObject<T>>this.staticObjects[staticEntity.qualifiedName];
+        return <StaticObject<T>>this.staticObjects[staticEntity.qualifiedName.str];
     }
 
     public allocateTemporaryObject<T extends CompleteObjectType>(tempEntity: TemporaryObjectEntity<T>) {
@@ -566,6 +567,8 @@ class MemoryHeap {
 
     public readonly objectMap: { [index: number]: DynamicObject };
 
+    // public readonly mostRecentlyAllocatedObject?: DynamicObject;
+
     public constructor(memory: Memory, end: number) {
         this.memory = memory;
         this.end = end;
@@ -583,16 +586,22 @@ class MemoryHeap {
         this.memory.allocateObject(obj);
         this.objectMap[obj.address] = obj;
         this.memory.observable.send("heapObjectAllocated", obj);
+        // (<Mutable<this>>this).mostRecentlyAllocatedObject = obj;
         return obj;
     }
 
-    public deleteObject(addr: number, killer?: RuntimeConstruct) {
-        var obj = this.objectMap[addr];
+    public deleteObject(obj: DynamicObject, killer?: RuntimeConstruct) {
+        this.memory.killObject(obj, killer);
+        delete this.objectMap[obj.address];
+        this.memory.observable.send("heapObjectDeleted", obj);
+        // Note: responsibility for running destructor lies elsewhere
+        return obj;
+    }
+
+    public deleteByAddress(addr: number, killer?: RuntimeConstruct) {
+        let obj = this.objectMap[addr];
         if (obj) {
-            delete this.objectMap[addr];
-            this.memory.killObject(obj, killer);
-            this.memory.observable.send("heapObjectDeleted", obj);
-            // Note: responsibility for running destructor lies elsewhere
+            this.deleteObject(obj);
         }
         return obj;
     }
@@ -615,6 +624,7 @@ export class MemoryFrame {
     public readonly size: number;
 
     public readonly localObjects: readonly AutoObject[];
+    public readonly localObjectsByName: { [index: string]: AutoObject | undefined } = {};
 
     private readonly localObjectsByEntityId: { [index: number]: AutoObject } = {};
     private readonly localReferencesByEntityId: { [index: number]: CPPObject | undefined } = {};
@@ -648,6 +658,7 @@ export class MemoryFrame {
             let obj = new AutoObject(objEntity.definition, objEntity.type, memory, addr);
             this.memory.allocateObject(obj);
             this.localObjectsByEntityId[objEntity.entityId] = obj;
+            this.localObjectsByName[obj.name] = obj;
 
             // Move on to next address afterward
             addr += obj.size;
@@ -678,9 +689,10 @@ export class MemoryFrame {
         return <AutoObject<T>>this.localObjectsByEntityId[entity.entityId];
     }
 
-    public initializeLocalObject<T extends AtomicType>(entity: LocalObjectEntity<T>, newValue: Value<T>) {
-        this.localObjectLookup(entity).writeValue(newValue);
-    }
+    // TODO: apparently this is not used
+    // public initializeLocalObject<T extends AtomicType>(entity: LocalObjectEntity<T>, newValue: Value<T>) {
+    //     this.localObjectLookup(entity).writeValue(newValue);
+    // }
 
     public localReferenceLookup<T extends CompleteObjectType>(entity: LocalReferenceEntity<ReferenceType<T>>) {
         return <CPPObject<T> | undefined>this.localReferencesByEntityId[entity.entityId];

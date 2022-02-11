@@ -314,7 +314,6 @@ div .tabPane {
 	left: 0px;
 	bottom: 0px;
 	background-color: rgb(229, 229, 229);
-	background-image: url(../favicon.ico);
 	background-size: contain;
 	transition: width 0.25s ease-out, height 0.25s ease-out, left 0.25s ease-out, bottom 0.25s ease-out;
 }
@@ -458,6 +457,15 @@ div .tabPane {
 	background-color: rgb(39, 40, 34);
     border: solid 1px #444444;
     padding: 5px;
+}
+
+.lobster-istream-iostate {
+	display: inline-block;
+}
+
+.lobster-istream-iostate .label {
+	font-size: 90%;
+	margin-right: 0.2em;
 }
 
 .lobster-istream-buffer-contents {
@@ -754,7 +762,14 @@ ul.codeStack li{
 	vertical-align: text-top;
 }
 
-.btn.lobster-log-in-button > svg {
+.lobster-log-in-button {
+	max-width: 150px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	font-size: 0.75em;
+}
+
+.lobster-log-in-button > svg {
 	display: inline-block;
 	vertical-align: middle;
 	fill: white;

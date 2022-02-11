@@ -1,19 +1,24 @@
-import { CPPObject, TemporaryObject } from "./objects";
+import { CPPObject, InvalidObject, TemporaryObject } from "./objects";
 import { Simulation, SimulationEvent } from "./Simulation";
-import { CompleteObjectType, AtomicType, IntegralType, PointerType, ReferenceType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointerType, Int, PotentialParameterType, Float, Double, Char, PeelReference, peelReference, ArrayOfUnknownBoundType, referenceCompatible, similarType, subType, ArrayElemType, FloatingPointType, isCvConvertible, CompleteClassType, isAtomicType, isArithmeticType, isIntegralType, isPointerType, isBoundedArrayType, isFunctionType, isCompleteObjectType, isPotentiallyCompleteClassType, isCompleteClassType, isFloatingPointType, PotentiallyCompleteObjectType, ExpressionType, Type, CompleteReturnType, PointerToCompleteType, IncompleteClassType, PotentiallyCompleteClassType, isPotentiallyCompleteArrayType, isPointerToCompleteType } from "./types";
-import { ASTNode, SuccessfullyCompiled, RuntimeConstruct, CPPConstruct, ExpressionContext, ConstructDescription, createExpressionContextWithReceiverType, isMemberFunctionContext } from "./constructs";
+import { CompleteObjectType, AtomicType, IntegralType, PointerType, ReferenceType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointerType, Int, PotentialParameterType, Float, Double, Char, PeelReference, peelReference, ArrayOfUnknownBoundType, referenceCompatible, similarType, subType, ArrayElemType, FloatingPointType, isCvConvertible, CompleteClassType, isAtomicType, isArithmeticType, isIntegralType, isPointerType, isBoundedArrayType, isFunctionType, isCompleteObjectType, isPotentiallyCompleteClassType, isCompleteClassType, isFloatingPointType, PotentiallyCompleteObjectType, ExpressionType, CompleteReturnType, PointerToCompleteType as PointerToCompleteObjectType, IncompleteClassType, PotentiallyCompleteClassType, isPotentiallyCompleteArrayType, isPointerToCompleteObjectType } from "./types";
+import { SuccessfullyCompiled, RuntimeConstruct, CPPConstruct, ExpressionContext, ConstructDescription, createExpressionContextWithReceiverType, isMemberFunctionContext, SemanticContext, areSemanticallyEquivalent, areAllSemanticallyEquivalent } from "./constructs";
+import { AnythingConstructASTNode, ASTNode } from "../ast/ASTNode";
 import { Note, CPPError, NoteHandler } from "./errors";
-import { FunctionEntity, ObjectEntity, Scope, VariableEntity, MemberVariableEntity, NameLookupOptions, BoundReferenceEntity, runtimeObjectLookup, DeclaredScopeEntry, TemporaryObjectEntity } from "./entities";
+import { FunctionEntity, ObjectEntity, Scope, VariableEntity, MemberVariableEntity, NameLookupOptions, BoundReferenceEntity, runtimeObjectLookup, DeclaredScopeEntry, TemporaryObjectEntity, ArraySubobjectEntity, areEntitiesSemanticallyEquivalent } from "./entities";
 import { Value, RawValueType } from "./runtimeEnvironment";
 import { escapeString, assertNever, assert, assertFalse, Mutable } from "../util/util";
-import { checkIdentifier, MAGIC_FUNCTION_NAMES, LexicalIdentifier, QualifiedIdentifierASTNode, IdentifierASTNode, stringifyIdentifier, astToIdentifier } from "./lexical";
-import { FunctionCallExpressionASTNode, FunctionCallExpression, TypedFunctionCallExpression, CompiledFunctionCallExpression, RuntimeFunctionCallExpression } from "./FunctionCallExpression";
+import { checkIdentifier, MAGIC_FUNCTION_NAMES, LexicalIdentifier, identifierToString, astToIdentifier } from "./lexical";
+import { QualifiedIdentifierASTNode, IdentifierASTNode } from "../ast/ast_identifiers";
+import { FunctionCallExpression, TypedFunctionCallExpression, CompiledFunctionCallExpression, RuntimeFunctionCallExpression } from "./FunctionCallExpression";
 import { RuntimeExpression, VCResultTypes, ValueCategory, Expression, CompiledExpression, TypedExpression, SpecificTypedExpression, t_TypedExpression, allWellTyped } from "./expressionBase";
-import { ConstructOutlet, TernaryExpressionOutlet, CommaExpressionOutlet, AssignmentExpressionOutlet, BinaryOperatorExpressionOutlet, UnaryOperatorExpressionOutlet, SubscriptExpressionOutlet, IdentifierOutlet, NumericLiteralOutlet, ParenthesesOutlet, MagicFunctionCallExpressionOutlet, StringLiteralExpressionOutlet, LValueToRValueOutlet, ArrayToPointerOutlet, TypeConversionOutlet, QualificationConversionOutlet, DotExpressionOutlet, ArrowExpressionOutlet, OutputOperatorExpressionOutlet, PostfixIncrementExpressionOutlet, InputOperatorExpressionOutlet, StreamToBoolOutlet, NonMemberOperatorOverloadExpressionOutlet, MemberOperatorOverloadExpressionOutlet, InitializerListOutlet as InitializerListExpressionOutlet, CompoundAssignmentExpressionOutlet, ThisExpressionOutlet } from "../view/codeOutlets";
-import { Predicates } from "./predicates";
-import { OpaqueExpressionASTNode, OpaqueExpression, RuntimeOpaqueExpression, TypedOpaqueExpression, CompiledOpaqueExpression } from "./opaqueExpression";
-import { CompiledFunctionCall, CompiledTemporaryDeallocator, FunctionCall, RuntimeFunctionCall, TypedFunctionCall } from "./PotentialFullExpression";
-import { DirectInitializer } from "./initializers";
+import { ConstructOutlet, TernaryExpressionOutlet, CommaExpressionOutlet, AssignmentExpressionOutlet, BinaryOperatorExpressionOutlet, UnaryOperatorExpressionOutlet, SubscriptExpressionOutlet, IdentifierOutlet, NumericLiteralOutlet, ParenthesesOutlet, MagicFunctionCallExpressionOutlet, StringLiteralExpressionOutlet, LValueToRValueOutlet, ArrayToPointerOutlet, TypeConversionOutlet, QualificationConversionOutlet, DotExpressionOutlet, ArrowExpressionOutlet, OutputOperatorExpressionOutlet, PostfixIncrementExpressionOutlet, InputOperatorExpressionOutlet, StreamToBoolOutlet, NonMemberOperatorOverloadExpressionOutlet, MemberOperatorOverloadExpressionOutlet, InitializerListOutlet as InitializerListExpressionOutlet, CompoundAssignmentExpressionOutlet, ThisExpressionOutlet, NullptrExpressionOutlet } from "../view/codeOutlets";
+import { AnalyticConstruct, Predicates } from "./predicates";
+import { OpaqueExpression, RuntimeOpaqueExpression, TypedOpaqueExpression, CompiledOpaqueExpression } from "./opaqueExpression";
+import { CompiledTemporaryDeallocator } from "./PotentialFullExpression";
+import { CompiledFunctionCall, FunctionCall, RuntimeFunctionCall, TypedFunctionCall } from "./FunctionCall";
+import { createNewExpressionFromAST, DeleteExpression, NewExpression, TypedNewExpression, TypedDeleteExpression, CompiledNewExpression, CompiledDeleteExpression, RuntimeNewExpression, RuntimeDeleteExpression, NewObjectType, NewArrayExpression, CompiledNewArrayExpression, RuntimeNewArrayExpression, TypedNewArrayExpression, DeleteArrayExpression, CompiledDeleteArrayExpression, RuntimeDeleteArrayExpression, TypedDeleteArrayExpression } from "./new_delete";
+import { AddressOfExpressionASTNode, ArithmeticBinaryOperatorExpressionASTNode, ArrowExpressionASTNode, AssignmentExpressionASTNode, BinaryOperatorExpressionASTNode, BitwiseNotExpressionASTNode, CommaASTNode, CompoundAssignmentExpressionASTNode, ConstCastExpressionASTNode, ConstructExpressionASTNode, CStyleCastExpressionASTNode, DeleteArrayExpressionASTNode, DeleteExpressionASTNode, DereferenceExpressionASTNode, DotExpressionASTNode, DynamicCastExpressionASTNode, ExpressionASTNode, FunctionCallExpressionASTNode, IdentifierExpressionASTNode, InitializerListExpressionASTNode, LogicalBinaryOperatorExpressionASTNode, LogicalNotExpressionASTNode, NewExpressionASTNode, NullptrExpressionASTNode, NumericLiteralASTNode, OpaqueExpressionASTNode, ParenthesesExpressionASTNode, parseNumericLiteralValueFromAST, PointerToMemberExpressionASTNode, PostfixIncrementExpressionASTNode, PrefixIncrementExpressionASTNode, ReinterpretCastExpressionASTNode, RelationalBinaryOperatorExpressionASTNode, SizeofExpressionASTNode, SizeofTypeExpressionASTNode, StaticCastExpressionASTNode, StringLiteralASTNode, SubscriptExpressionASTNode, TernaryASTNode, ThisExpressionASTNode, t_ArithmeticBinaryOperators, t_BinaryOperators, t_CompoundAssignmentOperators, t_LogicalBinaryOperators, t_RelationalBinaryOperators, t_UnaryOperators, UnaryMinusExpressionASTNode, UnaryOperatorExpressionASTNode, UnaryPlusExpressionASTNode } from "../ast/ast_expressions";
+import { assignmentEquivalence, checkForNullptrEquivalence, checkForZeroEquivalence } from "../analysis/semantic_equivalence";
 
 
 export function readValueWithAlert(obj: CPPObject<AtomicType>, sim: Simulation) {
@@ -28,28 +33,6 @@ export function readValueWithAlert(obj: CPPObject<AtomicType>, sim: Simulation) 
     }
     return value;
 };
-
-/**
- * Union of potential expression AST types for a generic expression.
- */
-export type ExpressionASTNode =
-    CommaASTNode |
-    TernaryASTNode |
-    AssignmentExpressionASTNode |
-    CompoundAssignmentExpressionASTNode |
-    BinaryOperatorExpressionASTNode |
-    PointerToMemberExpressionASTNode |
-    CStyleCastExpressionASTNode |
-    UnaryOperatorExpressionASTNode |
-    PostfixExpressionASTNode |
-    ConstructExpressionASTNode |
-    IdentifierExpressionASTNode |
-    ThisExpressionASTNode |
-    NumericLiteralASTNode |
-    StringLiteralASTNode |
-    ParenthesesExpressionASTNode |
-    InitializerListExpressionASTNode|
-    OpaqueExpressionASTNode ;
 
 const ExpressionConstructsMap = {
     "comma_expression": (ast: CommaASTNode, context: ExpressionContext) => CommaExpression.createFromAST(ast, context),
@@ -78,9 +61,9 @@ const ExpressionConstructsMap = {
     "bitwise_not_expression": (ast: BitwiseNotExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "bitwise not"),
     "sizeof_expression": (ast: SizeofExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "sizeof"),
     "sizeof_type_expression": (ast: SizeofTypeExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "sizeof (type)"),
-    "new_expression": (ast: NewExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "new"),
-    "delete_expression": (ast: DeleteExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "delete"),
-    "delete_array_expression": (ast: DeleteArrayExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "delete[]"),
+    "new_expression": (ast: NewExpressionASTNode, context: ExpressionContext) => createNewExpressionFromAST(ast, context),
+    "delete_expression": (ast: DeleteExpressionASTNode, context: ExpressionContext) => DeleteExpression.createFromAST(ast, context),
+    "delete_array_expression": (ast: DeleteArrayExpressionASTNode, context: ExpressionContext) => DeleteArrayExpression.createFromAST(ast, context),
 
     // postfix operators
     "static_cast_expression": (ast: StaticCastExpressionASTNode, context: ExpressionContext) => new UnsupportedExpression(context, ast, "static cast"),
@@ -98,12 +81,14 @@ const ExpressionConstructsMap = {
     "identifier_expression": (ast: IdentifierExpressionASTNode, context: ExpressionContext) => IdentifierExpression.createFromAST(ast, context),
 
     "this_expression": (ast: ThisExpressionASTNode, context: ExpressionContext) => ThisExpression.createFromAST(ast, context),
+    "nullptr_expression": (ast: NullptrExpressionASTNode, context: ExpressionContext) => NullptrExpression.createFromAST(ast, context),
 
     "numeric_literal_expression": (ast: NumericLiteralASTNode, context: ExpressionContext) => NumericLiteralExpression.createFromAST(ast, context),
     "string_literal_expression": (ast: StringLiteralASTNode, context: ExpressionContext) => StringLiteralExpression.createFromAST(ast, context),
     "parentheses_expression": (ast: ParenthesesExpressionASTNode, context: ExpressionContext) => ParenthesesExpression.createFromAST(ast, context),
     "initializer_list_expression": (ast: InitializerListExpressionASTNode, context: ExpressionContext) => InitializerListExpression.createFromAST(ast, context),
-    "opaque_expression": (ast: OpaqueExpressionASTNode, context: ExpressionContext) => OpaqueExpression.createFromAST(ast, context)
+    "opaque_expression": (ast: OpaqueExpressionASTNode, context: ExpressionContext) => OpaqueExpression.createFromAST(ast, context),
+    "anything_construct": (ast: AnythingConstructASTNode, context: ExpressionContext) => new AnythingExpression(context, ast)
 }
 
 /**
@@ -132,6 +117,10 @@ export type AnalyticExpression =
     // PointerToMemberExpression |
     // CStyleCastExpression |
     AnalyticUnaryOperatorExpression |
+    NewExpression |
+    NewArrayExpression |
+    DeleteExpression |
+    DeleteArrayExpression |
     PostfixIncrementExpression |
     SubscriptExpression |
     DotExpression |
@@ -140,6 +129,7 @@ export type AnalyticExpression =
     // ConstructExpression |
     IdentifierExpression |
     ThisExpression |
+    NullptrExpression |
     NumericLiteralExpression |
     StringLiteralExpression |
     ParenthesesExpression |
@@ -152,6 +142,7 @@ export type AnalyticExpression =
 
 export type TypedExpressionKinds<T extends ExpressionType, V extends ValueCategory> = {
     "unsupported_expression": never;
+    "anything_construct": never;
     "invalid_operator_overload_expression": never;
     "comma_expression":
     T extends NonNullable<TypedCommaExpression["type"]> ? V extends NonNullable<TypedCommaExpression["valueCategory"]> ? TypedCommaExpression<T, V> : never :
@@ -169,7 +160,7 @@ export type TypedExpressionKinds<T extends ExpressionType, V extends ValueCatego
     T extends NonNullable<TypedArithmeticBinaryOperatorExpression["type"]> ? V extends NonNullable<TypedArithmeticBinaryOperatorExpression["valueCategory"]> ? TypedArithmeticBinaryOperatorExpression<T> : never :
     NonNullable<TypedArithmeticBinaryOperatorExpression["type"]> extends T ? V extends NonNullable<TypedArithmeticBinaryOperatorExpression["valueCategory"]> ? TypedArithmeticBinaryOperatorExpression<ArithmeticType> : never : never;
 
-    "pointer_diference_expression":
+    "pointer_difference_expression":
     T extends NonNullable<TypedPointerDifferenceExpression["type"]> ? V extends NonNullable<TypedPointerDifferenceExpression["valueCategory"]> ? TypedPointerDifferenceExpression : never :
     NonNullable<TypedPointerDifferenceExpression["type"]> extends T ? V extends NonNullable<TypedPointerDifferenceExpression["valueCategory"]> ? TypedPointerDifferenceExpression : never : never;
     "pointer_offset_expression":
@@ -205,9 +196,24 @@ export type TypedExpressionKinds<T extends ExpressionType, V extends ValueCatego
     "address_of_expression":
     T extends NonNullable<TypedAddressOfExpression["type"]> ? V extends NonNullable<TypedAddressOfExpression["valueCategory"]> ? TypedAddressOfExpression<T> : never :
     NonNullable<TypedAddressOfExpression["type"]> extends T ? V extends NonNullable<TypedAddressOfExpression["valueCategory"]> ? TypedAddressOfExpression : never : never;
+    "new_expression":
+    T extends NonNullable<TypedNewExpression["type"]> ? V extends NonNullable<TypedNewExpression["valueCategory"]> ? TypedNewExpression<T> : never :
+    NonNullable<TypedNewExpression["type"]> extends T ? V extends NonNullable<TypedNewExpression["valueCategory"]> ? TypedNewExpression : never : never;
+    "new_array_expression":
+    T extends NonNullable<TypedNewArrayExpression["type"]> ? V extends NonNullable<TypedNewArrayExpression["valueCategory"]> ? TypedNewArrayExpression<T> : never :
+    NonNullable<TypedNewArrayExpression["type"]> extends T ? V extends NonNullable<TypedNewArrayExpression["valueCategory"]> ? TypedNewArrayExpression : never : never;
+    "delete_expression":
+    T extends NonNullable<TypedDeleteExpression["type"]> ? V extends NonNullable<TypedDeleteExpression["valueCategory"]> ? TypedDeleteExpression : never :
+    NonNullable<TypedDeleteExpression["type"]> extends T ? V extends NonNullable<TypedDeleteExpression["valueCategory"]> ? TypedDeleteExpression : never : never;
+    "delete_array_expression":
+    T extends NonNullable<TypedDeleteArrayExpression["type"]> ? V extends NonNullable<TypedDeleteArrayExpression["valueCategory"]> ? TypedDeleteArrayExpression : never :
+    NonNullable<TypedDeleteArrayExpression["type"]> extends T ? V extends NonNullable<TypedDeleteArrayExpression["valueCategory"]> ? TypedDeleteArrayExpression : never : never;
     "this_expression":
     T extends NonNullable<TypedThisExpression["type"]> ? V extends NonNullable<TypedThisExpression["valueCategory"]> ? TypedThisExpression<T> : never :
     NonNullable<TypedThisExpression["type"]> extends T ? V extends NonNullable<TypedThisExpression["valueCategory"]> ? TypedThisExpression : never : never;
+    "nullptr_expression":
+    T extends NonNullable<TypedNullptrExpression["type"]> ? V extends NonNullable<TypedNullptrExpression["valueCategory"]> ? TypedNullptrExpression : never :
+    NonNullable<TypedNullptrExpression["type"]> extends T ? V extends NonNullable<TypedNullptrExpression["valueCategory"]> ? TypedNullptrExpression : never : never;
     "unary_plus_expression":
     T extends NonNullable<TypedUnaryPlusExpression["type"]> ? V extends NonNullable<TypedUnaryPlusExpression["valueCategory"]> ? TypedUnaryPlusExpression<T> : never :
     NonNullable<TypedUnaryPlusExpression["type"]> extends T ? V extends NonNullable<TypedUnaryPlusExpression["valueCategory"]> ? TypedUnaryPlusExpression : never : never;
@@ -279,6 +285,7 @@ export type TypedExpressionKinds<T extends ExpressionType, V extends ValueCatego
 
 export type CompiledExpressionKinds<T extends ExpressionType, V extends ValueCategory> = {
     "unsupported_expression": never;
+    "anything_construct": never;
     "invalid_operator_overload_expression": never;
     "comma_expression": T extends NonNullable<CompiledCommaExpression["type"]> ? V extends NonNullable<CompiledCommaExpression["valueCategory"]> ? CompiledCommaExpression<T, V> : never : never;
     "ternary_expression": T extends NonNullable<CompiledTernaryExpression["type"]> ? V extends NonNullable<CompiledTernaryExpression["valueCategory"]> ? CompiledTernaryExpression<T, V> : never : never;
@@ -289,7 +296,7 @@ export type CompiledExpressionKinds<T extends ExpressionType, V extends ValueCat
     T extends NonNullable<CompiledArithmeticBinaryOperatorExpression["type"]> ? V extends NonNullable<CompiledArithmeticBinaryOperatorExpression["valueCategory"]> ? CompiledArithmeticBinaryOperatorExpression<T> : never :
     NonNullable<ArithmeticBinaryOperatorExpression["type"]> extends T ? V extends NonNullable<CompiledArithmeticBinaryOperatorExpression["valueCategory"]> ? CompiledArithmeticBinaryOperatorExpression<ArithmeticType> : never : never;
 
-    "pointer_diference_expression": T extends NonNullable<CompiledPointerDifferenceExpression["type"]> ? V extends NonNullable<CompiledPointerDifferenceExpression["valueCategory"]> ? CompiledPointerDifferenceExpression : never : never;
+    "pointer_difference_expression": T extends NonNullable<CompiledPointerDifferenceExpression["type"]> ? V extends NonNullable<CompiledPointerDifferenceExpression["valueCategory"]> ? CompiledPointerDifferenceExpression : never : never;
     "pointer_offset_expression": T extends NonNullable<CompiledPointerOffsetExpression["type"]> ? V extends NonNullable<CompiledPointerOffsetExpression["valueCategory"]> ? CompiledPointerOffsetExpression<T> : never : never;
     "output_operator_expression": T extends NonNullable<CompiledOutputOperatorExpression["type"]> ? V extends NonNullable<CompiledOutputOperatorExpression["valueCategory"]> ? CompiledOutputOperatorExpression : never : never;
     "input_operator_expression": T extends NonNullable<CompiledInputOperatorExpression["type"]> ? V extends NonNullable<CompiledInputOperatorExpression["valueCategory"]> ? CompiledInputOperatorExpression : never : never;
@@ -301,7 +308,12 @@ export type CompiledExpressionKinds<T extends ExpressionType, V extends ValueCat
     "prefix_increment_expression": T extends NonNullable<CompiledPrefixIncrementExpression["type"]> ? V extends NonNullable<CompiledPrefixIncrementExpression["valueCategory"]> ? CompiledPrefixIncrementExpression<T> : never : never;
     "dereference_expression": T extends NonNullable<CompiledDereferenceExpression["type"]> ? V extends NonNullable<CompiledDereferenceExpression["valueCategory"]> ? CompiledDereferenceExpression<T> : never : never;
     "address_of_expression": T extends NonNullable<CompiledAddressOfExpression["type"]> ? V extends NonNullable<CompiledAddressOfExpression["valueCategory"]> ? CompiledAddressOfExpression<T> : never : never;
+    "new_expression": T extends NonNullable<CompiledNewExpression["type"]> ? V extends NonNullable<CompiledNewExpression["valueCategory"]> ? CompiledNewExpression<T> : never : never;
+    "new_array_expression": T extends NonNullable<CompiledNewArrayExpression["type"]> ? V extends NonNullable<CompiledNewArrayExpression["valueCategory"]> ? CompiledNewArrayExpression<T> : never : never;
+    "delete_expression": T extends NonNullable<CompiledDeleteExpression["type"]> ? V extends NonNullable<CompiledDeleteExpression["valueCategory"]> ? CompiledDeleteExpression : never : never;
+    "delete_array_expression": T extends NonNullable<CompiledDeleteArrayExpression["type"]> ? V extends NonNullable<CompiledDeleteArrayExpression["valueCategory"]> ? CompiledDeleteArrayExpression : never : never;
     "this_expression": T extends NonNullable<CompiledThisExpression["type"]> ? V extends NonNullable<CompiledThisExpression["valueCategory"]> ? CompiledThisExpression<T> : never : never;
+    "nullptr_expression": T extends NonNullable<CompiledNullptrExpression["type"]> ? V extends NonNullable<CompiledNullptrExpression["valueCategory"]> ? CompiledNullptrExpression : never : never;
     "unary_plus_expression": T extends NonNullable<CompiledUnaryPlusExpression["type"]> ? V extends NonNullable<CompiledUnaryPlusExpression["valueCategory"]> ? CompiledUnaryPlusExpression<T> : never : never;
     "unary_minus_expression": T extends NonNullable<CompiledUnaryMinusExpression["type"]> ? V extends NonNullable<CompiledUnaryMinusExpression["valueCategory"]> ? CompiledUnaryMinusExpression<T> : never : never;
     "logical_not_expression": T extends NonNullable<CompiledLogicalNotExpression["type"]> ? V extends NonNullable<CompiledLogicalNotExpression["valueCategory"]> ? CompiledLogicalNotExpression : never : never;
@@ -331,13 +343,14 @@ export type AnalyticCompiledExpression<C extends AnalyticExpression, T extends E
 
 const ExpressionConstructsRuntimeMap = {
     "unsupported_expression": (construct: UnsupportedExpression, parent: RuntimeConstruct) => { throw new Error("Cannot create a runtime instance of an unsupported construct."); },
+    "anything_construct": (construct: AnythingExpression, parent: RuntimeConstruct) => { throw new Error("Cannot create a runtime instance of an \"anything\" placeholder construct."); },
     "invalid_operator_overload_expression": (construct: UnsupportedExpression, parent: RuntimeConstruct) => { throw new Error("Cannot create a runtime instance of an invalid operator overload expression."); },
     "comma_expression": <T extends CompiledCommaExpression["type"], V extends ValueCategory>(construct: CompiledCommaExpression<T, V>, parent: RuntimeConstruct) => new RuntimeComma(construct, parent),
     "ternary_expression": <T extends CompiledTernaryExpression["type"], V extends ValueCategory>(construct: CompiledTernaryExpression<T, V>, parent: RuntimeConstruct) => new RuntimeTernary(construct, parent),
     "assignment_expression": <T extends CompiledAssignmentExpression["type"]>(construct: CompiledAssignmentExpression<T>, parent: RuntimeConstruct) => new RuntimeAssignment(construct, parent),
     "compound_assignment_expression": <T extends CompiledCompoundAssignmentExpression["type"]>(construct: CompiledCompoundAssignmentExpression<T>, parent: RuntimeConstruct) => new RuntimeCompoundAssignment(construct, parent),
     "arithmetic_binary_operator_expression": <T extends CompiledArithmeticBinaryOperatorExpression["type"]>(construct: CompiledArithmeticBinaryOperatorExpression<T>, parent: RuntimeConstruct) => new RuntimeArithmeticBinaryOperator(construct, parent),
-    "pointer_diference_expression": (construct: CompiledPointerDifferenceExpression, parent: RuntimeConstruct) => new RuntimePointerDifference(construct, parent),
+    "pointer_difference_expression": (construct: CompiledPointerDifferenceExpression, parent: RuntimeConstruct) => new RuntimePointerDifference(construct, parent),
     "pointer_offset_expression": <T extends CompiledPointerOffsetExpression["type"]>(construct: CompiledPointerOffsetExpression<T>, parent: RuntimeConstruct) => new RuntimePointerOffset(construct, parent),
     "output_operator_expression": (construct: CompiledOutputOperatorExpression, parent: RuntimeConstruct) => new RuntimeOutputOperatorExpression(construct, parent),
     "input_operator_expression": (construct: CompiledInputOperatorExpression, parent: RuntimeConstruct) => new RuntimeInputOperatorExpression(construct, parent),
@@ -349,10 +362,15 @@ const ExpressionConstructsRuntimeMap = {
     "prefix_increment_expression": <T extends CompiledPrefixIncrementExpression["type"]>(construct: CompiledPrefixIncrementExpression<T>, parent: RuntimeConstruct) => new RuntimePrefixIncrementExpression(construct, parent),
     "dereference_expression": <T extends CompiledDereferenceExpression["type"]>(construct: CompiledDereferenceExpression<T>, parent: RuntimeConstruct) => new RuntimeDereferenceExpression(construct, parent),
     "address_of_expression": <T extends CompiledAddressOfExpression["type"]>(construct: CompiledAddressOfExpression<T>, parent: RuntimeConstruct) => new RuntimeAddressOfExpression(construct, parent),
+    "new_expression": <T extends CompiledNewExpression["type"]>(construct: CompiledNewExpression<T>, parent: RuntimeConstruct) => new RuntimeNewExpression(construct, parent),
+    "new_array_expression": <T extends CompiledNewArrayExpression["type"]>(construct: CompiledNewArrayExpression<T>, parent: RuntimeConstruct) => new RuntimeNewArrayExpression(construct, parent),
+    "delete_expression": (construct: CompiledDeleteExpression, parent: RuntimeConstruct) => new RuntimeDeleteExpression(construct, parent),
+    "delete_array_expression": (construct: CompiledDeleteArrayExpression, parent: RuntimeConstruct) => new RuntimeDeleteArrayExpression(construct, parent),
     "this_expression": <T extends CompiledThisExpression["type"]>(construct: CompiledThisExpression<T>, parent: RuntimeConstruct) => new RuntimeThisExpression(construct, parent),
+    "nullptr_expression": (construct: CompiledNullptrExpression, parent: RuntimeConstruct) => new RuntimeNullptrExpression(construct, parent),
     "unary_plus_expression": <T extends CompiledUnaryPlusExpression["type"]>(construct: CompiledUnaryPlusExpression<T>, parent: RuntimeConstruct) => new RuntimeUnaryPlusExpression(construct, parent),
     "unary_minus_expression": <T extends CompiledUnaryMinusExpression["type"]>(construct: CompiledUnaryMinusExpression<T>, parent: RuntimeConstruct) => new RuntimeUnaryMinusExpression(construct, parent),
-    "logical_not_expression": <T extends CompiledLogicalNotExpression["type"]>(construct: CompiledLogicalNotExpression, parent: RuntimeConstruct) => new RuntimeLogicalNotExpression(construct, parent),
+    "logical_not_expression": (construct: CompiledLogicalNotExpression, parent: RuntimeConstruct) => new RuntimeLogicalNotExpression(construct, parent),
     "postfix_increment_expression": <T extends CompiledPostfixIncrementExpression["type"]>(construct: CompiledPostfixIncrementExpression<T>, parent: RuntimeConstruct) => new RuntimePostfixIncrementExpression(construct, parent),
     "subscript_expression": <T extends CompiledSubscriptExpression["type"]>(construct: CompiledSubscriptExpression<T>, parent: RuntimeConstruct) => new RuntimeSubscriptExpression(construct, parent),
     "dot_expression": (construct: CompiledObjectDotExpression | CompiledFunctionDotExpression, parent: RuntimeConstruct) => {
@@ -391,14 +409,15 @@ const ExpressionConstructsRuntimeMap = {
 };
 
 export function createRuntimeExpression(construct: UnsupportedExpression, parent: RuntimeConstruct): never;
+export function createRuntimeExpression(construct: AnythingExpression, parent: RuntimeConstruct): never;
 export function createRuntimeExpression(construct: InvalidOperatorOverloadExpression, parent: RuntimeConstruct): never;
 export function createRuntimeExpression<T extends ExpressionType, V extends ValueCategory>(construct: CompiledCommaExpression<T, V>, parent: RuntimeConstruct): RuntimeComma<T, V>;
 export function createRuntimeExpression<T extends ExpressionType, V extends ValueCategory>(construct: CompiledTernaryExpression<T, V>, parent: RuntimeConstruct): RuntimeTernary<T, V>;
 export function createRuntimeExpression<T extends AtomicType>(construct: CompiledAssignmentExpression<T>, parent: RuntimeConstruct): RuntimeAssignment<T>;
-export function createRuntimeExpression<T extends AtomicType>(construct: CompiledCompoundAssignmentExpression<T>, parent: RuntimeConstruct): RuntimeCompoundAssignment<T>;
+export function createRuntimeExpression<T extends ArithmeticType | PointerToCompleteObjectType>(construct: CompiledCompoundAssignmentExpression<T>, parent: RuntimeConstruct): RuntimeCompoundAssignment<T>;
 export function createRuntimeExpression<T extends ArithmeticType>(construct: CompiledArithmeticBinaryOperatorExpression<T>, parent: RuntimeConstruct): RuntimeArithmeticBinaryOperator<T>;
 export function createRuntimeExpression(construct: CompiledPointerDifferenceExpression, parent: RuntimeConstruct): RuntimePointerDifference;
-export function createRuntimeExpression<T extends PointerToCompleteType>(construct: CompiledPointerOffsetExpression<T>, parent: RuntimeConstruct): RuntimePointerOffset<T>;
+export function createRuntimeExpression<T extends PointerToCompleteObjectType>(construct: CompiledPointerOffsetExpression<T>, parent: RuntimeConstruct): RuntimePointerOffset<T>;
 export function createRuntimeExpression(construct: CompiledPointerOffsetExpression, parent: RuntimeConstruct): RuntimePointerOffset;
 export function createRuntimeExpression<T extends ArithmeticType>(construct: CompiledRelationalBinaryOperatorExpression<T>, parent: RuntimeConstruct): RuntimeRelationalBinaryOperator<T>;
 export function createRuntimeExpression(construct: CompiledPointerComparisonExpression, parent: RuntimeConstruct): RuntimePointerComparisonExpression;
@@ -407,14 +426,18 @@ export function createRuntimeExpression(construct: CompiledNonMemberOperatorOver
 export function createRuntimeExpression(construct: CompiledMemberOperatorOverloadExpression, parent: RuntimeConstruct): RuntimeMemberOperatorOverloadExpression;
 export function createRuntimeExpression(construct: CompiledOutputOperatorExpression, parent: RuntimeConstruct): RuntimeOutputOperatorExpression;
 export function createRuntimeExpression(construct: CompiledInputOperatorExpression, parent: RuntimeConstruct): RuntimeInputOperatorExpression;
-export function createRuntimeExpression<T extends ArithmeticType | PointerToCompleteType>(construct: CompiledPrefixIncrementExpression<T>, parent: RuntimeConstruct): RuntimePrefixIncrementExpression<T>;
+export function createRuntimeExpression<T extends ArithmeticType | PointerToCompleteObjectType>(construct: CompiledPrefixIncrementExpression<T>, parent: RuntimeConstruct): RuntimePrefixIncrementExpression<T>;
 export function createRuntimeExpression<T extends CompleteObjectType>(construct: CompiledDereferenceExpression<T>, parent: RuntimeConstruct): RuntimeDereferenceExpression<T>;
 export function createRuntimeExpression<T extends PointerType>(construct: CompiledAddressOfExpression<T>, parent: RuntimeConstruct): RuntimeAddressOfExpression<T>;
+export function createRuntimeExpression<T extends PointerType<NewObjectType>>(construct: CompiledNewExpression<T>, parent: RuntimeConstruct): RuntimeNewExpression<T>;
+export function createRuntimeExpression<T extends PointerType<ArrayElemType>>(construct: CompiledNewArrayExpression<T>, parent: RuntimeConstruct): RuntimeNewArrayExpression<T>;
+export function createRuntimeExpression(construct: CompiledDeleteArrayExpression, parent: RuntimeConstruct): RuntimeDeleteArrayExpression;
 export function createRuntimeExpression<T extends PointerType<CompleteClassType>>(construct: CompiledThisExpression<T>, parent: RuntimeConstruct): RuntimeThisExpression<T>;
+export function createRuntimeExpression(construct: CompiledNullptrExpression, parent: RuntimeConstruct): RuntimeNullptrExpression;
 export function createRuntimeExpression<T extends ArithmeticType | PointerType>(construct: CompiledUnaryPlusExpression<T>, parent: RuntimeConstruct): RuntimeUnaryPlusExpression<T>;
 export function createRuntimeExpression<T extends ArithmeticType>(construct: CompiledUnaryMinusExpression<T>, parent: RuntimeConstruct): RuntimeUnaryMinusExpression<T>;
 export function createRuntimeExpression(construct: CompiledLogicalNotExpression, parent: RuntimeConstruct): RuntimeLogicalNotExpression;
-export function createRuntimeExpression<T extends ArithmeticType | PointerToCompleteType>(construct: CompiledPostfixIncrementExpression<T>, parent: RuntimeConstruct): RuntimePostfixIncrementExpression<T>;
+export function createRuntimeExpression<T extends ArithmeticType | PointerToCompleteObjectType>(construct: CompiledPostfixIncrementExpression<T>, parent: RuntimeConstruct): RuntimePostfixIncrementExpression<T>;
 export function createRuntimeExpression<T extends CompleteObjectType>(construct: CompiledSubscriptExpression<T>, parent: RuntimeConstruct): RuntimeSubscriptExpression<T>;
 export function createRuntimeExpression(construct: CompiledObjectIdentifierExpression, parent: RuntimeConstruct): RuntimeObjectIdentifierExpression;
 export function createRuntimeExpression(construct: CompiledFunctionIdentifierExpression, parent: RuntimeConstruct): RuntimeFunctionIdentifierExpression;
@@ -447,9 +470,11 @@ export class UnsupportedExpression extends Expression<ExpressionASTNode> {
 
     public readonly type = undefined;
     public readonly valueCategory = undefined;
+    private readonly unsupportedName: string;
 
     public constructor(context: ExpressionContext, ast: ExpressionASTNode, unsupportedName: string) {
         super(context, ast);
+        this.unsupportedName = unsupportedName;
         this.addNote(CPPError.lobster.unsupported_feature(this, unsupportedName));
     }
 
@@ -462,6 +487,12 @@ export class UnsupportedExpression extends Expression<ExpressionASTNode> {
             message: "an unsupported expression"
         }
     }
+
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, ec: SemanticContext): boolean {
+        return other.construct_type === this.construct_type
+            && other.unsupportedName === this.unsupportedName;
+    }
+
 }
 
 /**
@@ -485,8 +516,38 @@ export abstract class InvalidExpression extends Expression<ExpressionASTNode> {
             message: "an unsupported expression"
         }
     }
+
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, ec: SemanticContext): boolean {
+        return other.construct_type === this.construct_type;
+    }
 }
 
+
+export class AnythingExpression extends Expression {
+    public readonly construct_type = "anything_construct";
+
+    public readonly type: undefined;
+    public readonly valueCategory: undefined;
+
+    public constructor(context: ExpressionContext, ast: AnythingConstructASTNode | undefined) {
+        super(context, ast);
+        this.addNote(CPPError.lobster.anything_construct(this));
+    }
+
+    public createDefaultOutlet(element: JQuery, parent?: ConstructOutlet): never {
+        throw new Error("Cannot create an outlet for an \"anything\" placeholder construct.");
+    }
+
+    public describeEvalResult(depth: number): ConstructDescription {
+        return {
+            message: "an \"anything\" placeholder expression to support semantic analysis"
+        }
+    }
+
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext) : boolean {
+        return true;
+    }
+}
 
 
 
@@ -526,13 +587,7 @@ export abstract class SimpleRuntimeExpression<T extends ExpressionType = Express
 
 
 
-export interface CommaASTNode extends ASTNode {
-    readonly construct_type: "comma_expression";
-    readonly operator: ",";
-    readonly left: ExpressionASTNode;
-    readonly right: ExpressionASTNode;
-    readonly associativity: "left";
-}
+
 
 
 export class CommaExpression extends Expression<CommaASTNode> {
@@ -577,6 +632,12 @@ export class CommaExpression extends Expression<CommaASTNode> {
     public describeEvalResult(depth: number): ConstructDescription {
         return this.right.describeEvalResult(depth);
     }
+
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, ec: SemanticContext): boolean {
+        return other.construct_type === this.construct_type
+            && areSemanticallyEquivalent(this.left, other.left, ec)
+            && areSemanticallyEquivalent(this.right, other.right, ec);
+    }
 }
 
 export interface TypedCommaExpression<T extends ExpressionType = ExpressionType, V extends ValueCategory = ValueCategory> extends CommaExpression, t_TypedExpression {
@@ -607,13 +668,6 @@ export class RuntimeComma<T extends ExpressionType = ExpressionType, V extends V
         this.setEvalResult(this.right.evalResult);
     }
 
-}
-
-export interface TernaryASTNode extends ASTNode {
-    readonly construct_type: "ternary_expression";
-    readonly condition: ExpressionASTNode;
-    readonly then: ExpressionASTNode;
-    readonly otherwise: ExpressionASTNode;
 }
 
 export class TernaryExpression extends Expression<TernaryASTNode> {
@@ -710,6 +764,14 @@ export class TernaryExpression extends Expression<TernaryASTNode> {
     //         return {isTail: true};
     //     }
     // }
+
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, ec: SemanticContext): boolean {
+        return other.construct_type === this.construct_type
+            && areSemanticallyEquivalent(this.condition, other.condition, ec)
+            && areSemanticallyEquivalent(this.then, other.then, ec)
+            && areSemanticallyEquivalent(this.otherwise, other.otherwise, ec);
+        // TODO semantic equivalence (or reversed logic and switched consequences)
+    }
 }
 
 export interface TypedTernaryExpression<T extends ExpressionType = ExpressionType, V extends ValueCategory = ValueCategory> extends TernaryExpression, t_TypedExpression {
@@ -758,18 +820,12 @@ export class RuntimeTernary<T extends ExpressionType = ExpressionType, V extends
     }
 
     protected stepForwardImpl() {
-        this.setEvalResult(this.then ? this.then.evalResult : this.otherwise.evalResult);
+        this.setEvalResult(this.condition.evalResult.rawValue ? this.then.evalResult : this.otherwise.evalResult);
         this.startCleanup();
     }
 }
 
 
-export interface AssignmentExpressionASTNode extends ASTNode {
-    readonly construct_type: "assignment_expression";
-    readonly lhs: ExpressionASTNode;
-    readonly operator: "=";
-    readonly rhs: ExpressionASTNode;
-}
 
 export class AssignmentExpression extends Expression<AssignmentExpressionASTNode> {
     public readonly construct_type = "assignment_expression";
@@ -835,7 +891,8 @@ export class AssignmentExpression extends Expression<AssignmentExpressionASTNode
 
         // Consider an assignment operator overload if the LHS is class type
         if (Predicates.isTypedExpression(lhs, isPotentiallyCompleteClassType)) {
-            return selectOperatorOverload(context, ast, "=", [lhs, rhs]);
+            return selectOperatorOverload(context, ast, "=", [lhs, rhs]) ??
+                new InvalidOperatorOverloadExpression(context, ast, ast.operator, [lhs, rhs]);
         }
 
         return new AssignmentExpression(context, ast, lhs, rhs);
@@ -849,20 +906,34 @@ export class AssignmentExpression extends Expression<AssignmentExpressionASTNode
         throw new Error("Method not implemented.");
     }
 
-    public isTailChild(child: CPPConstruct) {
-        return {
-            isTail: false,
-            reason: "The assignment itself will happen after the recursive call returns.",
-            others: [this]
-        };
-    }
+    // public isTailChild(child: CPPConstruct) {
+    //     return {
+    //         isTail: false,
+    //         reason: "The assignment itself will happen after the recursive call returns.",
+    //         others: [this]
+    //     };
+    // }
 
     public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
         var lhs = this.lhs.describeEvalResult(0);
         var rhs = this.rhs.describeEvalResult(0);
         return { message: "The value of " + (rhs.name || rhs.message) + " will be assigned to " + (lhs.name || lhs.message) + "." };
     }
+
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, ec: SemanticContext): boolean {
+        if (other.construct_type === this.construct_type
+            && this.areChildrenSemanticallyEquivalent(other, ec)) {
+            return true;
+        }
+        else if (other.construct_type === "compound_assignment_expression") {
+            return assignmentEquivalence(this, other, ec);
+        }
+        return false;
+    }
 }
+
+// x = x + b
+// x += b
 
 export interface TypedAssignmentExpression<T extends AtomicType = AtomicType> extends AssignmentExpression, t_TypedExpression {
     readonly type: T;
@@ -895,20 +966,11 @@ export class RuntimeAssignment<T extends AtomicType = AtomicType> extends Simple
     }
 }
 
-export type t_CompoundAssignmentOperators = "*=" | "/=" | "%=" | "+=" | "-=" | ">>=" | "<<=" | "&=" | "^=" | "|=";
-
-export interface CompoundAssignmentExpressionASTNode extends ASTNode {
-    readonly construct_type: "compound_assignment_expression";
-    readonly lhs: ExpressionASTNode;
-    readonly operator: t_CompoundAssignmentOperators;
-    readonly rhs: ExpressionASTNode;
-}
-
 
 export class CompoundAssignmentExpression extends Expression<CompoundAssignmentExpressionASTNode> {
     public readonly construct_type = "compound_assignment_expression";
 
-    public readonly type?: AtomicType;
+    public readonly type?: PointerToCompleteObjectType | ArithmeticType;
     public readonly valueCategory = "lvalue";
 
     public readonly lhs: Expression;
@@ -929,23 +991,6 @@ export class CompoundAssignmentExpression extends Expression<CompoundAssignmentE
             this.attach(this.rhs = rhs);
             return;
         }
-        
-        // Arithmetic types are required
-        if (!Predicates.isTypedExpression(lhs, isArithmeticType) || !Predicates.isTypedExpression(rhs, isArithmeticType)) {
-            this.addNote(CPPError.expr.binary.arithmetic_operands(this, this.operator, lhs, rhs));
-            this.attach(this.lhs = lhs);
-            this.attach(this.rhs = rhs);
-            return;
-        }
-
-        // % operator and shift operators require integral operands
-        if ((this.equivalentBinaryOp === "%" || this.equivalentBinaryOp === "<<" || this.equivalentBinaryOp == ">>") &&
-            (!Predicates.isTypedExpression(lhs, isIntegralType) || !Predicates.isTypedExpression(rhs, isIntegralType))) {
-            this.addNote(CPPError.expr.binary.integral_operands(this, this.operator, lhs, rhs));
-            this.attach(this.lhs = lhs);
-            this.attach(this.rhs = rhs);
-            return;
-        }
 
         if (lhs.valueCategory != "lvalue") {
             this.addNote(CPPError.expr.assignment.lhs_lvalue(this));
@@ -954,20 +999,39 @@ export class CompoundAssignmentExpression extends Expression<CompoundAssignmentE
             this.addNote(CPPError.expr.assignment.lhs_const(this));
         }
 
-        rhs = standardConversion(rhs, lhs.type.cvUnqualified());
-
-
         // TODO: add a check for a modifiable type (e.g. an array type is not modifiable)
 
         if (lhs.type.isConst) {
             this.addNote(CPPError.expr.assignment.lhs_const(this));
         }
-
-        if (rhs.isWellTyped() && !sameType(rhs.type, lhs.type.cvUnqualified())) {
-            this.addNote(CPPError.expr.assignment.convert(this, lhs, rhs));
+        
+        // Check if it's a pointer offset
+        if ((this.equivalentBinaryOp === "+" || this.equivalentBinaryOp === "-" ) && 
+            Predicates.isTypedExpression(lhs, isPointerToCompleteObjectType) && Predicates.isTypedExpression(rhs, isIntegralType)) {
+            rhs = convertToPRValue(rhs);
         }
+        // otherwise it's an arithmetic binary operation
+        else {
 
-        // TODO: do we need to check that lhs is an AtomicType? or is that necessary given all the other checks?
+            // % operator and shift operators require integral operands
+            if ((this.equivalentBinaryOp === "%" || this.equivalentBinaryOp === "<<" || this.equivalentBinaryOp == ">>") &&
+                (!Predicates.isTypedExpression(lhs, isIntegralType) || !Predicates.isTypedExpression(rhs, isIntegralType))) {
+                this.addNote(CPPError.expr.binary.integral_operands(this, this.operator, lhs, rhs));
+                this.attach(this.lhs = lhs);
+                this.attach(this.rhs = rhs);
+                return;
+            }
+
+            //Otherwise, Arithmetic types are required
+            if (!Predicates.isTypedExpression(lhs, isArithmeticType) || !Predicates.isTypedExpression(rhs, isArithmeticType)) {
+                this.addNote(CPPError.expr.binary.arithmetic_operands(this, this.operator, lhs, rhs));
+                this.attach(this.lhs = lhs);
+                this.attach(this.rhs = rhs);
+                return;
+            }
+            
+            rhs = standardConversion(rhs, lhs.type.cvUnqualified());
+        }
 
         this.type = lhs.type;
         this.attach(this.lhs = lhs);
@@ -980,7 +1044,8 @@ export class CompoundAssignmentExpression extends Expression<CompoundAssignmentE
 
         // Consider a compound assignment operator overload if the LHS is class type
         if (Predicates.isTypedExpression(lhs, isPotentiallyCompleteClassType)) {
-            return selectOperatorOverload(context, ast, ast.operator, [lhs, rhs]);
+            return selectOperatorOverload(context, ast, ast.operator, [lhs, rhs]) ??
+                new InvalidOperatorOverloadExpression(context, ast, ast.operator, [lhs, rhs]);
         }
 
         return new CompoundAssignmentExpression(context, ast, lhs, rhs);
@@ -994,35 +1059,46 @@ export class CompoundAssignmentExpression extends Expression<CompoundAssignmentE
         throw new Error("Method not implemented.");
     }
 
-    public isTailChild(child: CPPConstruct) {
-        return {
-            isTail: false,
-            reason: "The compound assignment itself will happen after the recursive call returns.",
-            others: [this]
-        };
-    }
+    // public isTailChild(child: CPPConstruct) {
+    //     return {
+    //         isTail: false,
+    //         reason: "The compound assignment itself will happen after the recursive call returns.",
+    //         others: [this]
+    //     };
+    // }
 
     public explain(sim: Simulation, rtConstruct: RuntimeConstruct) {
         var lhs = this.lhs.describeEvalResult(0);
         var rhs = this.rhs.describeEvalResult(0);
         return { message: `The value of ${lhs.name || lhs.message} ${this.equivalentBinaryOp} ${rhs.name || rhs.message} will be assigned to ${lhs.name || lhs.message}.` };
     }
+
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, ec: SemanticContext): boolean {
+        if (other.construct_type === this.construct_type
+            && this.areChildrenSemanticallyEquivalent(other, ec)) {
+            return true;
+        }
+        else if (other.construct_type === "assignment_expression") {
+            return assignmentEquivalence(other, this, ec);
+        }
+        return false;
+    }
 }
 
-export interface TypedCompoundAssignmentExpression<T extends AtomicType = AtomicType> extends CompoundAssignmentExpression, t_TypedExpression {
+export interface TypedCompoundAssignmentExpression<T extends PointerToCompleteObjectType | ArithmeticType = PointerToCompleteObjectType | ArithmeticType> extends CompoundAssignmentExpression, t_TypedExpression {
     readonly type: T;
     readonly lhs: TypedExpression<T>;
 }
 
 
-export interface CompiledCompoundAssignmentExpression<T extends AtomicType = AtomicType> extends TypedCompoundAssignmentExpression<T>, SuccessfullyCompiled {
+export interface CompiledCompoundAssignmentExpression<T extends PointerToCompleteObjectType | ArithmeticType = PointerToCompleteObjectType | ArithmeticType> extends TypedCompoundAssignmentExpression<T>, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
     readonly lhs: CompiledExpression<T, "lvalue">;
     readonly rhs: CompiledExpression<T, "prvalue">;
 }
 
 
-export class RuntimeCompoundAssignment<T extends AtomicType = AtomicType> extends SimpleRuntimeExpression<T, "lvalue", CompiledCompoundAssignmentExpression<T>> {
+export class RuntimeCompoundAssignment<T extends PointerToCompleteObjectType | ArithmeticType = PointerToCompleteObjectType | ArithmeticType> extends SimpleRuntimeExpression<T, "lvalue", CompiledCompoundAssignmentExpression<T>> {
 
     public readonly lhs: RuntimeExpression<T, "lvalue">;
     public readonly rhs: RuntimeExpression<T, "prvalue">;
@@ -1035,11 +1111,26 @@ export class RuntimeCompoundAssignment<T extends AtomicType = AtomicType> extend
     }
 
     protected operate() {
-        let lhsObj = this.lhs.evalResult;
-        let newVal = ARITHMETIC_BINARY_OPERATIONS[this.model.equivalentBinaryOp](this.lhs.evalResult.getValue(), this.rhs.evalResult);
+        let lhsObj : CPPObject<ArithmeticType> | CPPObject<PointerToCompleteObjectType> = this.lhs.evalResult;
+        
+        if (lhsObj.isTyped(isArithmeticType)) {
+            let newVal = ARITHMETIC_BINARY_OPERATIONS[this.model.equivalentBinaryOp](lhsObj.getValue(), <Value<ArithmeticType>>this.rhs.evalResult);
+            lhsObj.writeValue(newVal);
+        }
+        else if (lhsObj.isTyped(isPointerToCompleteObjectType)) {
+            // operator must be + or -, otherwise wouldn't have compiled
+            let delta = (<RuntimeExpression<IntegralType, "prvalue">><unknown>this.rhs).evalResult;
+            if (this.model.equivalentBinaryOp === "-") {
+                delta = delta.arithmeticNegate();
+            }
+            let newVal = lhsObj.getValue().pointerOffset(delta);
+            lhsObj.writeValue(newVal);
+        }
+        else {
+            assertFalse();
+        }
 
-        lhsObj.writeValue(newVal);
-        this.setEvalResult(lhsObj);
+        this.setEvalResult(<VCResultTypes<T, "lvalue">>lhsObj);
     }
 }
 
@@ -1147,14 +1238,15 @@ export class RuntimeCompoundAssignment<T extends AtomicType = AtomicType> extend
 
 
 
-export type BinaryOperatorExpressionASTNode =
-    ArithmeticBinaryOperatorExpressionASTNode |
-    RelationalBinaryOperatorExpressionASTNode |
-    LogicalBinaryOperatorExpressionASTNode;
-
-export type t_BinaryOperators = t_ArithmeticBinaryOperators | t_RelationalBinaryOperators | t_LogicalBinaryOperators;
-
 abstract class BinaryOperatorExpression<ASTType extends BinaryOperatorExpressionASTNode = BinaryOperatorExpressionASTNode> extends Expression<ASTType> {
+
+    public abstract readonly construct_type: 
+        "arithmetic_binary_operator_expression" |
+        "relational_binary_operator_expression" |
+        "logical_binary_operator_expression" |
+        "pointer_offset_expression" |
+        "pointer_difference_expression" |
+        "pointer_comparison_expression";
 
     public abstract readonly type?: AtomicType;
     public readonly valueCategory = "prvalue";
@@ -1207,16 +1299,6 @@ export interface RuntimeBinaryOperator extends RuntimeExpression<AtomicType, "pr
 
 
 
-
-export interface ArithmeticBinaryOperatorExpressionASTNode extends ASTNode {
-    readonly construct_type: "arithmetic_binary_operator_expression";
-    readonly operator: t_ArithmeticBinaryOperators;
-    readonly left: ExpressionASTNode;
-    readonly right: ExpressionASTNode;
-    readonly associativity: "left";
-}
-
-type t_ArithmeticBinaryOperators = "+" | "-" | "*" | "/" | "%" | "&" | "^" | "|" | "<<" | ">>";
 
 function add(left: number, right: number) { return left + right; }
 function sub(left: number, right: number) { return left - right; }
@@ -1328,9 +1410,9 @@ export class ArithmeticBinaryOperatorExpression extends BinaryOperatorExpression
         // HACK: only consider operator overloads if both are class type.
         // TODO: eventually, all input/output expressions should probably
         // be implemented as overloaded operators. 
-        if (Predicates.isTypedExpression(left, isPotentiallyCompleteClassType) && Predicates.isTypedExpression(right, isPotentiallyCompleteClassType)) {
+        if (Predicates.isTypedExpression(left, isPotentiallyCompleteClassType) || Predicates.isTypedExpression(right, isPotentiallyCompleteClassType)) {
             let overload = selectOperatorOverload(context, ast, op, [left, right]);
-            if (overload.construct_type !== "invalid_operator_overload_expression") {
+            if (overload) {
                 return overload;
             }
         }
@@ -1375,6 +1457,44 @@ export class ArithmeticBinaryOperatorExpression extends BinaryOperatorExpression
     public describeEvalResult(depth: number): ConstructDescription {
         throw new Error("Method not implemented.");
     }
+
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, ec: SemanticContext): boolean {
+        if (other.construct_type !== this.construct_type) {
+            return false;
+        }
+
+        if (other.operator === this.operator && areAllSemanticallyEquivalent(this.children, other.children, ec)) {
+            return true;
+        }
+        
+        // Commutative operators
+        switch(this.operator) {
+            // commutative operators
+            case "+":
+            case "*":
+            case "&":
+            case "|":
+            case "^":
+                if (other.operator === this.operator
+                    && areSemanticallyEquivalent(this.left, other.right, ec)
+                    && areSemanticallyEquivalent(this.right, other.left, ec)) {
+                    return true;
+                }
+                break;
+            case "-":
+            case "/":
+            case "%":
+            case "<<":
+            case ">>":
+                return false;
+                break;
+            default:
+                assertNever(this.operator);
+            
+        }
+
+        return false;
+    }
 }
 
 export interface TypedArithmeticBinaryOperatorExpression<T extends ArithmeticType = ArithmeticType> extends ArithmeticBinaryOperatorExpression, t_TypedExpression {
@@ -1411,7 +1531,7 @@ export class RuntimeArithmeticBinaryOperator<T extends ArithmeticType = Arithmet
 }
 
 export class PointerDifferenceExpression extends BinaryOperatorExpression<ArithmeticBinaryOperatorExpressionASTNode> {
-    public readonly construct_type = "pointer_diference_expression";
+    public readonly construct_type = "pointer_difference_expression";
 
     public readonly type: Int;
     public readonly valueCategory = "prvalue";
@@ -1437,7 +1557,7 @@ export class PointerDifferenceExpression extends BinaryOperatorExpression<Arithm
 
         this.type = new Int();
 
-        if (!left.type.isPointerToCompleteType()) {
+        if (!left.type.isPointerToCompleteObjectType()) {
             this.addNote(CPPError.expr.pointer_difference.incomplete_pointed_type(this, left.type))
         }
 
@@ -1476,14 +1596,14 @@ export interface TypedPointerDifferenceExpression extends PointerDifferenceExpre
 export interface CompiledPointerDifferenceExpression extends TypedPointerDifferenceExpression, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
-    readonly left: CompiledExpression<PointerToCompleteType, "prvalue">;
-    readonly right: CompiledExpression<PointerToCompleteType, "prvalue">;
+    readonly left: CompiledExpression<PointerToCompleteObjectType, "prvalue">;
+    readonly right: CompiledExpression<PointerToCompleteObjectType, "prvalue">;
 }
 
 export class RuntimePointerDifference extends SimpleRuntimeExpression<Int, "prvalue", CompiledPointerDifferenceExpression> {
 
-    public left: RuntimeExpression<PointerToCompleteType, "prvalue">;
-    public right: RuntimeExpression<PointerToCompleteType, "prvalue">;
+    public left: RuntimeExpression<PointerToCompleteObjectType, "prvalue">;
+    public right: RuntimeExpression<PointerToCompleteObjectType, "prvalue">;
 
     public constructor(model: CompiledPointerDifferenceExpression, parent: RuntimeConstruct) {
         super(model, parent);
@@ -1561,7 +1681,7 @@ export class PointerOffsetExpression extends BinaryOperatorExpression<Arithmetic
             this.offset = right;
             this.type = this.pointer.type;
 
-            if (!left.type.isPointerToCompleteType()) {
+            if (!left.type.isPointerToCompleteObjectType()) {
                 this.addNote(CPPError.expr.pointer_offset.incomplete_pointed_type(this, left.type))
             }
         }
@@ -1571,7 +1691,7 @@ export class PointerOffsetExpression extends BinaryOperatorExpression<Arithmetic
             this.offset = left;
             this.type = this.pointer.type;
 
-            if (!right.type.isPointerToCompleteType()) {
+            if (!right.type.isPointerToCompleteObjectType()) {
                 this.addNote(CPPError.expr.pointer_offset.incomplete_pointed_type(this, right.type))
             }
         }
@@ -1601,7 +1721,7 @@ export interface TypedPointerOffsetExpression<T extends PointerType = PointerTyp
     readonly offset: TypedExpression<IntegralType, "prvalue">;
 }
 
-export interface CompiledPointerOffsetExpression<T extends PointerToCompleteType = PointerToCompleteType> extends TypedPointerOffsetExpression<T>, SuccessfullyCompiled {
+export interface CompiledPointerOffsetExpression<T extends PointerToCompleteObjectType = PointerToCompleteObjectType> extends TypedPointerOffsetExpression<T>, SuccessfullyCompiled {
 
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
@@ -1615,7 +1735,7 @@ export interface CompiledPointerOffsetExpression<T extends PointerToCompleteType
 }
 
 
-export class RuntimePointerOffset<T extends PointerToCompleteType = PointerToCompleteType> extends SimpleRuntimeExpression<T, "prvalue", CompiledPointerOffsetExpression<T>> {
+export class RuntimePointerOffset<T extends PointerToCompleteObjectType = PointerToCompleteObjectType> extends SimpleRuntimeExpression<T, "prvalue", CompiledPointerOffsetExpression<T>> {
 
     public readonly left: RuntimeExpression<T, "prvalue"> | RuntimeExpression<IntegralType, "prvalue">;
     public readonly right: RuntimeExpression<T, "prvalue"> | RuntimeExpression<IntegralType, "prvalue">;
@@ -1843,14 +1963,12 @@ export class RuntimeInputOperatorExpression extends RuntimeExpression<Potentiall
     }
 
     protected stepForwardImpl() {
+        this.sim.cin.skipws();
 
-        let resultOrError = this.sim.cin.extractAndParseFromBuffer(this.right.evalResult.type);
+        let result = this.sim.cin.extractAndParseFromBuffer(this.right.evalResult.type);
 
-        if (resultOrError.kind === "success") {
-            this.right.evalResult.writeValue(resultOrError.result);
-        }
-        else {
-            this.sim.eventOccurred(SimulationEvent.UNDEFINED_BEHAVIOR, "input parsing error", true);
+        if (result) {
+            this.right.evalResult.writeValue(result.result);
         }
         this.setEvalResult(this.left.evalResult);
         this.startCleanup();
@@ -1862,17 +1980,6 @@ export class RuntimeInputOperatorExpression extends RuntimeExpression<Potentiall
 
 
 
-
-
-export interface RelationalBinaryOperatorExpressionASTNode extends ASTNode {
-    readonly construct_type: "relational_binary_operator_expression";
-    readonly operator: t_RelationalBinaryOperators;
-    readonly left: ExpressionASTNode;
-    readonly right: ExpressionASTNode;
-    readonly associativity: "left";
-}
-
-type t_RelationalBinaryOperators = "<" | ">" | "<=" | ">=" | "==" | "!=";
 
 function lt(left: number, right: number) { return left < right; }
 function gt(left: number, right: number) { return left > right; }
@@ -1948,7 +2055,10 @@ export class RelationalBinaryOperatorExpression extends BinaryOperatorExpression
 
         // If either one is a class type, we consider operator overloads
         if (Predicates.isTypedExpression(left, isPotentiallyCompleteClassType) || Predicates.isTypedExpression(right, isPotentiallyCompleteClassType)) {
-            return selectOperatorOverload(context, ast, op, [left, right]);
+            let overload = selectOperatorOverload(context, ast, op, [left, right]);
+            if (overload) {
+                return overload;
+            }
         }
 
         if (Predicates.isTypedExpression(left, isPointerType) || Predicates.isTypedExpression(left, isBoundedArrayType, "lvalue")) {
@@ -1970,6 +2080,63 @@ export class RelationalBinaryOperatorExpression extends BinaryOperatorExpression
 
     public describeEvalResult(depth: number): ConstructDescription {
         throw new Error("Method not implemented.");
+    }
+
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, ec: SemanticContext): boolean {
+        if (other.construct_type === this.construct_type) {
+            if(other.operator === this.operator && this.areChildrenSemanticallyEquivalent(other, ec)) {
+                return true;
+            }
+
+            switch(this.operator) {
+                // commutative operators
+                case "!=":
+                case "==":
+                    if (other.operator === this.operator
+                        && areSemanticallyEquivalent(this.left, other.right, ec)
+                        && areSemanticallyEquivalent(this.right, other.left, ec)) {
+                        return true;
+                    }
+                    break;
+                case "<":
+                    if (other.operator === ">"
+                        && areSemanticallyEquivalent(this.left, other.right, ec)
+                        && areSemanticallyEquivalent(this.right, other.left, ec)) {
+                        return true;
+                    }
+                    break;
+                case "<=":
+                    if (other.operator === ">="
+                        && areSemanticallyEquivalent(this.left, other.right, ec)
+                        && areSemanticallyEquivalent(this.right, other.left, ec)) {
+                        return true;
+                    }
+                    break;
+                case ">":
+                    if (other.operator === "<"
+                        && areSemanticallyEquivalent(this.left, other.right, ec)
+                        && areSemanticallyEquivalent(this.right, other.left, ec)) {
+                        return true;
+                    }
+                    break;
+                case ">=":
+                    if (other.operator === "<="
+                        && areSemanticallyEquivalent(this.left, other.right, ec)
+                        && areSemanticallyEquivalent(this.right, other.left, ec)) {
+                        return true;
+                    }
+                    break;
+                default:
+                    assertNever(this.operator);
+                
+            }
+        }
+
+        if (other instanceof IntegralToBooleanConversion) {
+            return checkForZeroEquivalence(other, this, ec);
+        }
+        
+        return false;
     }
 }
 
@@ -2052,6 +2219,18 @@ export class PointerComparisonExpression extends BinaryOperatorExpression<Relati
     public describeEvalResult(depth: number): ConstructDescription {
         throw new Error("Method not implemented.");
     }
+
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, ec: SemanticContext): boolean {
+        if (other.construct_type === this.construct_type) {
+            return other.operator === this.operator
+                && this.areChildrenSemanticallyEquivalent(other, ec);
+        }
+        if (other instanceof PointerToBooleanConversion) {
+            return checkForNullptrEquivalence(other, this, ec);
+        }
+        
+        return false;
+    }
 }
 
 export interface TypedPointerComparisonExpression extends PointerComparisonExpression, t_TypedExpression {
@@ -2094,15 +2273,6 @@ export class RuntimePointerComparisonExpression<OperandT extends PointerType = P
     }
 }
 
-export interface LogicalBinaryOperatorExpressionASTNode extends ASTNode {
-    readonly construct_type: "logical_binary_operator_expression";
-    readonly operator: t_LogicalBinaryOperators;
-    readonly left: ExpressionASTNode;
-    readonly right: ExpressionASTNode;
-    readonly associativity: "left";
-}
-
-type t_LogicalBinaryOperators = "&&" | "||";
 
 export class LogicalBinaryOperatorExpression extends BinaryOperatorExpression<LogicalBinaryOperatorExpressionASTNode> {
     public readonly construct_type = "logical_binary_operator_expression";
@@ -2237,90 +2407,6 @@ export class RuntimeLogicalBinaryOperatorExpression extends RuntimeExpression<Bo
     }
 }
 
-export interface PointerToMemberExpressionASTNode extends ASTNode {
-    readonly construct_type: "pointer_to_member_expression";
-}
-
-export interface CStyleCastExpressionASTNode extends ASTNode {
-    readonly construct_type: "c_style_cast_expression";
-}
-
-export type UnaryOperatorExpressionASTNode =
-    PrefixIncrementExpressionASTNode |
-    DereferenceExpressionASTNode |
-    AddressOfExpressionASTNode |
-    UnaryPlusExpressionASTNode |
-    UnaryMinusExpressionASTNode |
-    LogicalNotExpressionASTNode |
-    BitwiseNotExpressionASTNode |
-    SizeofExpressionASTNode |
-    SizeofTypeExpressionASTNode |
-    NewExpressionASTNode |
-    DeleteExpressionASTNode |
-    DeleteArrayExpressionASTNode;
-
-export interface PrefixIncrementExpressionASTNode extends ASTNode {
-    readonly construct_type: "prefix_increment_expression";
-    readonly operator: "++" | "--";
-    readonly operand: ExpressionASTNode;
-}
-
-export interface DereferenceExpressionASTNode extends ASTNode {
-    readonly construct_type: "dereference_expression";
-    readonly operator: "*";
-    readonly operand: ExpressionASTNode;
-}
-
-export interface AddressOfExpressionASTNode extends ASTNode {
-    readonly construct_type: "address_of_expression";
-    readonly operator: "&";
-    readonly operand: ExpressionASTNode;
-}
-
-export interface UnaryPlusExpressionASTNode extends ASTNode {
-    readonly construct_type: "unary_plus_expression";
-    readonly operator: "+";
-    readonly operand: ExpressionASTNode;
-}
-
-export interface UnaryMinusExpressionASTNode extends ASTNode {
-    readonly construct_type: "unary_minus_expression";
-    readonly operator: "-";
-    readonly operand: ExpressionASTNode;
-}
-
-export interface LogicalNotExpressionASTNode extends ASTNode {
-    readonly construct_type: "logical_not_expression";
-    readonly operator: "!";
-    readonly operand: ExpressionASTNode;
-}
-
-export interface BitwiseNotExpressionASTNode extends ASTNode {
-    readonly construct_type: "bitwise_not_expression";
-}
-
-export interface SizeofExpressionASTNode extends ASTNode {
-    readonly construct_type: "sizeof_expression";
-}
-
-export interface SizeofTypeExpressionASTNode extends ASTNode {
-    readonly construct_type: "sizeof_type_expression";
-}
-
-export interface NewExpressionASTNode extends ASTNode {
-    readonly construct_type: "new_expression";
-}
-
-export interface DeleteExpressionASTNode extends ASTNode {
-    readonly construct_type: "delete_expression";
-}
-
-export interface DeleteArrayExpressionASTNode extends ASTNode {
-    readonly construct_type: "delete_array_expression";
-}
-
-type t_UnaryOperators = "++" | "--" | "*" | "&" | "+" | "-" | "!" | "~" | "sizeof" | "new" | "delete" | "delete[]";
-
 abstract class UnaryOperatorExpression<ASTType extends UnaryOperatorExpressionASTNode = UnaryOperatorExpressionASTNode> extends Expression<ASTType> {
 
     public abstract readonly type?: CompleteObjectType | VoidType; // VoidType is due to delete, delete[]
@@ -2369,7 +2455,7 @@ export interface RuntimeUnaryOperatorExpression extends RuntimeExpression<Comple
 export class PrefixIncrementExpression extends UnaryOperatorExpression<PrefixIncrementExpressionASTNode> {
     public readonly construct_type = "prefix_increment_expression";
 
-    public readonly type?: ArithmeticType | PointerToCompleteType;
+    public readonly type?: ArithmeticType | PointerToCompleteObjectType;
     public readonly valueCategory = "lvalue";
 
     public readonly operand: Expression;
@@ -2392,7 +2478,7 @@ export class PrefixIncrementExpression extends UnaryOperatorExpression<PrefixInc
         else if (this.operator === "--" && Predicates.isTypedExpression(operand, isType(Bool))) {
             this.addNote(CPPError.expr.prefixIncrement.decrement_bool_prohibited(this));
         }
-        else if (Predicates.isTypedExpression(operand, isArithmeticType) || Predicates.isTypedExpression(operand, isPointerToCompleteType)) {
+        else if (Predicates.isTypedExpression(operand, isArithmeticType) || Predicates.isTypedExpression(operand, isPointerToCompleteObjectType)) {
             this.type = operand.type;
             if (operand.type.isConst) {
                 this.addNote(CPPError.expr.prefixIncrement.const_prohibited(this));
@@ -2412,18 +2498,18 @@ export class PrefixIncrementExpression extends UnaryOperatorExpression<PrefixInc
     }
 }
 
-export interface TypedPrefixIncrementExpression<T extends ArithmeticType | PointerToCompleteType = ArithmeticType | PointerToCompleteType> extends PrefixIncrementExpression, t_TypedExpression {
+export interface TypedPrefixIncrementExpression<T extends ArithmeticType | PointerToCompleteObjectType = ArithmeticType | PointerToCompleteObjectType> extends PrefixIncrementExpression, t_TypedExpression {
     readonly type: T;
     readonly operand: TypedExpression<T, "lvalue">;
 }
 
-export interface CompiledPrefixIncrementExpression<T extends ArithmeticType | PointerToCompleteType = ArithmeticType | PointerToCompleteType> extends TypedPrefixIncrementExpression<T>, SuccessfullyCompiled {
+export interface CompiledPrefixIncrementExpression<T extends ArithmeticType | PointerToCompleteObjectType = ArithmeticType | PointerToCompleteObjectType> extends TypedPrefixIncrementExpression<T>, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
     readonly operand: CompiledExpression<T, "lvalue">;
 }
 
-export class RuntimePrefixIncrementExpression<T extends ArithmeticType | PointerToCompleteType> extends SimpleRuntimeExpression<T, "lvalue", CompiledPrefixIncrementExpression<T>> {
+export class RuntimePrefixIncrementExpression<T extends ArithmeticType | PointerToCompleteObjectType> extends SimpleRuntimeExpression<T, "lvalue", CompiledPrefixIncrementExpression<T>> {
 
     public operand: RuntimeExpression<T, "lvalue">;
 
@@ -2435,7 +2521,7 @@ export class RuntimePrefixIncrementExpression<T extends ArithmeticType | Pointer
 
     protected operate() {
 
-        let obj: CPPObject<ArithmeticType | PointerToCompleteType> = this.operand.evalResult;
+        let obj: CPPObject<ArithmeticType | PointerToCompleteObjectType> = this.operand.evalResult;
         let prevValue = obj.getValue();
         // TODO: add alert if value is invalid??
         // e.g. readValueWithAlert(evalValue, sim, this.from, inst.childInstances.from);
@@ -3144,7 +3230,7 @@ export class SubscriptExpression extends Expression<SubscriptExpressionASTNode> 
 
         if (this.operand.isWellTyped()) {
             if (Predicates.isTypedExpression(this.operand, isPointerType)) {
-                if (this.operand.type.isPointerToCompleteType()) {
+                if (this.operand.type.isPointerToCompleteObjectType()) {
                     this.type = this.operand.type.ptrTo;
                 }
                 else {
@@ -3168,10 +3254,8 @@ export class SubscriptExpression extends Expression<SubscriptExpressionASTNode> 
 
         // Consider an assignment operator overload if the LHS is class type
         if (Predicates.isTypedExpression(operand, isPotentiallyCompleteClassType)) {
-            let overload = selectOperatorOverload(context, ast, "[]", [operand, offset]);
-            if (overload) {
-                return overload;
-            }
+            return selectOperatorOverload(context, ast, "[]", [operand, offset]) ??
+                new InvalidOperatorOverloadExpression(context, ast, "[]", [operand, offset]);;
         }
 
         return new SubscriptExpression(context, ast, operand, offset);
@@ -3316,13 +3400,13 @@ export class DotExpression extends Expression<DotExpressionASTNode> {
         let entityOrError = entityLookup(this, lookupResult);
         switch (entityOrError) {
             case "not_found":
-                this.addNote(CPPError.expr.dot.no_such_member(this, classType, stringifyIdentifier(memberName)));
+                this.addNote(CPPError.expr.dot.no_such_member(this, classType, identifierToString(memberName)));
                 break;
             case "ambiguous":
-                this.addNote(CPPError.expr.dot.ambiguous_member(this, stringifyIdentifier(memberName)));
+                this.addNote(CPPError.expr.dot.ambiguous_member(this, identifierToString(memberName)));
                 break;
             case "class_found":
-                this.addNote(CPPError.expr.dot.class_entity_found(this, stringifyIdentifier(memberName)));
+                this.addNote(CPPError.expr.dot.class_entity_found(this, identifierToString(memberName)));
                 break;
             default:
                 if (entityOrError.declarationKind === "function") {
@@ -3355,6 +3439,17 @@ export class DotExpression extends Expression<DotExpressionASTNode> {
     //             others: [this]
     //         };
     //     }
+    
+    public entitiesUsed() {
+        return this.entity ? [this.entity] : [];
+    }
+
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, ec: SemanticContext): boolean {
+        return other.construct_type === this.construct_type
+            && this.memberName === other.memberName
+            && areSemanticallyEquivalent(this.operand, other.operand, ec)
+            && areEntitiesSemanticallyEquivalent(this.entity, other.entity, ec);
+    }
 }
 
 export interface TypedObjectDotExpression<T extends PotentiallyCompleteObjectType = PotentiallyCompleteObjectType> extends DotExpression, t_TypedExpression {
@@ -3550,13 +3645,13 @@ export class ArrowExpression extends Expression<ArrowExpressionASTNode> {
         let entityOrError = entityLookup(this, lookupResult);
         switch (entityOrError) {
             case "not_found":
-                this.addNote(CPPError.expr.arrow.no_such_member(this, classType, stringifyIdentifier(memberName)));
+                this.addNote(CPPError.expr.arrow.no_such_member(this, classType, identifierToString(memberName)));
                 break;
             case "ambiguous":
-                this.addNote(CPPError.expr.arrow.ambiguous_member(this, stringifyIdentifier(memberName)));
+                this.addNote(CPPError.expr.arrow.ambiguous_member(this, identifierToString(memberName)));
                 break;
             case "class_found":
-                this.addNote(CPPError.expr.arrow.class_entity_found(this, stringifyIdentifier(memberName)));
+                this.addNote(CPPError.expr.arrow.class_entity_found(this, identifierToString(memberName)));
                 break;
             default:
                 if (entityOrError.declarationKind === "function") {
@@ -3589,6 +3684,17 @@ export class ArrowExpression extends Expression<ArrowExpressionASTNode> {
     //             others: [this]
     //         };
     //     }
+    
+    public entitiesUsed() {
+        return this.entity ? [this.entity] : [];
+    }
+
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, ec: SemanticContext): boolean {
+        return other.construct_type === this.construct_type
+            && this.memberName === other.memberName
+            && areSemanticallyEquivalent(this.operand, other.operand, ec)
+            && areEntitiesSemanticallyEquivalent(this.entity, other.entity, ec);
+    }
 }
 
 export interface TypedObjectArrowExpression<T extends PotentiallyCompleteObjectType = PotentiallyCompleteObjectType> extends ArrowExpression, t_TypedExpression {
@@ -3746,63 +3852,6 @@ export class RuntimeFunctionArrowExpression extends RuntimeExpression<FunctionTy
 
 
 
-export type PostfixExpressionASTNode =
-    StaticCastExpressionASTNode |
-    DynamicCastExpressionASTNode |
-    ReinterpretCastExpressionASTNode |
-    ConstCastExpressionASTNode |
-    SubscriptExpressionASTNode |
-    FunctionCallExpressionASTNode |
-    DotExpressionASTNode |
-    ArrowExpressionASTNode |
-    PostfixIncrementExpressionASTNode;
-
-
-export interface StaticCastExpressionASTNode extends ASTNode {
-    readonly construct_type: "static_cast_expression";
-}
-
-export interface DynamicCastExpressionASTNode extends ASTNode {
-    readonly construct_type: "dynamic_cast_expression";
-}
-
-export interface ReinterpretCastExpressionASTNode extends ASTNode {
-    readonly construct_type: "reinterpret_cast_expression";
-}
-
-export interface ConstCastExpressionASTNode extends ASTNode {
-    readonly construct_type: "const_cast_expression";
-}
-
-export interface SubscriptExpressionASTNode extends ASTNode {
-    readonly construct_type: "subscript_expression";
-    readonly operand: ExpressionASTNode;
-    readonly offset: ExpressionASTNode;
-}
-
-
-
-
-
-export interface DotExpressionASTNode extends ASTNode {
-    readonly construct_type: "dot_expression";
-    readonly operand: ExpressionASTNode;
-    readonly member: IdentifierASTNode;
-}
-
-export interface ArrowExpressionASTNode extends ASTNode {
-    readonly construct_type: "arrow_expression";
-    readonly operand: ExpressionASTNode;
-    readonly member: IdentifierASTNode;
-}
-
-export interface PostfixIncrementExpressionASTNode extends ASTNode {
-    readonly construct_type: "postfix_increment_expression";
-    readonly operand: ExpressionASTNode;
-    readonly operator: "++" | "--";
-}
-
-
 
 
 
@@ -3810,7 +3859,7 @@ export interface PostfixIncrementExpressionASTNode extends ASTNode {
 export class PostfixIncrementExpression extends Expression<PostfixIncrementExpressionASTNode> {
     public readonly construct_type = "postfix_increment_expression";
 
-    public readonly type?: ArithmeticType | PointerToCompleteType;
+    public readonly type?: ArithmeticType | PointerToCompleteObjectType;
     public readonly valueCategory = "prvalue";
 
     public readonly operand: Expression;
@@ -3833,7 +3882,7 @@ export class PostfixIncrementExpression extends Expression<PostfixIncrementExpre
         else if (this.operator === "--" && Predicates.isTypedExpression(operand, isType(Bool))) {
             this.addNote(CPPError.expr.postfixIncrement.decrement_bool_prohibited(this));
         }
-        else if (Predicates.isTypedExpression(operand, isArithmeticType) || Predicates.isTypedExpression(operand, isPointerToCompleteType)) {
+        else if (Predicates.isTypedExpression(operand, isArithmeticType) || Predicates.isTypedExpression(operand, isPointerToCompleteObjectType)) {
 
             // Use cv-unqualified type since result is a prvalue
             this.type = operand.type.cvUnqualified();
@@ -3860,18 +3909,18 @@ export class PostfixIncrementExpression extends Expression<PostfixIncrementExpre
     }
 }
 
-export interface TypedPostfixIncrementExpression<T extends ArithmeticType | PointerToCompleteType = ArithmeticType | PointerToCompleteType> extends PostfixIncrementExpression, t_TypedExpression {
+export interface TypedPostfixIncrementExpression<T extends ArithmeticType | PointerToCompleteObjectType = ArithmeticType | PointerToCompleteObjectType> extends PostfixIncrementExpression, t_TypedExpression {
     readonly type: T;
     readonly operand: TypedExpression<T, "lvalue">;
 }
 
-export interface CompiledPostfixIncrementExpression<T extends ArithmeticType | PointerToCompleteType = ArithmeticType | PointerToCompleteType> extends TypedPostfixIncrementExpression<T>, SuccessfullyCompiled {
+export interface CompiledPostfixIncrementExpression<T extends ArithmeticType | PointerToCompleteObjectType = ArithmeticType | PointerToCompleteObjectType> extends TypedPostfixIncrementExpression<T>, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
     readonly operand: CompiledExpression<T, "lvalue">;
 }
 
-export class RuntimePostfixIncrementExpression<T extends ArithmeticType | PointerToCompleteType = ArithmeticType | PointerToCompleteType> extends SimpleRuntimeExpression<T, "prvalue", CompiledPostfixIncrementExpression<T>> {
+export class RuntimePostfixIncrementExpression<T extends ArithmeticType | PointerToCompleteObjectType = ArithmeticType | PointerToCompleteObjectType> extends SimpleRuntimeExpression<T, "prvalue", CompiledPostfixIncrementExpression<T>> {
 
     public operand: RuntimeExpression<T, "lvalue">;
 
@@ -3883,7 +3932,7 @@ export class RuntimePostfixIncrementExpression<T extends ArithmeticType | Pointe
 
     protected operate() {
 
-        let obj: CPPObject<ArithmeticType | PointerToCompleteType> = this.operand.evalResult;
+        let obj: CPPObject<ArithmeticType | PointerToCompleteObjectType> = this.operand.evalResult;
         let prevValue = obj.getValue();
         // TODO: add alert if value is invalid??
         // e.g. readValueWithAlert(evalValue, sim, this.from, inst.childInstances.from);
@@ -3922,142 +3971,6 @@ export class RuntimePostfixIncrementExpression<T extends ArithmeticType | Pointe
     }
 
 }
-
-
-
-
-
-// export var NewExpression = Expression.extend({
-//     _name: "NewExpression",
-//     valueCategory: "prvalue",
-//     initIndex: "allocate",
-//     compile : function(){
-
-//         // Compile the type specifier
-//         this.typeSpec = TypeSpecifier.instance(this.ast.specs, {parent:this});
-//         this.typeSpec.compile();
-
-//         this.heapType = this.typeSpec.type;
-
-//         // Compile declarator if it exists
-//         if(this.ast.declarator) {
-//             this.declarator = Declarator.instance(this.ast.declarator, {parent: this});
-//             this.declarator.compile({baseType: this.heapType});
-//             this.heapType = this.declarator.type;
-//         }
-
-//         if (isA(this.heapType, Types.Array)){
-//             // Note: this is Pointer, rather than ArrayPointer, since the latter should only be used in runtime contexts
-//             this.type = Types.Pointer.instance(this.heapType.elemType);
-//             if (this.declarator.dynamicLengthExpression){
-//                 this.dynamicLength = this.i_createAndCompileChildExpr(this.declarator.dynamicLengthExpression, Types.Int.instance());
-//                 this.initIndex = "length";
-//             }
-//         }
-//         else {
-//             this.type = Types.Pointer.instance(this.heapType);
-//         }
-
-//         var entity = NewObjectEntity.instance(this.heapType);
-
-//         var initCode = this.ast.initializer || {args: []};
-//         if (isA(this.heapType, Types.Class) || initCode.args.length == 1){
-//             this.initializer = NewDirectInitializer.instance(initCode, {parent: this});
-//             this.initializer.compile(entity);
-//         }
-//         else if (initCode.args.length == 0){
-//             this.initializer = NewDefaultInitializer.instance(initCode, {parent: this});
-//             this.initializer.compile(entity);
-//         }
-//         else{
-//             this.addNote(CPPError.declaration.init.scalar_args(this, this.heapType));
-//         }
-
-//         this.compileTemporarires();
-//     },
-
-
-//     createInstance : function(sim, parent){
-//         var inst = Expression.createInstance.apply(this, arguments);
-//         inst.initializer = this.initializer.createInstance(sim, inst);
-//         return inst;
-//     },
-
-//     upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-//         if (inst.index === "length"){
-//             inst.dynamicLength = this.dynamicLength.createAndPushInstance(sim, inst);
-//             inst.index = "allocate";
-//             return true;
-//         }
-//         else if (inst.index === "init"){
-//             sim.push(inst.initializer);
-//             inst.index = "operate";
-//             return true;
-//         }
-//     },
-
-//     stepForward : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-
-//         // Dynamic memory - doesn't get added to any scope, but we create on the heap
-
-//         if (inst.index === "allocate") {
-//             var heapType = this.heapType;
-
-//             // If it's an array, we need to use the dynamic length
-//             if (this.dynamicLength) {
-//                 var len = inst.dynamicLength.evalResult.rawValue();
-//                 if (len === 0){
-//                     sim.alert("Sorry, but I can't allocate a dynamic array of zero length. I know there's technically an old C-style hack that uses zero-length arrays, but hey, I'm just a lobster. I'll go ahead and allocate an array of length 1 instead.");
-//                     len = 1;
-//                 }
-//                 else if (len < 0){
-//                     sim.undefinedBehavior("I can't allocate an array of negative length. That doesn't even make sense. I'll just allocate an array of length 1 instead.");
-//                     len = 1;
-//                 }
-//                 heapType = Types.Array.instance(this.heapType.elemType, len);
-//             }
-
-//             var obj = DynamicObject.instance(heapType);
-
-//             sim.memory.heap.allocateNewObject(obj);
-//             sim.i_pendingNews.push(obj);
-//             inst.i_allocatedObject = obj;
-//             inst.initializer.setAllocatedObject(obj);
-//             inst.index = "init"; // Always use an initializer. If there isn't one, then it will just be default
-//             //if (this.initializer){
-//             //    inst.index = "init";
-//             //}
-//             //else{
-//             //    inst.index = "operate";
-//             //}
-//             //return true;
-//         }
-//         else if (inst.index === "operate") {
-//             if (isA(this.heapType, Types.Array)){
-//                 // RTTI for array pointer
-//                 inst.setEvalResult(Value.instance(inst.i_allocatedObject.address, Types.ArrayPointer.instance(inst.i_allocatedObject)));
-//             }
-//             else{
-//                 // RTTI for object pointer
-//                 inst.setEvalResult(Value.instance(inst.i_allocatedObject.address, Types.ObjectPointer.instance(inst.i_allocatedObject)));
-//             }
-//             sim.i_pendingNews.pop();
-//             this.done(sim, inst);
-//         }
-
-//     },
-//     explain : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-//         if (this.initializer){
-//             return {message: "A new object of type " + this.heapType.describe().name + " will be created on the heap. " + this.initializer.explain(sim, inst.initializer).message};
-//         }
-//         else{
-//             return {message: "A new object of type " + this.heapType.describe().name + " will be created on the heap."};
-//         }
-//     }
-// });
-
-
-
 
 // export var Delete  = Expression.extend({
 //     _name: "Delete",
@@ -4107,53 +4020,7 @@ export class RuntimePostfixIncrementExpression<T extends ArithmeticType | Pointe
 //                 return;
 //             }
 
-//             // If it's an array pointer, just grab array object to delete from RTTI.
-//             // Otherwise ask memory what object it's pointing to.
-//             var obj;
-//             if (isA(ptr.type, Types.ArrayPointer)){
-//                 obj = ptr.type.arrObj;
-//             }
-//             else{
-//                 obj = sim.memory.dereference(ptr);
-//             }
-
-//             if (!isA(obj, DynamicObject)) {
-//                 if (isA(obj, AutoObject)) {
-//                     sim.undefinedBehavior("Oh no! The pointer you gave to <span class='code'>delete</span> was pointing to something on the stack!");
-//                 }
-//                 else {
-//                     sim.undefinedBehavior("Oh no! The pointer you gave to <span class='code'>delete</span> wasn't pointing to a valid heap object.");
-//                 }
-//                 this.done(sim, inst);
-//                 return;
-//             }
-
-//             if (isA(obj.type, Types.Array)){
-//                 sim.undefinedBehavior("You tried to delete an array object with a <span class='code'>delete</span> expression. Did you forget to use the delete[] syntax?");
-//                 this.done(sim, inst);
-//                 return;
-//             }
-
-//             //if (!similarType(obj.type, this.operand.type.ptrTo)) {
-//             //    sim.alert("The type of the pointer you gave to <span class='code'>delete</span> is different than the type of the object I found on the heap - that's a bad thing!");
-//             //    this.done(sim, inst);
-//             //    return;
-//             //}
-
-//             if (!obj.isAlive()) {
-//                 DeadObjectMessage.instance(obj, {fromDelete:true}).display(sim, inst);
-//                 this.done(sim, inst);
-//                 return;
-//             }
-
-//             inst.alreadyDestructed = true;
-//             if(this.funcCall){
-//                 // Set obj as receiver for virtual destructor lookup
-//                 var dest = this.funcCall.createAndPushInstance(sim, inst, obj);
-//             }
-//             else{
-//                 return true;
-//             }
+//             
 //         }
 //         else{
 //             var deleted = sim.memory.heap.deleteObject(inst.childInstances.operand.evalResult.value, inst);
@@ -4247,9 +4114,6 @@ export class RuntimePostfixIncrementExpression<T extends ArithmeticType | Pointe
 // });
 
 
-export interface ConstructExpressionASTNode extends ASTNode {
-    readonly construct_type: "construct_expression";
-}
 
 // // TODO: This appears to work but I'm pretty sure I copy/pasted from NewExpression and never finished changing it.
 // export var ConstructExpression = Expression.extend({
@@ -4332,11 +4196,6 @@ export interface ConstructExpressionASTNode extends ASTNode {
 //     return names.map(function(id){return id.identifier}).join("::")
 // }
 
-export interface IdentifierExpressionASTNode extends ASTNode {
-    readonly construct_type: "identifier_expression";
-    readonly identifier: IdentifierASTNode;
-}
-
 // TODO: maybe Identifier should be a non-executable construct and then have a 
 // TODO: make separate classes for qualified and unqualified IDs?
 export class IdentifierExpression extends Expression<IdentifierExpressionASTNode> {
@@ -4368,13 +4227,13 @@ export class IdentifierExpression extends Expression<IdentifierExpressionASTNode
         let entityOrError = entityLookup(this, lookupResult);
         switch (entityOrError) {
             case "not_found":
-                this.addNote(CPPError.iden.not_found(this, stringifyIdentifier(this.name)));
+                this.addNote(CPPError.iden.not_found(this, identifierToString(this.name)));
                 break;
             case "ambiguous":
-                this.addNote(CPPError.iden.ambiguous(this, stringifyIdentifier(this.name)));
+                this.addNote(CPPError.iden.ambiguous(this, identifierToString(this.name)));
                 break;
             case "class_found":
-                this.addNote(CPPError.iden.class_entity_found(this, stringifyIdentifier(this.name)));
+                this.addNote(CPPError.iden.class_entity_found(this, identifierToString(this.name)));
                 break;
             default:
                 this.entity = entityOrError;
@@ -4415,6 +4274,15 @@ export class IdentifierExpression extends Expression<IdentifierExpressionASTNode
     // explain : function(sim: Simulation, rtConstruct: RuntimeConstruct) {
     //     return {message: this.entity.name};
     // }
+
+    public entitiesUsed() {
+        return this.entity ? [this.entity] : [];
+    }
+
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, ec: SemanticContext): boolean {
+        return other.construct_type === this.construct_type
+            && areEntitiesSemanticallyEquivalent(this.entity, other.entity, ec);
+    }
 }
 
 type EntityLookupError = "not_found" | "ambiguous" | "class_found";
@@ -4529,11 +4397,6 @@ export class RuntimeFunctionIdentifierExpression extends RuntimeExpression<Funct
 
 
 
-
-export interface ThisExpressionASTNode extends ASTNode {
-    readonly construct_type: "this_expression";
-}
-
 export class ThisExpression extends Expression<ThisExpressionASTNode> {
     public readonly construct_type = "this_expression";
 
@@ -4585,6 +4448,67 @@ export class RuntimeThisExpression<T extends PointerType<CompleteClassType> = Po
 
 }
 
+
+
+
+export class NullptrExpression extends Expression<NullptrExpressionASTNode> {
+    public readonly construct_type = "nullptr_expression";
+
+    public readonly type = Int.INT;
+    public readonly valueCategory = "prvalue";
+
+    public constructor(context: ExpressionContext, ast: NullptrExpressionASTNode) {
+        super(context, ast);
+    }
+
+    public static createFromAST(ast: NullptrExpressionASTNode, context: ExpressionContext): NullptrExpression {
+        return new NullptrExpression(context, ast);
+    }
+
+    public createDefaultOutlet(this: CompiledNullptrExpression, element: JQuery, parent?: ConstructOutlet) {
+        return new NullptrExpressionOutlet(element, this, parent);
+    }
+
+    public describeEvalResult(depth: number): ConstructDescription {
+        throw new Error("Method not implemented.");
+    }
+}
+
+export interface TypedNullptrExpression extends NullptrExpression, t_TypedExpression {
+
+}
+
+export interface CompiledNullptrExpression extends TypedNullptrExpression, SuccessfullyCompiled {
+    readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
+}
+
+export class RuntimeNullptrExpression extends SimpleRuntimeExpression<Int, "prvalue", CompiledNullptrExpression> {
+
+    public constructor(model: CompiledNullptrExpression, parent: RuntimeConstruct) {
+        super(model, parent);
+    }
+
+    protected operate() {
+        this.setEvalResult(Int.ZERO);
+    }
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // export var EntityExpression  = Expression.extend({
 //     _name: "EntityExpression",
 //     valueCategory: "lvalue",
@@ -4605,19 +4529,6 @@ export class RuntimeThisExpression<T extends PointerType<CompleteClassType> = Po
 
 
 
-
-function parseCPPChar(litValue: string) {
-    return escapeString(litValue).charCodeAt(0);
-};
-
-const literalJSParse = {
-    "int": parseInt,
-    "float": parseFloat,
-    "double": parseFloat,
-    "bool": (b: boolean) => (b ? 1 : 0),
-    "char": parseCPPChar
-};
-
 const literalTypes = {
     "int": Int.INT,
     "float": Double.DOUBLE,
@@ -4626,35 +4537,6 @@ const literalTypes = {
     "char": Char.CHAR
 };
 
-export function parseNumericLiteralValueFromAST(ast: NumericLiteralASTNode) {
-    return literalJSParse[ast.type](<any>ast.value);
-}
-
-export type NumericLiteralASTNode = FloatLiteralASTNode | IntLiteralASTNode | CharLiteralASTNode | BoolLiteralASTNode;
-
-export interface FloatLiteralASTNode extends ASTNode {
-    readonly construct_type: "numeric_literal_expression";
-    readonly type: "float";
-    readonly value: number;
-}
-
-export interface IntLiteralASTNode extends ASTNode {
-    readonly construct_type: "numeric_literal_expression";
-    readonly type: "int";
-    readonly value: number;
-}
-
-export interface CharLiteralASTNode extends ASTNode {
-    readonly construct_type: "numeric_literal_expression";
-    readonly type: "char";
-    readonly value: string;
-}
-
-export interface BoolLiteralASTNode extends ASTNode {
-    readonly construct_type: "numeric_literal_expression";
-    readonly type: "char";
-    readonly value: boolean;
-}
 
 export class NumericLiteralExpression extends Expression<NumericLiteralASTNode> {
     public readonly construct_type = "numeric_literal_expression";
@@ -4696,10 +4578,11 @@ export class NumericLiteralExpression extends Expression<NumericLiteralASTNode> 
         throw new Error("Method not implemented.");
     }
 
-    public isIntegerZero() {
-        return
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, ec: SemanticContext): boolean {
+        return other.construct_type === this.construct_type
+            && sameType(this.type, other.type)
+            && this.value.rawValue === other.value.rawValue;
     }
-
     // describeEvalResult : function(depth, sim, inst){
     //     var str = this.value.toString();
     //     return {name: str, message: str};
@@ -4736,11 +4619,6 @@ export class RuntimeNumericLiteral<T extends ArithmeticType = ArithmeticType> ex
     }
 }
 
-
-export interface StringLiteralASTNode extends ASTNode {
-    readonly construct_type: "string_literal_expression";
-    readonly value: string;
-}
 
 export class StringLiteralExpression extends Expression<StringLiteralASTNode> {
     public readonly construct_type = "string_literal_expression";
@@ -4815,10 +4693,6 @@ export class RuntimeStringLiteralExpression extends RuntimeExpression<BoundedArr
 
 
 
-export interface ParenthesesExpressionASTNode extends ASTNode {
-    readonly construct_type: "parentheses_expression";
-    readonly subexpression: ExpressionASTNode;
-}
 
 export class ParenthesesExpression extends Expression<ParenthesesExpressionASTNode> {
     public readonly construct_type = "parentheses_expression";
@@ -4847,6 +4721,18 @@ export class ParenthesesExpression extends Expression<ParenthesesExpressionASTNo
 
     public describeEvalResult(depth: number): ConstructDescription {
         throw new Error("Method not implemented.");
+    }
+
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, ec: SemanticContext): boolean {
+        if (other.construct_type === this.construct_type) {
+            return areSemanticallyEquivalent(this.subexpression, other.subexpression, ec);
+        }
+
+        if (areSemanticallyEquivalent(this.subexpression, other, ec)) {
+            return true;
+        }
+
+        return false;
     }
 
     // isTailChild : function(child){
@@ -4895,12 +4781,6 @@ export class RuntimeParentheses<T extends ExpressionType = ExpressionType, V ext
     protected stepForwardImpl() {
         // Do nothing
     }
-}
-
-
-export interface InitializerListExpressionASTNode extends ASTNode {
-    readonly construct_type: "initializer_list_expression";
-    readonly elements: ExpressionASTNode[];
 }
 
 
@@ -5128,7 +5008,7 @@ export function overloadResolution<T extends FunctionType>(candidates: readonly 
             notes.push(CPPError.param.numParams(candidate.firstDeclaration));
         }
         // TODO: add back in with member functions
-        else if (candidate.isMemberFunction() && receiverType?.isConst && !candidate.type.receiverType?.isConst){
+        else if (candidate.isMemberFunction && receiverType?.isConst && !candidate.type.receiverType?.isConst){
             notes.push(CPPError.param.thisConst(candidate.firstDeclaration, receiverType));
         }
         else {
@@ -5204,7 +5084,11 @@ const MAGIC_FUNCTIONS: { [k in MAGIC_FUNCTION_NAMES]: MagicFunctionImpl } = {
         operate: (rt: RuntimeMagicFunctionCallExpression) => {
             let arg = <Value<Bool>>rt.args[0].evalResult;
             if (!arg.rawValue) {
+                console.log("assertion failed");
                 rt.sim.eventOccurred(SimulationEvent.ASSERTION_FAILURE, `Assertion failed on line ${rt.model.getNearestSourceReference().line}.`, true);
+            }
+            else {
+                console.log("assertion PASSED");
             }
         }
     },
@@ -5475,7 +5359,7 @@ export class ArrayToPointerConversion<T extends BoundedArrayType> extends Implic
     }
 
     public operate(fromEvalResult: VCResultTypes<BoundedArrayType, "lvalue">) {
-        return new Value(fromEvalResult.address, new ArrayPointerType(fromEvalResult));
+        return fromEvalResult.decayToPointer();
     }
 
     public createDefaultOutlet(this: CompiledArrayToPointerConversion, element: JQuery, parent?: ConstructOutlet) {
@@ -5506,7 +5390,8 @@ export class StreamToBoolConversion extends ImplicitConversion<CompleteClassType
     }
 
     public operate(fromEvalResult: VCResultTypes<CompleteClassType, "lvalue">) {
-        return new Value(1, Bool.BOOL);
+        // evaluates to false if .fail() is true, otherwise true
+        return new Value(fromEvalResult.getAuxiliaryData("stream").fail() ? 0 : 1, Bool.BOOL);
     }
 
     public createDefaultOutlet(this: CompiledStreamToBoolConversion, element: JQuery, parent?: ConstructOutlet) {
@@ -5668,10 +5553,7 @@ abstract class NoOpTypeConversion<FromType extends AtomicType, ToType extends At
     }
 }
 
-export interface IntegerLiteralZero extends CompiledNumericLiteralExpression {
-    readonly type: Int;
-    readonly value: Value<Int> & { rawValue: 0 };
-}
+export type IntegerLiteralZero = CompiledNumericLiteralExpression<Int> & {value: Value<Int> & { rawValue: 0}} | CompiledNullptrExpression;
 
 export class NullPointerConversion<P extends PointerType> extends NoOpTypeConversion<Int, P> {
     // public readonly construct_type = "NullPointerConversion";
@@ -5680,7 +5562,6 @@ export class NullPointerConversion<P extends PointerType> extends NoOpTypeConver
 
     public constructor(from: IntegerLiteralZero, toType: P) {
         super(from, toType);
-        assert(from.value.rawValue === 0);
     }
 
 }
@@ -5708,7 +5589,7 @@ export interface CompiledPointerConversion<FromType extends PointerType, ToType 
 
 }
 
-abstract class ToBooleanConversionBase<T extends AtomicType> extends TypeConversion<T, Bool> {
+export abstract class ToBooleanConversion<T extends AtomicType = AtomicType> extends TypeConversion<T, Bool> {
 
     public constructor(from: TypedExpression<T, "prvalue">) {
         super(from, Bool.BOOL);
@@ -5717,16 +5598,41 @@ abstract class ToBooleanConversionBase<T extends AtomicType> extends TypeConvers
     public operate(fromEvalResult: VCResultTypes<T, "prvalue">) {
         return new Value(fromEvalResult.rawValue === 0 ? 0 : 1, Bool.BOOL, fromEvalResult.isValid);
     }
+    
 }
 
-export class PointerToBooleanConversion<T extends PointerType> extends ToBooleanConversionBase<T> {
+export class PointerToBooleanConversion<T extends PointerType = PointerType> extends ToBooleanConversion<T> {
     // public readonly construct_type = "PointerToBooleanConversion";
+    
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, ec: SemanticContext): boolean {
+        if (other.construct_type === this.construct_type) {
+            return areSemanticallyEquivalent(this.from, other.from, ec);
+        }
+
+        if (other.construct_type === "pointer_comparison_expression") {
+            return checkForNullptrEquivalence(this, other, ec);
+        }
+
+        return false;
+    }
 }
-export class FloatingToBooleanConversion<T extends FloatingPointType> extends ToBooleanConversionBase<T> {
+export class FloatingToBooleanConversion<T extends FloatingPointType = FloatingPointType> extends ToBooleanConversion<T> {
     // public readonly construct_type = "FloatingToBooleanConversion";
 }
-export class IntegralToBooleanConversion<T extends IntegralType> extends ToBooleanConversionBase<T> {
+export class IntegralToBooleanConversion<T extends IntegralType = IntegralType> extends ToBooleanConversion<T> {
     // public readonly construct_type = "IntegralToBooleanConversion";
+    
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, ec: SemanticContext): boolean {
+        if (other.construct_type === this.construct_type) {
+            return areSemanticallyEquivalent(this.from, other.from, ec);
+        }
+
+        if (other.construct_type === "relational_binary_operator_expression") {
+            return checkForZeroEquivalence(this, other, ec);
+        }
+
+        return false;
+    }
 }
 
 export class IntegralPromotion<FromType extends IntegralType, ToType extends IntegralType> extends NoOpTypeConversion<FromType, ToType> {
@@ -5978,7 +5884,7 @@ export function integralPromotion(expr: TypedExpression<IntegralType, "prvalue">
 };
 
 export function isIntegerLiteralZero(from: Expression): from is IntegerLiteralZero {
-    return from instanceof NumericLiteralExpression && isType(from.type, Int) && from.value.rawValue === 0;
+    return from instanceof NullptrExpression || from instanceof NumericLiteralExpression && isType(from.type, Int) && from.value.rawValue === 0;
 }
 
 export function isConvertibleToPointer(from: Expression): from is SpecificTypedExpression<PointerType> | TypedExpression<BoundedArrayType, "lvalue"> | IntegerLiteralZero {
@@ -6057,7 +5963,7 @@ export function usualArithmeticConversions(leftOrig: SpecificTypedExpression<Ari
 export function selectOperatorOverload(context: ExpressionContext, ast: ExpressionASTNode, operator: t_OverloadableOperators, originalArgs: Expression[]) {
 
     if (!allWellTyped(originalArgs)) {
-        return new InvalidOperatorOverloadExpression(context, ast, operator, originalArgs);
+        return undefined;
     }
 
     let leftmost = originalArgs[0];
@@ -6083,7 +5989,7 @@ export function selectOperatorOverload(context: ExpressionContext, ast: Expressi
 
     // If we still don't have anything
     if (!lookupResult || !adjustedArgs) {
-        return new InvalidOperatorOverloadExpression(context, ast, operator, originalArgs);
+        return undefined;
     }
 
     // These are not possible since you can't have a variable or
@@ -6094,7 +6000,7 @@ export function selectOperatorOverload(context: ExpressionContext, ast: Expressi
     let selected = overloadResolution(lookupResult.overloads, adjustedArgs.map(arg => arg.type), receiverType).selected;
 
     if (selected) {
-        if (selected.isMemberFunction()) {
+        if (selected.isMemberFunction) {
             return new MemberOperatorOverloadExpression(context, ast, operator, <TypedExpression<CompleteClassType>>leftmost, adjustedArgs, selected);
         }
         else {
@@ -6102,7 +6008,7 @@ export function selectOperatorOverload(context: ExpressionContext, ast: Expressi
         }
     }
     else {
-        return new InvalidOperatorOverloadExpression(context, ast, operator, originalArgs);
+        return undefined;
     }
 }
 
@@ -6132,7 +6038,7 @@ export class NonMemberOperatorOverloadExpression extends Expression<ExpressionAS
 
     public constructor(context: ExpressionContext, ast: ExpressionASTNode | undefined,
                        operator: t_OverloadableOperators, args: readonly Expression[],
-                       selectedFunctionEntity: FunctionEntity | undefined) {
+                       selectedFunctionEntity: FunctionEntity) {
         super(context, ast);
 
         this.operator = operator;
@@ -6141,13 +6047,6 @@ export class NonMemberOperatorOverloadExpression extends Expression<ExpressionAS
         // If any arguments are not well typed, we can't select a function.
         if (!allWellTyped(args)) {
             // type, valueCategory, and call remain undefined
-            this.attachAll(args);
-            return;
-        }
-
-        if (!selectedFunctionEntity) {
-            // type, valueCategory, and call remain undefined
-            this.addNote(CPPError.expr.operatorOverload.no_such_overload(this, this.operator));
             this.attachAll(args);
             return;
         }
@@ -6268,7 +6167,7 @@ export class MemberOperatorOverloadExpression extends Expression<ExpressionASTNo
 
     public constructor(context: ExpressionContext, ast: ExpressionASTNode | undefined, operator: t_OverloadableOperators,
                        receiverExpression: TypedExpression<CompleteClassType>, args: readonly Expression[],
-                       selectedFunctionEntity: FunctionEntity | undefined) {
+                       selectedFunctionEntity: FunctionEntity) {
         super(context, ast);
 
         this.operator = operator;
@@ -6278,13 +6177,6 @@ export class MemberOperatorOverloadExpression extends Expression<ExpressionASTNo
         // If any arguments are not well typed, we can't select a function.
         if (!receiverExpression.isWellTyped() || !allWellTyped(args)) {
             // type, valueCategory, and call remain undefined
-            this.attachAll(args);
-            return;
-        }
-
-        if (!selectedFunctionEntity) {
-            // type, valueCategory, and call remain undefined
-            this.addNote(CPPError.expr.operatorOverload.no_such_overload(this, this.operator));
             this.attachAll(args);
             return;
         }

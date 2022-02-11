@@ -4,8 +4,8 @@
 
 /public/vendor
 
-/public/queue/js/
-/public/lobster/js/
+/public/js/
 /node_modules/
 
 env/
+dist/

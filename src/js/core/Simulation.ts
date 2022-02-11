@@ -2,14 +2,15 @@ import { Observable } from "../util/observe";
 import { RunnableProgram } from "./Program";
 import { Memory, Value } from "./runtimeEnvironment";
 import { RuntimeConstruct, RuntimeGlobalObjectAllocator } from "./constructs";
-import { CPPRandom, Mutable, escapeString, asMutable, assertNever } from "../util/util";
+import { CPPRandom, Mutable, escapeString, asMutable, assertNever, assert } from "../util/util";
 import { DynamicObject, MainReturnObject } from "./objects";
-import { Int, PointerType, Char, CompleteObjectType, AtomicType, FunctionType, PotentiallyCompleteObjectType, ReferenceType, ReferredType, ArithmeticType, AnalyticArithmeticType, isType } from "./types";
+import { Int, PointerType, Char, CompleteObjectType, AtomicType, FunctionType, PotentiallyCompleteObjectType, ReferenceType, ReferredType, ArithmeticType, AnalyticArithmeticType, isType, isIntegralType, IntegralType, SuccessParsingResult, ErrorParsingResult } from "./types";
 import { Initializer, RuntimeDirectInitializer } from "./initializers";
 import { PassByReferenceParameterEntity, PassByValueParameterEntity } from "./entities";
 import { CompiledExpression, RuntimeExpression } from "./expressionBase";
 import { RuntimeFunction } from "./functions";
 import { first, clone, trimStart } from "lodash";
+import { StandardInputStream } from "./streams";
 
 
 export enum SimulationEvent {
@@ -83,7 +84,7 @@ export type SimulationMessages =
     "eventOccurred";
 
 type SimulationOptions = {
-    cin?: SimulationInputStream,
+    cin?: StandardInputStream,
     start?: boolean
 };
 
@@ -110,7 +111,7 @@ export class Simulation {
     public readonly allOutput: string;
     public readonly outputProduced: readonly SimulationOutput[] = [];
 
-    public readonly cin: SimulationInputStream;
+    public readonly cin: StandardInputStream;
 
     public readonly rng: CPPRandom;
 
@@ -138,6 +139,8 @@ export class Simulation {
     public readonly eventsOccurred: {
         [p in SimulationEvent]: readonly string[];
     } = this._eventsOccurred;
+
+    public readonly hasAnyEventOccurred : boolean = false;
 
     // MAX_SPEED: -13445, // lol TODO
 
@@ -169,7 +172,7 @@ export class Simulation {
 
         this.allOutput = "";
         asMutable(this.outputProduced).length = 0;
-        this.cin = options.cin ?? new SimulationInputStream();
+        this.cin = options.cin ?? new StandardInputStream();
         this.rng = new CPPRandom();
 
         if(options.start) {
@@ -216,7 +219,7 @@ export class Simulation {
         // in this.callMain()
 
         this.callMain();
-        (<Mutable<this>>this).globalAllocator = this.program.globalObjectAllocator.createRuntimeConstruct(this);
+        (<Mutable<this>>this).globalAllocator = this.program.staticObjectAllocator.createRuntimeConstruct(this);
         this.push(this.globalAllocator);
 
         this.observable.send("started");
@@ -230,6 +233,7 @@ export class Simulation {
         (<Mutable<this>>this).mainFunction = new RuntimeFunction(this.program.mainFunction, this, null);
         this.mainFunction.setReturnObject(this.mainReturnObject);
         this.mainFunction.pushStackFrame();
+        this.mainFunction.setCleanupConstruct(this.program.staticObjectDeallocator.createRuntimeConstruct(this));
         this.push(this.mainFunction);
         this.observable.send("mainCalled", this.mainFunction);
         this.mainFunction.gainControl();
@@ -379,7 +383,8 @@ export class Simulation {
     }
 
     public atEndOfMain() {
-        return this.top()?.model === this.program.mainFunction;
+        return this.top()?.model === this.program.mainFunction.body.localDeallocator
+        || this.top()?.model === this.program.mainFunction;
     }
 
     // stepOver: function(options){
@@ -601,6 +606,7 @@ export class Simulation {
 
     public eventOccurred(event: SimulationEvent, message: string, showAlert: boolean = false) {
         this._eventsOccurred[event].push(message);
+        (<Mutable<this>>this).hasAnyEventOccurred = true;
 
         this.observable.send("eventOccurred", { event, message });
     }
@@ -769,108 +775,3 @@ export class Simulation {
     // },
 }
 
-
-type SimulationInputStreamMessages =
-    "bufferUpdated";
-
-export class SimulationInputStream {
-
-    public readonly observable = new Observable<SimulationInputStreamMessages>(this);
-
-    public readonly trimws: boolean = true;
-
-    public readonly buffer: string = "";
-
-    // public readonly bufferAdditionRecord : readonly {readonly stepsTaken: number; readonly contents: string}[] = [];
-    
-    // public clone() {
-    //     let dup = new SimulationInputStream();
-    //     (<Mutable<SimulationInputStream>>dup).buffer = this.buffer;
-    //     (<Mutable<SimulationInputStream>>dup).bufferAdditionRecord = clone(this.bufferAdditionRecord)
-    //     return dup;
-    // }
-
-    public reset() {
-        this.updateBuffer("");
-        // (<Mutable<this>>this).bufferAdditionRecord = [];
-        return this;
-    }
-    
-    // public rewind(stepsTaken: number) {
-    //     let i = this.bufferAdditionRecord.length;
-    //     while (i > 0 && this.bufferAdditionRecord[i-1].stepsTaken >= stepsTaken+1) {
-    //         --i;
-    //     }
-
-    //     (<Mutable<this>>this).bufferAdditionRecord = this.bufferAdditionRecord.slice(0, i);
-    //     this.updateBuffer(this.bufferAdditionRecord.map(record => record.contents).join(""));
-    //     return this;
-    // }
-
-    public addToBuffer(s: string) {
-        this.updateBuffer(this.buffer + s);
-        // asMutable(this.bufferAdditionRecord).push({stepsTaken:stepsTaken, contents: s});
-        return this;
-    }
-
-    private updateBuffer(contents: string) {
-        (<Mutable<this>>this).buffer = contents;
-        this.observable.send("bufferUpdated", this.buffer);
-    }
-
-    public skipws() {
-        (<Mutable<this>>this).buffer = trimStart(this.buffer);
-    }
-
-
-    public extractAndParseFromBuffer(type: ArithmeticType) {
-        if (isType(type, Char)) {
-            return type.parse(this.extractCharFromBuffer());
-        }
-        else {
-            return type.parse(this.extractWordFromBuffer());
-        }
-    }
-
-    public extractCharFromBuffer() {
-        let c = this.buffer.charAt(0);
-        this.updateBuffer(this.buffer.substring(1));
-        return c;
-    }
-
-    public extractWordFromBuffer() {
-        let firstWhitespace = this.buffer.search(/\s/g);
-        if (firstWhitespace === -1) {
-            // no spaces, whole buffer is one word
-            let word = this.buffer;
-            this.updateBuffer("");
-            return word;
-        }
-        else {
-            // extract first word, up to but not including whitespace
-            let word = this.buffer.substring(0, firstWhitespace);
-
-            // remove from buffer, including space.
-            this.updateBuffer(this.buffer.substring(firstWhitespace + 1));
-            return word;
-        }
-    }
-
-    public extractLineFromBuffer() {
-        let firstNewline = this.buffer.indexOf("\n");
-        if (firstNewline === -1) {
-            // no spaces, whole buffer is one word
-            let word = this.buffer;
-            this.updateBuffer("");
-            return word;
-        }
-        else {
-            // extract first word, up to but not including newline
-            let word = this.buffer.substring(0, firstNewline);
-
-            // remove from buffer, including space.
-            this.updateBuffer(this.buffer.substring(firstNewline + 1));
-            return word;
-        }
-    }
-}

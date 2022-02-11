@@ -13,6 +13,7 @@ import axios from 'axios';
 import { CourseData, getCourses as getPublicCourses } from "./courses";
 import { ExerciseData, getFullExercise, saveExercise } from "./exercises";
 import { getExtras } from "../analysis/extras";
+import { SourceFile } from "../core/Program";
 
 
 
@@ -144,6 +145,15 @@ export class LobsterApplication {
             );
         });
 
+        
+        // Project Add File Modal
+        $("#lobster-project-add-file-form").on("submit", (e) => {
+            e.preventDefault();
+            let name = $("#lobster-project-add-file-name").val() as string;
+            this.activeProject.addFile(new SourceFile(name, "// " + name), false);
+            $("#lobster-project-add-file-modal").modal("hide");
+        });
+
 
     }
 
@@ -242,6 +252,9 @@ export class LobsterApplication {
         this.courseProjectsList.setActiveProject(project.id);
         window.location.hash = project.id ? ""+project.id : "";
         this.updateButtons();
+        $("#lobster-left-sidebar-compilation-heading a").trigger("click");
+        // $("#lobster-left-sidebar .collapse").not("#collapse-lobster-compilation").collapse("hide");
+        // $("#collapse-lobster-compilation").collapse("show");
         return project;
     }
 
@@ -336,11 +349,7 @@ function createDefaultProject() {
         undefined, [
             { name: "file.cpp", code: `#include <iostream>\n\nusing namespace std;\n\nint main() {\n  cout << "Hello World!" << endl;\n}`, isTranslationUnit: true }
         ],
-        new Exercise(makeExerciseSpecification({
-            checkpoints: [
-                    new OutputCheckpoint('Print "Hello World!"', outputComparator("Hello World!", true))
-            ]
-        }))
+        new Exercise(DEFAULT_EXERCISE)
     ).turnOnAutoCompile();
 }
 

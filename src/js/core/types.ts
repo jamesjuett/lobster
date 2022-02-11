@@ -2,11 +2,12 @@ import { Constructor, htmlDecoratedType, unescapeString } from "../util/util";
 import { ConstructDescription, TranslationUnitContext } from "./constructs";
 import { byte, RawValueType, Value } from "./runtimeEnvironment";
 import { CPPObject } from "./objects";
-import { ExpressionASTNode } from "./expressions";
+import { ExpressionASTNode } from "../ast/ast_expressions";
 import { ClassDefinition } from "./declarations";
 import { ClassScope } from "./entities";
 import { RuntimeExpression } from "./expressionBase";
 import { SimulationEvent } from "./Simulation";
+import { qualifiedNamesEq, QualifiedName } from "./lexical";
 
 
 
@@ -45,12 +46,14 @@ export function isType<T extends Type>(typeOrCtor: Type | Constructor<T>, ctor?:
     }
 };
 
-export function sameType(type1: Type, type2: Type) {
-    return type1.sameType(type2);
+export function sameType(type1: Type | undefined, type2: Type | undefined) {
+    // console.log(`comparing ${type1} and ${type2}`);
+    // console.log(!!(type1 === type2 || type1 && type2 && type1.sameType(type2)));
+    return !!(type1 === type2 || type1 && type2 && type1.sameType(type2));
 };
 
-export function similarType(type1: Type, type2: Type) {
-    return type1.similarType(type2);
+export function similarType(type1: Type | undefined, type2: Type | undefined) {
+    return !!(type1 === type2 || type1 && type2 && type1.similarType(type2));
 };
 
 export function subType(type1: Type, type2: Type) {
@@ -186,7 +189,10 @@ abstract class TypeBase {
     }
 
     public isIntegralType(): this is IntegralType {
-        return this instanceof IntegralType;
+        return this instanceof Char ||
+                this instanceof Int ||
+                this instanceof Size_t ||
+                this instanceof Bool;
     }
 
     public isFloatingPointType(): this is FloatingPointType {
@@ -197,7 +203,7 @@ abstract class TypeBase {
         return this instanceof PointerType;
     }
 
-    public isPointerToCompleteType(): this is PointerToCompleteType {
+    public isPointerToCompleteObjectType(): this is PointerToCompleteType {
         return this.isPointerType() && this.ptrTo.isCompleteObjectType();
     }
 
@@ -432,8 +438,8 @@ export function isPointerToType<T extends PotentiallyCompleteObjectType>(ctor: C
     return <(type: Type) => type is PointerType<T>>((type: Type) => type.isPointerToType(ctor));
 }
 
-export function isPointerToCompleteType(type: Type): type is PointerToCompleteType {
-    return type.isPointerToCompleteType();
+export function isPointerToCompleteObjectType(type: Type): type is PointerToCompleteType {
+    return type.isPointerToCompleteObjectType();
 }
 
 export function isArrayPointerType(type: Type): type is ArrayPointerType {
@@ -832,16 +838,16 @@ export abstract class ArithmeticType extends SimpleType {
 
 }
 
-export type AnalyticArithmeticType = AnalyticIntegralType | AnalyticFloatingPointType;
+export type AnalyticArithmeticType = IntegralType | AnalyticFloatingPointType;
 
-export abstract class IntegralType extends ArithmeticType {
+abstract class IntegralTypeBase extends ArithmeticType {
 
 }
 
-export type AnalyticIntegralType = Char | Int | Size_t | Bool;
+export type IntegralType = Char | Int | Size_t | Bool;
 
 
-export class Char extends IntegralType {
+export class Char extends IntegralTypeBase {
     public static readonly CHAR = new Char();
 
     public readonly simpleType = "char";
@@ -883,7 +889,7 @@ export class Char extends IntegralType {
     }
 }
 
-export class Int extends IntegralType {
+export class Int extends IntegralTypeBase {
     public static readonly INT = new Int();
     public static readonly ZERO = new Value(0, Int.INT);
 
@@ -905,7 +911,7 @@ export class Int extends IntegralType {
     }
 };
 
-export class Size_t extends IntegralType {
+export class Size_t extends IntegralTypeBase {
     public readonly simpleType = "size_t";
     public readonly size = 8;
 
@@ -924,7 +930,7 @@ export class Size_t extends IntegralType {
     }
 }
 
-export class Bool extends IntegralType {
+export class Bool extends IntegralTypeBase {
     public static readonly BOOL = new Bool();
 
     public readonly simpleType = "bool";
@@ -1233,7 +1239,7 @@ export function peelReference<T extends Type>(type: T): PeelReference<T> {
         return type;
     }
     if (type instanceof ReferenceType) {
-        return type.refTo;
+        return <PeelReference<T>>type.refTo;
     }
     else {
         return <PeelReference<T>>type; // will either be an object type or void type
@@ -1388,7 +1394,8 @@ export class ArrayOfUnknownBoundType<Elem_type extends ArrayElemType = ArrayElem
     
 }
 
-export type PotentiallyCompleteArrayType = BoundedArrayType | ArrayOfUnknownBoundType;
+export type PotentiallyCompleteArrayType<E extends ArrayElemType = ArrayElemType>
+    = BoundedArrayType<E> | ArrayOfUnknownBoundType<E>;
 
 // TODO: Add a type for an incomplete class
 
@@ -1410,7 +1417,8 @@ interface ClassShared {
 class ClassTypeBase extends TypeBase implements Omit<ObjectTypeInterface, "size"> {
 
     public readonly precedence: number = 0;
-    public readonly className: string = "";
+    public readonly className: string;
+    public readonly qualifiedName: QualifiedName;
 
     private readonly classId: number;
     private readonly shared: ClassShared;
@@ -1420,10 +1428,11 @@ class ClassTypeBase extends TypeBase implements Omit<ObjectTypeInterface, "size"
     /** DO NOT USE. Exists only to ensure CompleteClassType is not structurally assignable to CompleteClassType */
     public readonly t_isComplete!: boolean;
 
-    public constructor(classId: number, className: string, shared: ClassShared, isConst: boolean = false, isVolatile: boolean = false) {
+    public constructor(classId: number, className: string, qualifiedName: QualifiedName, shared: ClassShared, isConst: boolean = false, isVolatile: boolean = false) {
         super(isConst, isVolatile);
         this.classId = classId;
         this.className = className;
+        this.qualifiedName = qualifiedName;
         this.shared = shared;
     }
     
@@ -1472,12 +1481,12 @@ class ClassTypeBase extends TypeBase implements Omit<ObjectTypeInterface, "size"
     }
 
     public isDerivedFrom(other: Type) : boolean {
-        var b = this.classDefinition?.baseClass;
+        var b = this.classDefinition?.baseType;
         while(b) {
             if (similarType(other, b)) {
                 return true;
             }
-            b = b.classDefinition?.baseClass;
+            b = b.classDefinition?.baseType;
         }
         return false;
     }
@@ -1503,7 +1512,7 @@ class ClassTypeBase extends TypeBase implements Omit<ObjectTypeInterface, "size"
 //     },
 
     public _cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
-        return new ClassTypeBase(this.classId, this.className, this.shared, isConst, isVolatile);
+        return new ClassTypeBase(this.classId, this.className, this.qualifiedName, this.shared, isConst, isVolatile);
     }
     
     public isDefaultConstructible(this: CompleteClassType, userDefinedOnly = false) {
@@ -1537,7 +1546,7 @@ class ClassTypeBase extends TypeBase implements Omit<ObjectTypeInterface, "size"
         }
 
         // Aggregates may not have base classes (until c++17)
-        if (this.classDefinition.baseClass) {
+        if (this.classDefinition.baseType) {
             return false;
         }
 
@@ -1553,6 +1562,7 @@ class ClassTypeBase extends TypeBase implements Omit<ObjectTypeInterface, "size"
 function sameClassType(thisClass: ClassTypeBase, otherClass: ClassTypeBase) {
     // Note the any casts are to grant "friend" access to private members of ClassTypeBase
     return (thisClass as any).classId === (otherClass as any).classId
+        || qualifiedNamesEq(thisClass.qualifiedName, otherClass.qualifiedName)
         || (!!(thisClass as any).shared.classDefinition && (thisClass as any).shared.classDefinition === (otherClass as any).shared.classDefinition);
 }
 
@@ -1580,8 +1590,8 @@ export type PotentiallyCompleteClassType = IncompleteClassType | CompleteClassTy
 
 let nextClassId = 0;
 
-export function createClassType(className: string) : IncompleteClassType {
-    return <IncompleteClassType>new ClassTypeBase(nextClassId++, className, {});
+export function createClassType(className: string, qualifiedName: QualifiedName) : IncompleteClassType {
+    return <IncompleteClassType>new ClassTypeBase(nextClassId++, className, qualifiedName, {});
 }
 
 // export class ClassType extends ObjectTypeBase {
@@ -1909,7 +1919,9 @@ export class FunctionType<ReturnType extends PotentialReturnType = PotentialRetu
     }
 
     public isPotentialOverriderOf(other: FunctionType) {
-        return this.sameParamTypes(other) && this.isConst === other.isConst && this.isVolatile == other.isVolatile;
+        return this.sameParamTypes(other)
+            && this.receiverType?.isConst === other.receiverType?.isConst
+            && this.receiverType?.isVolatile == other.receiverType?.isVolatile;
     }
 
     public typeString(excludeBase: boolean, varname: string, decorated: boolean = false) {
