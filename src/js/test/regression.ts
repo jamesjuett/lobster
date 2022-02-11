@@ -1,7 +1,11 @@
-import { ProgramTest, SingleTranslationUnitTest, NoErrorsNoWarningsVerifier, NoBadRuntimeEventsVerifier, BasicSynchronousRunnerTest, NoteVerifier, OutputVerifier } from "./verifiers";
+import { ProgramTest, SingleTranslationUnitTest, NoErrorsNoWarningsVerifier, NoBadRuntimeEventsVerifier, BasicSynchronousRunnerTest, NoteVerifier, OutputVerifier, EndOfMainStateVerifier } from "./verifiers";
 import { CompilationNotesOutlet } from "../view/editors";
 
 import "../lib/standard"
+import { checkLocalAtomicVariableValues } from "../analysis/runtime";
+import { createCinTests } from "./tests_cin";
+import { createDynamicMemoryTests } from "./tests_dynamic_memory";
+import { createObjectLifetimeTests } from "./tests_object_lifetime";
 
 $(() => {
     var numTests = 0;
@@ -634,6 +638,28 @@ int main() {
 
 
 
+        // ---------- Basic Nullptr Test ----------
+
+        new SingleTranslationUnitTest(
+          "Basic Nullptr Test",
+`
+int main() {
+  int *p1 = 0;
+  int *p2 = NULL;
+  int *p3 = nullptr;
+  assert(!p1);
+  assert(!p2);
+  assert(!p3);
+}
+`,
+          [
+              new NoErrorsNoWarningsVerifier(),
+              new NoBadRuntimeEventsVerifier(true)
+          ]
+      );
+
+
+
 
       // ---------- Basic Parameter Test ----------
 
@@ -1086,6 +1112,67 @@ new SingleTranslationUnitTest(
             new BasicSynchronousRunnerTest()
         ]
     );
+    
+      // ---------- Basic Virtual Function Test ----------
+
+      new SingleTranslationUnitTest(
+        "Basic Virtual Function Test",
+        `#include <iostream>
+using namespace std;
+
+class Fruit {
+public: 
+  int f1() { return 1; }
+  virtual int f2() { return 2; } 
+};  
+  
+class Citrus : public Fruit {  
+public:  
+  int f1() { return 3; } 
+  int f2() override { return 4; }
+}; 
+
+class Lemon : public Citrus {
+public:
+  int f1() { return 5; }
+  int f2() override { return 6; }
+};
+
+int main() { 
+  Fruit fruit;
+  Citrus citrus;
+  Lemon lemon;  
+  Fruit *fPtr = &lemon;
+  Citrus *cPtr = &citrus; 
+
+  int result = 0;
+  cout << fruit.f2() << endl;
+  cout << citrus.f1() << endl;
+  cout << fPtr->f1() << endl;
+  cout << fPtr->f2() << endl;
+  cout << cPtr->f2() << endl;
+  cPtr = &lemon;
+  cout << cPtr->f1() << endl;
+  cout << cPtr->f2() << endl;
+}`,
+        [
+            new NoErrorsNoWarningsVerifier(),
+            new NoBadRuntimeEventsVerifier(true),
+            new OutputVerifier(`2
+3
+1
+6
+4
+3
+6
+`)
+        ]
+    );
+    
+
+        createCinTests();
+        createObjectLifetimeTests();
+        createDynamicMemoryTests();
 
     // string test
     
@@ -1107,6 +1194,52 @@ new SingleTranslationUnitTest(
             [
                 new NoErrorsNoWarningsVerifier(),
                 new NoBadRuntimeEventsVerifier(true)
+            ]
+        );
+
+    // string operators test
+    
+        new SingleTranslationUnitTest(
+            "String + Operators Test",
+`#include <iostream>
+#include <string>
+using namespace std;
+
+int main() {
+  string s;
+  cout << s << endl;
+  s = s + 'a'; // a
+  cout << s << endl;
+  s = 'b' + s; // ba
+  cout << s << endl;
+  s += 'b'; // bab
+  cout << s << endl;
+  string c = "c";
+  s = c + s; // cbab
+  cout << s << endl;
+  s = s + c; // cbabc
+  cout << s << endl;
+  s = "d" + s; // dcbabc
+  cout << s << endl;
+  s = s + "d"; // dcbabcd
+  cout << s << endl;
+  s = s += "e"; // dcbabcde
+  cout << s << endl;
+}`,
+            [
+                new NoErrorsNoWarningsVerifier(),
+                new NoBadRuntimeEventsVerifier(true),
+                new OutputVerifier(
+`
+a
+ba
+bab
+cbab
+cbabc
+dcbabc
+dcbabcd
+dcbabcde
+`)
             ]
         );
 
@@ -1156,6 +1289,57 @@ int main() {
   );
 
 
+// Pointer Compound Assignment---------------------
+
+new SingleTranslationUnitTest(
+  "Pointer Compound Assignment Test",
+  `#include <iostream>
+using namespace std;
+
+int main() {
+
+int arr[5] = {1, 2, 3, 4, 5};
+int *p0 = &arr[0];
+int *p1 = &arr[1];
+int *p2 = &arr[2];
+int *p3 = &arr[3];
+int *p4 = &arr[4];
+
+int *ptr = &arr[0];
+assert(ptr == p0);
+
+ptr += 1;
+assert(ptr == p1);
+
+ptr += 1;
+assert(ptr == p2);
+
+ptr += 2;
+assert(ptr == p4);
+
+ptr -= 4;
+assert(ptr == p0);
+
+ptr += 0;
+assert(ptr == p0);
+
+ptr -= 0;
+assert(ptr == p0);
+
+ptr = p4;
+
+ptr -= 1;
+assert(ptr == p3);
+
+ptr -= 1;
+assert(ptr == p2);
+
+}`,
+  [
+      new NoErrorsNoWarningsVerifier(),
+      new NoBadRuntimeEventsVerifier(true)
+  ]
+);
 
 // Basic Array Aggregate Initialization---------------------
 

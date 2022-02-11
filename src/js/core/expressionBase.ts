@@ -1,6 +1,7 @@
-import { ExpressionASTNode, StringLiteralExpression, AnalyticExpression, CompiledExpressionKinds, AnalyticTypedExpression } from "./expressions";
+import { StringLiteralExpression, AnalyticExpression, CompiledExpressionKinds, AnalyticTypedExpression } from "./expressions";
+import { ExpressionASTNode } from "../ast/ast_expressions";
 
-import { ExpressionContext, RuntimeConstruct, CPPConstruct, ConstructDescription, SuccessfullyCompiled } from "./constructs";
+import { ExpressionContext, RuntimeConstruct, CPPConstruct, ConstructDescription, SuccessfullyCompiled, SemanticContext, areAllSemanticallyEquivalent } from "./constructs";
 import { CompiledTemporaryDeallocator, PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 
 import { Type, CompleteObjectType, AtomicType, ArithmeticType, IntegralType, FloatingPointType, PointerType, ReferenceType, BoundedArrayType, ArrayOfUnknownBoundType, FunctionType, PotentiallyCompleteClassType, CompleteClassType, isAtomicType, isCompleteObjectType, ExpressionType } from "./types";
@@ -13,12 +14,14 @@ import { Value } from "./runtimeEnvironment";
 
 import { CPPObject } from "./objects";
 import { ConstructOutlet, ExpressionOutlet } from "../view/codeOutlets";
-import { Predicates } from "./predicates";
+import { AnalyticConstruct, Predicates } from "./predicates";
 
 
 export type ValueCategory = "prvalue" | "lvalue";
 
 export abstract class Expression<ASTType extends ExpressionASTNode = ExpressionASTNode> extends PotentialFullExpression<ExpressionContext, ASTType> {
+
+    public readonly t_analytic!: AnalyticExpression;
 
     public abstract readonly type?: ExpressionType;
     public abstract readonly valueCategory?: ValueCategory;
@@ -59,6 +62,15 @@ export abstract class Expression<ASTType extends ExpressionASTNode = ExpressionA
     }
 
     public abstract describeEvalResult(depth: number): ConstructDescription;
+
+    public analytic() : AnalyticExpression {
+        return <AnalyticExpression><unknown>this;
+    }
+
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, ec: SemanticContext): boolean {
+        return other.construct_type === this.construct_type
+            && areAllSemanticallyEquivalent(this.children, other.children, ec);
+    }
 }
 
 export interface t_TypedExpression {
@@ -125,6 +137,7 @@ export type VCResultTypes<T extends Type, V extends ValueCategory> =
 //     readonly xvalue: number;
 //     readonly lvalue: number;
 // };
+
 
 export abstract class RuntimeExpression<T extends ExpressionType = ExpressionType, V extends ValueCategory = ValueCategory, C extends CompiledExpression<T, V> = CompiledExpression<T, V>> extends RuntimePotentialFullExpression<C> {
 

@@ -4,6 +4,7 @@ import 'codemirror/lib/codemirror.css';
 import '../../css/lobster.css';
 import 'codemirror/mode/clike/clike.js';
 import 'codemirror/addon/display/fullscreen.js';
+import 'codemirror/addon/comment/comment.js'
 import 'codemirror/keymap/sublime.js'
 // import '../../styles/components/_codemirror.css';
 import { assert, Mutable, asMutable } from "../util/util";
@@ -35,12 +36,12 @@ export class ProjectEditor {
     public readonly isOpen: boolean = false;
 
     private filesElem: JQuery;
-    private fileTabsMap: {[index: string]: JQuery} = {};
+    private fileButtonsMap: {[index: string]: JQuery} = {};
     private fileEditorsMap: {[index: string]: FileEditor | undefined} = {};
 
     private currentFileEditor?: string; 
 
-    private codeMirror: CodeMirror.Editor;
+    public codeMirror: CodeMirror.Editor;
     private codeMirrorElem: JQuery;
 
     public readonly project!: Project; // set by setProject call
@@ -59,7 +60,7 @@ export class ProjectEditor {
                 "Ctrl-S" : () => {
                     this.project.requestSave();
                 },
-
+                "Ctrl-/" : (editor) => editor.execCommand('toggleComment')
             },
             gutters: ["CodeMirror-linenumbers", "breakpoints", "errors"]
         });
@@ -72,10 +73,10 @@ export class ProjectEditor {
         this.filesElem = element.find(".project-files");
         assert(this.filesElem.length > 0, "CompilationOutlet must contain an element with the 'translation-units-list' class.");
 
-        let addFileButton = $('<a><i class="bi bi-file-earmark-plus"></i></a>');
-        let liContainer = $("<span></span>");
+        let addFileButton = $('<a data-toggle="modal" data-target="#lobster-project-add-file-modal"><i class="bi bi-file-earmark-plus"></i></a>');
+        let liContainer = $("<li></li>");
         liContainer.append(addFileButton);
-        this.filesElem.add(liContainer);
+        this.filesElem.append(liContainer);
 
         this.setProject(project);
 
@@ -154,7 +155,13 @@ export class ProjectEditor {
     //     this.recompile();
     // }
 
-    @messageResponse("fileAdded")
+    @messageResponse("fileContentsSet", "unwrap")
+    private onFileContentsSet(file: SourceFile) {
+        let fileEd = this.fileEditorsMap[file.name];
+        fileEd?.setContents(file.text);
+    }
+
+    @messageResponse("fileAdded", "unwrap")
     private onFileAdded(file: SourceFile) {
 
         // Create a FileEditor object to manage editing the file
@@ -164,14 +171,17 @@ export class ProjectEditor {
 
         // Create tab to select this file for viewing/editing
         let item = $('<li></li>');
-        let link = $('<a href="" data-toggle="pill">' + file.name + '</a>');
-        link.on("shown.bs.tab", () => this.selectFile(file.name));
+        let link = $('<a>' + file.name + '</a>');
+        link.on("click", () => this.selectFile(file.name));
         item.append(link);
-        this.fileTabsMap[file.name] = link;
+        this.fileButtonsMap[file.name] = item;
         this.filesElem.append(item);
 
-        this.filesElem.children().first().addClass("active"); // TODO: should the FileEditor be doing this instead?
-        this.selectFile(file.name);
+        if (Object.keys(this.fileButtonsMap).length === 1) {
+            // The first file added
+            item.addClass("active");
+            this.selectFile(file.name);
+        }
 
     }
 
@@ -182,12 +192,15 @@ export class ProjectEditor {
         if(!fileEd) {
             return;
         }
+        
+        // remove the li containing the link
+        this.fileButtonsMap[file.name].remove();
+        delete this.fileButtonsMap[file.name];
+        delete this.fileEditorsMap[file.name];
 
         if (this.currentFileEditor === file.name) {
-            this.selectFirstFile()
+            this.selectFirstFile();
         }
-        
-        this.fileTabsMap[file.name].remove();
 
         removeListener(fileEd, this);
     }
@@ -231,9 +244,11 @@ export class ProjectEditor {
 
     public selectFile(filename: string) {
         assert(this.fileEditorsMap[filename], `File ${filename} does not exist in this project.`);
+        this.codeMirrorElem.show();
         this.codeMirror.swapDoc(this.fileEditorsMap[filename]!.doc);
         this.currentFileEditor = filename;
-        this.codeMirrorElem.show();
+        this.filesElem.children().removeClass("active");
+        this.fileButtonsMap[filename].addClass("active");
     }
 
     public selectFirstFile() {
@@ -258,10 +273,9 @@ export class ProjectEditor {
         let name = sourceRef.sourceFile.name;
         let editor = this.fileEditorsMap[name];
         if (editor) {
-            this.fileTabsMap[name].tab("show");
+            this.selectFile(name);
             editor.gotoSourceReference(sourceRef);
         }
-
     }
 
     // @messageResponse()
@@ -310,25 +324,25 @@ export class ProjectEditor {
 function createCompilationOutletHTML() {
     return `
     <div>
-        <h3>Compilation Units</h3>
-        <p>A program may be composed of many different compilation units (a.k.a translation units), one for each source file
+        <b>Compilation Units</b>
+        <!-- <p>A program may be composed of many different compilation units (a.k.a translation units), one for each source file
             that needs to be compiled into the executable program. Generally, you want a compilation
             unit for each .cpp file, and these are the files you would list out in a compile command.
             The files being used for this purpose are highlighted below. Note that files may be
             indirectly used if they are #included in other compilation units, even if they are not
             selected to form a compilation unit here.
-        </p>
-        <p style="font-weight: bold;">
-            Click files below to toggle whether they are being used to create a compilation unit.
+        </p> -->
+        <p style="font-size: smaller;">
+            Toggle which <code>.cpp</code> files are being compiled. (Do not include <code>.h</code> files here.)
         </p>
         <ul class="translation-units-list list-inline">
         </ul>
     </div>
     <div>
-        <h3>Compilation Errors</h3>
-        <p>These errors were based on your last compilation.
+        <b>Compilation Errors</b>
+        <!-- <p>These errors were based on your last compilation. -->
         </p>
-        <ul class="compilation-notes-list">
+        <ul class="list-group compilation-notes-list">
         </ul>
     </div>`;
 }
@@ -429,9 +443,14 @@ export class CompilationNotesOutlet {
 
         this.element.empty();
 
+        if (program.notes.allNotes.length === 0) {
+            this.element.append("No errors here :)");
+            return;
+        }
+
         program.notes.allNotes.forEach(note => {
 
-            let item = $('<li></li>').append(this.createBadgeForNote(note)).append(" ");
+            let item = $('<li class="list-group-item"></li>').append(this.createBadgeForNote(note)).append(" ");
 
             let ref = note.primarySourceReference;
             if (ref) {
@@ -563,8 +582,15 @@ export class CompilationStatusOutlet {
         this.numStyleElem.html("" + this.project.program.notes.numNotes(NoteKind.STYLE));
 
         this.compileButton.removeClass("btn-warning-muted");
-        this.compileButton.addClass("btn-success-muted");
-        this.compileButton.html('<span class="glyphicon glyphicon-ok"></span> Compiled');
+
+        if (this.project.program.isCompiled()) {
+            this.compileButton.html('<span class="glyphicon glyphicon-ok"></span> Compiled');
+            this.compileButton.addClass("btn-success-muted");
+        }
+        else {
+            this.compileButton.html('<span class="glyphicon glyphicon-remove"></span> Errors Detected');
+            this.compileButton.addClass("btn-danger-muted");
+        }
     }
 
     @messageResponse("compilationOutOfDate")
@@ -616,6 +642,8 @@ export class FileEditor {
     private readonly gutterErrors: {elem: JQuery, num: number}[] = [];
     private syntaxErrorLineHandle?: CodeMirror.LineHandle;
 
+    private ignoreContentsSet: boolean = false;
+
      /**
      *
      * @param {SourceFile} sourceFile The initial contents of this editor.
@@ -626,9 +654,14 @@ export class FileEditor {
 
         CodeMirror.on(this.doc, "change", () => { this.onEdit(); });
 
-        FileEditor.instances.push(this);
+        // FileEditor.instances.push(this);
     }
 
+    public setContents(contents: string) {
+        if (!this.ignoreContentsSet) {
+            this.doc.setValue(contents);
+        }
+    }
     // public setFile() {
 
     // }
@@ -650,7 +683,11 @@ export class FileEditor {
             return $(this).html().trim() === "*";
         }).removeClass("cm-type").addClass("cm-operator");
 
+        
+        this.ignoreContentsSet = true;
         this.observable.send("textChanged", this.file);
+        this.ignoreContentsSet = false;
+        
 
 
 
@@ -664,8 +701,10 @@ export class FileEditor {
     }
 
     public addMark(sourceRef: SourceReference, cssClass: string){
-        var from = this.doc.posFromIndex(sourceRef.start);
-        var to = this.doc.posFromIndex(sourceRef.end);
+        let from = {line: sourceRef.line-1, ch: sourceRef.column - 1};
+        let to = {line: sourceRef.line-1, ch: sourceRef.column - 1 + sourceRef.end - sourceRef.start};
+        // var from = this.doc.posFromIndex(sourceRef.start);
+        // var to = this.doc.posFromIndex(sourceRef.end);
         return this.doc.markText(from, to, {startStyle: "begin", endStyle: "end", className: "codeMark " + cssClass});
     }
 

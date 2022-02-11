@@ -1,15 +1,18 @@
-import { PotentialParameterType, Type, CompleteObjectType, sameType, ReferenceType, BoundedArrayType, Char, ArrayElemType, FunctionType, referenceCompatible, createClassType, PotentiallyCompleteClassType, CompleteClassType, PotentiallyCompleteObjectType, PeelReference, Completed, VoidType, CompleteReturnType } from "./types";
+import { PotentialParameterType, Type, CompleteObjectType, sameType, ReferenceType, BoundedArrayType, Char, ArrayElemType, FunctionType, referenceCompatible, createClassType, PotentiallyCompleteClassType, CompleteClassType, PotentiallyCompleteObjectType, PeelReference, Completed, VoidType, CompleteReturnType, PointerType, ArrayOfUnknownBoundType, PotentiallyCompleteArrayType } from "./types";
 import { assert, Mutable, unescapeString, assertFalse, asMutable, assertNever } from "../util/util";
 import { Observable } from "../util/observe";
-import { RuntimeConstruct, isClassContext } from "./constructs";
-import { FunctionCall, PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
+import { RuntimeConstruct, isClassContext, SemanticContext } from "./constructs";
+import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
+import { FunctionCall } from "./FunctionCall";
 import { LocalVariableDefinition, ParameterDefinition, GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, ParameterDeclaration, FunctionDeclaration, ClassDefinition, FunctionDefinitionGroup, ClassDeclaration, MemberVariableDeclaration, SimpleDeclaration, CompiledClassDefinition } from "./declarations";
-import { CPPObject, AutoObject, StaticObject, StringLiteralObject, TemporaryObject, ObjectDescription, MemberSubobject, ArraySubobject, BaseSubobject } from "./objects";
+import { CPPObject, AutoObject, StaticObject, StringLiteralObject, TemporaryObject, ObjectDescription, MemberSubobject, ArraySubobject, BaseSubobject, DynamicObject } from "./objects";
 import { CPPError, CompilerNote } from "./errors";
 import { Memory } from "./runtimeEnvironment";
 import { Expression } from "./expressionBase";
 import { TranslationUnit } from "./Program";
 import { RuntimeFunction } from "./functions";
+import { NewObjectType, RuntimeNewArrayExpression, RuntimeNewExpression } from "./new_delete";
+import { QualifiedName, UnqualifiedName } from "./lexical";
 
 
 
@@ -57,7 +60,8 @@ export class Scope {
     public readonly children: { [index: string]: NamedScope | undefined } = {};
 
     public constructor(translationUnit: TranslationUnit, parent?: Scope) {
-        assert(!parent || translationUnit === parent.translationUnit);
+        // This assertion is no longer always true due to out-of-line function definitions
+        // assert(!parent || translationUnit === parent.translationUnit);
         this.translationUnit = translationUnit;
         this.parent = parent;
     }
@@ -79,7 +83,7 @@ export class Scope {
         // No previous declaration for this name
         if (!existingEntity) {
             this.variableEntityCreated(newEntity);
-            return this.entities[entityName] = newEntity;
+            return this.entities[entityName] = <any>newEntity; // HACK. <any> cast - this broke with TS 4.4.4
         }
 
         // If there is an existing class entity, it may be displaced and effectively hidden.
@@ -88,7 +92,7 @@ export class Scope {
             // assume that there is no hidden class entity already
             this.hiddenClassEntities[entityName] = existingEntity;
             this.variableEntityCreated(newEntity);
-            return this.entities[entityName] = newEntity;
+            return this.entities[entityName] = <any>newEntity; // HACK. <any> cast - this broke with TS 4.4.4
         }
 
         // Previous declaration for this name, but different kind of symbol
@@ -266,7 +270,7 @@ export class Scope {
      * @param options A set of options to customize the lookup process.
      * @returns 
      */
-    public lookup(name: string, options: NameLookupOptions = { kind: "normal" }): DeclaredScopeEntry | undefined {
+    public lookup(name: UnqualifiedName, options: NameLookupOptions = { kind: "normal" }): DeclaredScopeEntry | undefined {
         options = options || {};
 
         assert(!name.includes("::"), "Qualified name used with unqualified lookup function.");
@@ -415,6 +419,12 @@ export class ClassScope extends NamedScope {
         this.base = base;
     }
 
+    public createAlternateParentProxy(newParent: Scope) {
+        let proxy = Object.create(this);
+        proxy.parent = newParent;
+        return proxy;
+    }
+
     protected variableEntityCreated(newEntity: VariableEntity) {
         super.variableEntityCreated(newEntity);
         // TODO: add linkage when static members are implemented
@@ -496,6 +506,7 @@ export abstract class CPPEntity<T extends Type = Type> {
         this.type = type;
     }
 
+    public abstract isTyped<NarrowedT extends CompleteObjectType>(this: ObjectEntity, predicate: (t:Type) => t is NarrowedT) : this is ObjectEntity<NarrowedT>;
     public abstract isTyped<NarrowedT extends Type>(predicate: (t:Type) => t is NarrowedT) : this is CPPEntity<NarrowedT>;
 
     public abstract describe(): EntityDescription;
@@ -511,6 +522,16 @@ export abstract class CPPEntity<T extends Type = Type> {
     // }
 
     //TODO: function for isOdrUsed()?
+
+    public isSemanticallyEquivalent(other: CPPEntity, equivalenceContext: SemanticContext): boolean {
+        return sameType(other.type, this.type);
+        // TODO semantic equivalence
+    }
+}
+
+export function areEntitiesSemanticallyEquivalent(entity: CPPEntity | undefined, other: CPPEntity | undefined, equivalenceContext: SemanticContext) {
+    return !!(entity === other // also handles case of both undefined
+        || entity && other && entity.isSemanticallyEquivalent(other, equivalenceContext));
 }
 
 export abstract class NamedEntity<T extends Type = Type> extends CPPEntity<T> {
@@ -711,7 +732,7 @@ export interface ObjectEntity<T extends CompleteObjectType = CompleteObjectType>
 
 export interface BoundReferenceEntity<T extends ReferenceType = ReferenceType> extends CPPEntity<T> {
     name?: string;
-    runtimeLookup<X extends CompleteObjectType>(this: BoundReferenceEntity<ReferenceType<X>>, rtConstrcut: RuntimeConstruct): CPPObject<X> | undefined;
+    runtimeLookup<X extends CompleteObjectType>(this: BoundReferenceEntity<ReferenceType<X>>, rtConstruct: RuntimeConstruct): CPPObject<X> | undefined;
     readonly variableKind: "reference";
 }
 
@@ -830,7 +851,7 @@ export class GlobalObjectEntity<T extends CompleteObjectType = CompleteObjectTyp
     public readonly variableKind = "object";
     public readonly variableLocation = "global";
 
-    public readonly qualifiedName: string;
+    public readonly qualifiedName: QualifiedName;
     public readonly firstDeclaration: GlobalVariableDefinition;
     public readonly declarations: readonly GlobalVariableDefinition[];
     public readonly definition?: GlobalVariableDefinition;
@@ -844,7 +865,7 @@ export class GlobalObjectEntity<T extends CompleteObjectType = CompleteObjectTyp
         // Eventually, this constructor will take in a GlobalObjectDeclaration instead, but that would
         // require support for the extern keyword or static member variables (although that might be
         // a separate class entirely)
-        this.qualifiedName = "::" + this.name;
+        this.qualifiedName = decl.qualifiedName;
     }
 
     public toString() {
@@ -1127,26 +1148,57 @@ export class ReceiverEntity extends CPPEntity<CompleteClassType> implements Obje
 };
 
 
+export class NewObjectEntity<T extends NewObjectType = NewObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
 
-// export class NewObjectEntity<T extends ObjectType = ObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
-//     protected static readonly _name = "NewObjectEntity";
+    public readonly variableKind = "object";
 
-//     // storage: "automatic",
+    public runtimeLookup(rtConstruct: RuntimeConstruct) {
+        // no additional runtimeLookup() needed on the object since it will never be a reference
+        while (rtConstruct.model.construct_type !== "new_expression" && rtConstruct.parent) {
+            rtConstruct = rtConstruct.parent;
+        }
+        assert(rtConstruct.model.construct_type === "new_expression");
+        let newRtConstruct = <RuntimeNewExpression<PointerType<T>>>rtConstruct;
+        assert(newRtConstruct.allocatedObject);
+        return newRtConstruct.allocatedObject;
+    }
 
-//     public toString() {
-//         return "object (" + this.type + ")";
-//     }
+    public isTyped<NarrowedT extends NewObjectType>(predicate: (t:NewObjectType) => t is NarrowedT) : this is NewObjectEntity<NarrowedT>;
+    public isTyped<NarrowedT extends Type>(predicate: (t:Type) => t is NarrowedT) : this is never;
+    public isTyped<NarrowedT extends NewObjectType>(predicate: (t:NewObjectType) => t is NarrowedT) : this is NewObjectEntity<NarrowedT> {
+        return predicate(this.type);
+    }
 
-//     public runtimeLookup(rtConstruct: RuntimeConstruct) {
-//         // no additional runtimeLookup() needed on the object since it will never be a reference
-//         return rtConstruct.getAllocatedObject();
-//     }
+    public describe() {
+        return {name: "a new heap object", message: "the dynamically allocated object (of type "+this.type+") created by new"};
+    }
 
-//     public describe() {
-//         return {message: "the dynamically allocated object (of type "+this.type+") created by new"};
-//     }
+};
 
-// };
+export class NewArrayEntity<T extends PotentiallyCompleteArrayType = PotentiallyCompleteArrayType> extends CPPEntity<T> {
+
+    public readonly variableKind = "object";
+
+    public runtimeLookup(rtConstruct: RuntimeConstruct) {
+        while (rtConstruct.model.construct_type !== "new_array_expression" && rtConstruct.parent) {
+            rtConstruct = rtConstruct.parent;
+        }
+        assert(rtConstruct.model.construct_type === "new_array_expression");
+        let newRtConstruct = <RuntimeNewArrayExpression<PointerType<T["elemType"]>>>rtConstruct;
+        return newRtConstruct.allocatedObject;
+    }
+
+    public isTyped<NarrowedT extends PotentiallyCompleteArrayType>(predicate: (t:PotentiallyCompleteArrayType) => t is NarrowedT) : this is NewArrayEntity<NarrowedT>;
+    public isTyped<NarrowedT extends Type>(predicate: (t:Type) => t is NarrowedT) : this is never;
+    public isTyped<NarrowedT extends PotentiallyCompleteArrayType>(predicate: (t:PotentiallyCompleteArrayType) => t is NarrowedT) : this is NewArrayEntity<NarrowedT> {
+        return predicate(this.type);
+    }
+
+    public describe() {
+        return {name: "a new dynamically sized array", message: "the dynamically allocated/sized array (of element type "+this.type+") created by new"};
+    }
+
+};
 
 export class ArraySubobjectEntity<T extends ArrayElemType = ArrayElemType> extends CPPEntity<T> implements ObjectEntity<T> {
     public readonly variableKind = "object";
@@ -1179,6 +1231,41 @@ export class ArraySubobjectEntity<T extends ArrayElemType = ArrayElemType> exten
     }
 }
 
+
+export class DynamicLengthArrayNextElementEntity<T extends ArrayElemType = ArrayElemType> extends CPPEntity<T> implements ObjectEntity<T> {
+    public readonly variableKind = "object";
+
+    public readonly arrayEntity: NewArrayEntity<ArrayOfUnknownBoundType<T>>;
+
+    constructor(arrayEntity: NewArrayEntity<ArrayOfUnknownBoundType<T>>) {
+        super(arrayEntity.type.elemType);
+        this.arrayEntity = arrayEntity;
+    }
+
+    public runtimeLookup(rtConstruct: RuntimeConstruct) {
+        while (rtConstruct.model.construct_type !== "new_array_expression" && rtConstruct.parent) {
+            rtConstruct = rtConstruct.parent;
+        }
+        assert(rtConstruct.model.construct_type === "new_array_expression");
+        let newRtConstruct = <RuntimeNewArrayExpression<PointerType<T>>>rtConstruct;
+        return newRtConstruct.nextElemToInit!;
+    }
+
+    public isTyped<NarrowedT extends ArrayElemType>(predicate: (t:ArrayElemType) => t is NarrowedT) : this is ArraySubobjectEntity<NarrowedT>;
+    public isTyped<NarrowedT extends Type>(predicate: (t:Type) => t is NarrowedT) : this is never;
+    public isTyped<NarrowedT extends ArrayElemType>(predicate: (t:ArrayElemType) => t is NarrowedT) : this is ArraySubobjectEntity<NarrowedT> {
+        return predicate(this.type);
+    }
+
+    public describe() {
+        let arrDesc = this.arrayEntity.describe();
+        return {
+            name: arrDesc.name + "[?]",
+            message: "the next element of " + arrDesc.message + " to be initialized"
+        };
+    }
+}
+
 export class BaseSubobjectEntity extends CPPEntity<CompleteClassType> implements ObjectEntity<CompleteClassType> {
     public readonly variableKind = "object";
 
@@ -1189,7 +1276,7 @@ export class BaseSubobjectEntity extends CPPEntity<CompleteClassType> implements
         this.containingEntity = containingEntity;
 
         // This should always be true as long as we don't allow multiple inheritance
-        assert(this.containingEntity.type.classDefinition.baseClass?.similarType(type))
+        assert(this.containingEntity.type.classDefinition.baseType?.similarType(type))
     }
 
     public runtimeLookup(rtConstruct: RuntimeConstruct) {
@@ -1330,7 +1417,7 @@ export class MemberObjectEntity<T extends CompleteObjectType = CompleteObjectTyp
     
     public runtimeLookup(rtConstruct: RuntimeConstruct) {
         // Cast below should be <CPPObject<T>>, NOT MemberSubobject<T>.
-        // See return type and documentation for getMemberSubobject()
+        // See return type and documentation for getMemberObject()
         return <CPPObject<T>>rtConstruct.contextualReceiver.getMemberObject(this.name);
     }
 
@@ -1415,32 +1502,53 @@ export class TemporaryObjectEntity<T extends CompleteObjectType = CompleteObject
 }
 
 
-
+let FE_overrideID = 0;
 export class FunctionEntity<T extends FunctionType = FunctionType> extends DeclaredEntityBase<T> {
     public readonly declarationKind = "function";
 
-    public readonly qualifiedName: string;
+    public readonly qualifiedName: QualifiedName;
     public readonly firstDeclaration: FunctionDeclaration;
     public readonly declarations: readonly FunctionDeclaration[];
     public readonly definition?: FunctionDefinition;
 
+    public readonly isMemberFunction: boolean;
+    public readonly isVirtual: boolean;
+    public readonly isPureVirtual: boolean;
     public readonly isConstructor: boolean;
+    public readonly isDestructor: boolean;
 
     public readonly isOdrUsed: boolean = false;
 
     public readonly isImplicit: boolean;
     public readonly isUserDefined: boolean;
 
+    public readonly overrideID: number;
+
+    public readonly overriders: {
+        [index: string]: FunctionEntity;
+    } = {};
+    public readonly overrideTarget?: FunctionEntity;
+
     // storage: "static",
     constructor(type: T, decl: FunctionDeclaration) {
         super(type, decl.name);
         this.firstDeclaration = decl;
         this.declarations = [decl];
+        this.isMemberFunction = decl.isMemberFunction;
+        this.isVirtual = decl.isVirtual;
+        this.isPureVirtual = false;
         this.isConstructor = decl.isConstructor;
-        this.qualifiedName = "::" + this.name;
+        this.isDestructor = decl.isDestructor;
+        this.qualifiedName = decl.qualifiedName;
 
         this.isImplicit = !!decl.context.implicit;
         this.isUserDefined = !decl.context.implicit;
+
+        this.overrideID = FE_overrideID++;
+        if (this.isMemberFunction) {
+            assert(isClassContext(decl.context));
+            this.overriders[decl.context.containingClass.qualifiedName.str] = this;
+        }
     }
 
     public addDeclaration(decl: FunctionDeclaration) {
@@ -1451,17 +1559,44 @@ export class FunctionEntity<T extends FunctionType = FunctionType> extends Decla
         decls.forEach((decl) => asMutable(this.declarations).push(decl));
     }
 
-    public isStaticallyBound() {
-        return true;
-    }
-
-    public get isVirtual() {// TODO: why do we have this for non-member functions as well?
-        return false;
-    }
-
     public toString() {
         return this.name;
     }
+
+    public registerOverrider(containingClass: ClassEntity, overrider: FunctionEntity) {
+        this.overriders[containingClass.qualifiedName.str] = overrider;
+        this.overrideTarget?.registerOverrider(containingClass, overrider);
+    }
+
+    public setOverrideTarget(target: FunctionEntity) {
+        assert(!this.overrideTarget, "A single FunctionEntity may not have multiple override targets.")
+        asMutable(this).overrideTarget = target;
+
+    }
+
+    // private checkForOverride(baseClass: ClassDefinition) {
+    //     baseClass.memberFunctionEntities.forEach(func => {
+    //         if (func.type.sameSignature(this.type)) {
+    //             func.registerOverrider(this);
+    //         }
+    //     })
+
+    //     // Find the nearest overrider of a hypothetical virtual function.
+    //     // If any are virtual, this one would have already been set to be
+    //     // also virtual by this same procedure, so checking this one is sufficient.
+    //     // If we override any virtual function, this one is too.
+    //     var overridden = this.containingClass.getBaseClass().classScope.singleLookup(this.name, {
+    //         paramTypes: this.type.paramTypes, isThisConst: this.type.isThisConst,
+    //         exactMatch:true, own:true, noNameHiding:true});
+
+    //     if (overridden && overridden instanceof FunctionEntity && overridden.isVirtual){
+    //         (<boolean>this.isVirtual) = true;
+    //         // Check to make sure that the return types are covariant
+    //         if (!covariantType(this.type.returnType, overridden.type.returnType)){
+    //             throw SemanticExceptions.NonCovariantReturnTypes.instance(this, overridden);
+    //         }
+    //     }
+    // }
 
     public mergeInto(overloadGroup: FunctionOverloadGroup): FunctionEntity | CompilerNote {
         //check each other function found
@@ -1526,19 +1661,41 @@ export class FunctionEntity<T extends FunctionType = FunctionType> extends Decla
             (<Mutable<this>>this).definition = overload;
         }
         else {
-            if (this.isOdrUsed) {
+            if (this.isMemberFunction && this.isVirtual && !this.isPureVirtual) {
+                // All (non-pure) virtual functions must have a definition
+                this.declarations.forEach((decl) => decl.addNote(CPPError.link.func.virtual_def_required(decl, this)));
+            }
+            else if (this.isOdrUsed) {
+                // Functions that are ODR-used must have a definition
                 this.declarations.forEach((decl) => decl.addNote(CPPError.link.func.def_not_found(decl, this)));
             }
+            // Otherwise, it's ok for the function to not have a definition because it is never used
         }
 
     }
 
     public isMain() {
-        return this.qualifiedName === "::main";
+        return this.qualifiedName.str === "main";
     }
 
-    public isMemberFunction() {
-        return isClassContext(this.firstDeclaration.context);
+    public getDynamicallyBoundFunction(receiver: CPPObject<CompleteClassType> | undefined) {
+        if (!this.isVirtual) {
+            assert(this.definition, "non virtual function must have a definition!");
+            return this.definition;
+        }
+        else {
+            assert(receiver, "virtual function dynamic binding requires a receiver");
+            while (receiver instanceof BaseSubobject) {
+                receiver = receiver.containingObject;
+            }
+            let dynamicType: CompleteClassType | undefined = receiver.type;
+            let finalOverrider: FunctionEntity | undefined;
+            while (!finalOverrider && dynamicType) {
+                finalOverrider = this.overriders[dynamicType.qualifiedName.str];
+                dynamicType = dynamicType.classDefinition.baseType;
+            }
+            return finalOverrider?.definition || this.definition;
+        }
     }
 
     public registerCall(call: FunctionCall) {
@@ -1570,7 +1727,7 @@ export class FunctionEntity<T extends FunctionType = FunctionType> extends Decla
 export class ClassEntity extends DeclaredEntityBase<PotentiallyCompleteClassType> {
     public readonly declarationKind = "class";
 
-    public readonly qualifiedName: string;
+    public readonly qualifiedName: QualifiedName;
     public readonly firstDeclaration: ClassDeclaration;
     public readonly declarations: readonly ClassDeclaration[];
     public readonly definition?: ClassDefinition;
@@ -1580,13 +1737,12 @@ export class ClassEntity extends DeclaredEntityBase<PotentiallyCompleteClassType
         // Ask the type system for the appropriate type.
         // Because Lobster only supports mechanisms for class declaration that yield
         // classes with external linkage, it is sufficient to use the fully qualified
-        // class name to distinguish types from each other. But, because Lobster does
-        // not support namespaces, the unqualified name is also sufficient.
+        // class name to distinguish types from each other.
 
-        super(createClassType(decl.name), decl.name);
+        super(createClassType(decl.name, decl.qualifiedName), decl.name);
         this.firstDeclaration = decl;
         this.declarations = [decl];
-        this.qualifiedName = "::" + this.name;
+        this.qualifiedName = decl.qualifiedName;
     }
 
     public isComplete() : this is CompleteClassEntity {
@@ -1647,10 +1803,6 @@ export class ClassEntity extends DeclaredEntityBase<PotentiallyCompleteClassType
         }
     }
 
-    public isMain() {
-        return this.qualifiedName === "::main";
-    }
-
     public isTyped<NarrowedT extends PotentiallyCompleteClassType>(predicate: (t:PotentiallyCompleteClassType) => t is NarrowedT) : this is ClassEntity;
     public isTyped<NarrowedT extends Type>(predicate: (t:Type) => t is NarrowedT) : this is never;
     public isTyped<NarrowedT extends PotentiallyCompleteClassType>(predicate: (t:PotentiallyCompleteClassType) => t is NarrowedT) : this is ClassEntity {
@@ -1700,27 +1852,7 @@ export interface CompleteClassEntity extends ClassEntity {
 //         this.checkForOverride();
 //     }
 
-//     private checkForOverride() {
-//         if (!this.containingClass.getBaseClass()) {
-//             return;
-//         }
 
-//         // Find the nearest overrider of a hypothetical virtual function.
-//         // If any are virtual, this one would have already been set to be
-//         // also virtual by this same procedure, so checking this one is sufficient.
-//         // If we override any virtual function, this one is too.
-//         var overridden = this.containingClass.getBaseClass().classScope.singleLookup(this.name, {
-//             paramTypes: this.type.paramTypes, isThisConst: this.type.isThisConst,
-//             exactMatch:true, own:true, noNameHiding:true});
-
-//         if (overridden && overridden instanceof FunctionEntity && overridden.isVirtual){
-//             (<boolean>this.isVirtual) = true;
-//             // Check to make sure that the return types are covariant
-//             if (!covariantType(this.type.returnType, overridden.type.returnType)){
-//                 throw SemanticExceptions.NonCovariantReturnTypes.instance(this, overridden);
-//             }
-//         }
-//     }
 
 //     public isStaticallyBound() {
 //         return !this.isVirtual;

@@ -65,6 +65,8 @@ export class InstantMemoryDiagramOutlet {
 
 
         await simRunner.stepToEndOfMain(0, 1000);
+
+        this.element.find(".code-memoryObject .set").removeClass("set");
     }
 
     @messageResponse("compilationFinished")

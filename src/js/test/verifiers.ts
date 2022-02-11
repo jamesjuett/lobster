@@ -21,7 +21,7 @@ export abstract class TestVerifier {
         try{
             return Object.assign({verifierName: this.verifierName}, this.verifyImpl(program));
         }
-        catch(e) {
+        catch(e: any) {
             if (e.status && e.status === "failure") {
                 return Object.assign({verifierName: this.verifierName}, e);
             }
@@ -167,9 +167,14 @@ export class OutputVerifier extends TestVerifier {
 
     public readonly expectedOutput: string;
 
-    public constructor(expectedOutput: string) {
+    public readonly input: string;
+    public readonly stepLimit: number;
+
+    public constructor(expectedOutput: string, input: string = "", stepLimit: number = 1000) {
         super();
         this.expectedOutput = expectedOutput;
+        this.input = input;
+        this.stepLimit = stepLimit;
     }
 
     protected verifyImpl(program: Program) : Omit<VerificationStatus, "verifierName"> {
@@ -178,13 +183,62 @@ export class OutputVerifier extends TestVerifier {
         }
 
         let sim = new Simulation(program);
-        sim.stepToEnd();
+        if (this.input !== "") {
+            sim.cin.addToBuffer(this.input)
+        }
+        let runner = new SynchronousSimulationRunner(sim);
+        runner.stepToEnd(this.stepLimit, true);
+
+        if (!sim.atEnd) {
+            return {status: "failure", message: "The simulation did not reach the end of the program. (It may also have terminated due to unavialable input.)"};
+        }
 
         if (sim.allOutput === this.expectedOutput) {
             return VERIFICATION_SUCCESSFUL;
         }
         else {
-            return {status: "failure", message: "The programs output did not match what was expected."};
+            return {status: "failure", message: "The program's output did not match what was expected."};
+        }
+    }
+}
+
+
+export class EndOfMainStateVerifier extends TestVerifier {
+    public readonly verifierName = "EndOfMainStateVerifier";
+
+    public readonly input: string;
+    public readonly stepLimit: number;
+
+    private criteria: (sim: Simulation) => boolean;
+
+    public constructor(criteria: (sim: Simulation) => boolean, input: string = "", stepLimit: number = 1000) {
+        super();
+        this.criteria = criteria;
+        this.input = input;
+        this.stepLimit = stepLimit;
+    }
+
+    protected verifyImpl(program: Program) : Omit<VerificationStatus, "verifierName"> {
+        if (!program.isRunnable()) {
+            return {status: "failure", message: "The program either failed to compile or is missing a main function."};
+        }
+
+        let sim = new Simulation(program);
+        if (this.input !== "") {
+            sim.cin.addToBuffer(this.input)
+        }
+        let runner = new SynchronousSimulationRunner(sim);
+        runner.stepToEndOfMain(this.stepLimit, true);
+
+        if (!sim.atEndOfMain) {
+            return {status: "failure", message: "The simulation did not reach the end of the main function. (It may also have terminated due to unavialable input.)"};
+        }
+
+        if (this.criteria(sim)) {
+            return VERIFICATION_SUCCESSFUL;
+        }
+        else {
+            return {status: "failure", message: "The programs end-of-main state did not match what was expected."};
         }
     }
 }
@@ -194,12 +248,17 @@ export class OutputVerifier extends TestVerifier {
  */
 export class NoBadRuntimeEventsVerifier extends TestVerifier {
     public readonly verifierName = "NoBadRuntimeEventsVerifier";
+
+    public readonly input: string;
+    public readonly stepLimit: number;
     
     public readonly resetAndTestAgain: boolean;
 
-    public constructor(resetAndTestAgain: boolean) {
+    public constructor(resetAndTestAgain: boolean, input: string = "", stepLimit: number = 1000) {
         super();
         this.resetAndTestAgain = resetAndTestAgain;
+        this.input = input;
+        this.stepLimit = stepLimit;
     }
 
     protected verifyImpl(program: Program) : Omit<VerificationStatus, "verifierName"> {
@@ -216,7 +275,15 @@ export class NoBadRuntimeEventsVerifier extends TestVerifier {
             SimulationEvent.CRASH];
 
         let sim = new Simulation(program);
-        sim.stepToEnd();
+        if (this.input !== "") {
+            sim.cin.addToBuffer(this.input)
+        }
+        let runner = new SynchronousSimulationRunner(sim);
+        runner.stepToEnd(this.stepLimit, true);
+
+        if (!sim.atEnd) {
+            return {status: "failure", message: "The simulation did not reach the end of the program. (It may also have terminated due to unavialable input.)"};
+        }
 
         let stepsTaken1 = sim.stepsTaken;
 
@@ -228,8 +295,15 @@ export class NoBadRuntimeEventsVerifier extends TestVerifier {
         }
 
         if (this.resetAndTestAgain) {
-            sim.reset();
-            sim.stepToEnd();
+            runner.reset();
+            if (this.input !== "") {
+                sim.cin.addToBuffer(this.input)
+            }
+            runner.stepToEnd(this.stepLimit, true);
+
+            if (!sim.atEnd) {
+                return {status: "failure", message: "The simulation did not reach the end of the program. (It may also have terminated due to unavialable input.)"};
+            }
             
             let stepsTaken2 = sim.stepsTaken;
     
