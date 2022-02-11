@@ -266,10 +266,10 @@ using namespace std;
 
 int main() {
 
-// TODO: Put your code here!
+  // TODO: Put your code here!
 
 
-cout << "done!" << endl;
+  cout << "done!" << endl;
 }`,
         checkpoints: [
             new IsCompiledCheckpoint("Compiles"),
@@ -387,17 +387,17 @@ int main() {
 using namespace std;
 
 int main() {
-    int N = 5;
-  
-    // YOUR CODE HERE
-  
-  
-  
-  
-  
-  
-  
-  }`,
+  int N = 5;
+
+  // YOUR CODE HERE
+
+
+
+
+
+
+
+}`,
         checkpoints: [
             new StaticAnalysisCheckpoint("Nested Loops", (program: Program) => {
                 let outerLoop = findFirstConstruct(program, Predicates.byKinds(["for_statement", "while_statement"]));
