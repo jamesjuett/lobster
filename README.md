@@ -1,6 +1,8 @@
 # lobster
 Interactive Program Visualization Tools
 
+This repository is a complete **mess**. I'll clean it up someday. Feel free to look around.
+
 # Setup
 These instructions cover everything you'll need if you want to do development work for Lobster's frontend, C++ compiler/interpreter, visualization tools, analysis framework, or regression tests.
 
@@ -41,6 +43,10 @@ If you make any changes to `grammar.txt`, run this to regenerate the parser modu
 ```console
 ./node_modules/pegjs/bin/pegjs --plugin ./node_modules/ts-pegjs/src/tspegjs --allowed-start-rules start,declaration,declarator,function_definition -o src/js/parse/cpp_parser.ts other/grammar.txt
 ```
+
+# Local Preview
+
+After compiling, just open up `public/index.html`. You won't have any saved files or anything, but you can test out any changes to the compiler, visualizer, or general frontend UI here.
 
 # Creating Embeddable Exercises
 
