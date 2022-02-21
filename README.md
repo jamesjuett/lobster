@@ -1,7 +1,7 @@
 # lobster
 Interactive Program Visualization Tools
 
-This repository is a complete **mess**. I'll clean it up someday. Feel free to look around.
+This repository is a **complete mess**. I'll clean it up someday. Feel free to look around.
 
 # Setup
 These instructions cover everything you'll need if you want to do development work for Lobster's frontend, C++ compiler/interpreter, visualization tools, analysis framework, or regression tests.
