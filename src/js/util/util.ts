@@ -79,11 +79,19 @@ var escapes = ["\\\"", "\\'", "\\?", "\\\\", "\\a", "\\b", "\\f", "\\n", "\\r", 
 var escaped = ["\"", "\'", "", "\\", "", "\b", "\f", "\n", "\r", "\t", "\v", "\0"];
 
 export function escapeString(text: string) {
-    for(var i = 0; i < escapes.length; ++i){
-        text = text.replace(escapes[i], escaped[i]);
+    for (var i = 0; i < escapes.length; ++i) {
+        // text = text.replace(escapes[i], escaped[i]);
+
+        //! requires ES 2021
+        // text = text.replaceAll(escapes[i], escaped[i]);
+
+        while (text.includes(escapes[i])) {
+            text = text.replace(escapes[i], escaped[i]);
+        }
     }
     return text;
-};
+}
+
 export function unescapeString(text: string){
     var newStr = "";
     for(var i = 0; i < text.length; ++i){
