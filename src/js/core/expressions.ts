@@ -4,7 +4,7 @@ import { CompleteObjectType, AtomicType, IntegralType, PointerType, ReferenceTyp
 import { SuccessfullyCompiled, RuntimeConstruct, CPPConstruct, ExpressionContext, ConstructDescription, createExpressionContextWithReceiverType, isMemberFunctionContext, SemanticContext, areSemanticallyEquivalent, areAllSemanticallyEquivalent } from "./constructs";
 import { AnythingConstructASTNode, ASTNode } from "../ast/ASTNode";
 import { Note, CPPError, NoteHandler } from "./errors";
-import { FunctionEntity, ObjectEntity, Scope, VariableEntity, MemberVariableEntity, NameLookupOptions, BoundReferenceEntity, runtimeObjectLookup, DeclaredScopeEntry, TemporaryObjectEntity, ArraySubobjectEntity, areEntitiesSemanticallyEquivalent } from "./entities";
+import { FunctionEntity, ObjectEntity, Scope, VariableEntity, MemberVariableEntity, NameLookupOptions, BoundReferenceEntity, runtimeObjectLookup, DeclaredScopeEntry, TemporaryObjectEntity, ArraySubobjectEntity, areEntitiesSemanticallyEquivalent, GlobalVariableEntity, LocalVariableEntity } from "./entities";
 import { Value, RawValueType } from "./runtimeEnvironment";
 import { escapeString, assertNever, assert, assertFalse, Mutable } from "../util/util";
 import { checkIdentifier, MAGIC_FUNCTION_NAMES, LexicalIdentifier, identifierToString, astToIdentifier } from "./lexical";
@@ -3361,7 +3361,6 @@ export class DotExpression extends Expression<DotExpressionASTNode> {
     public readonly memberName: LexicalIdentifier;
 
     public readonly entity?: MemberVariableEntity | FunctionEntity;
-    public readonly functionCallReceiver?: ObjectEntity<CompleteClassType>
 
     public static createFromAST(ast: DotExpressionASTNode, context: ExpressionContext): DotExpression {
         let operand: Expression = createExpressionFromAST(ast.operand, context);
@@ -3385,10 +3384,6 @@ export class DotExpression extends Expression<DotExpressionASTNode> {
         if (!Predicates.isTypedExpression(this.operand, isCompleteClassType)) {
             this.addNote(CPPError.expr.dot.incomplete_class_type_prohibited(this));
             return;
-        }
-
-        if (this.operand instanceof IdentifierExpression) {
-            this.functionCallReceiver = this.operand.getEntity();
         }
 
         let classType = this.operand.type;
@@ -3422,7 +3417,17 @@ export class DotExpression extends Expression<DotExpressionASTNode> {
                 this.entity = entityOrError;
         }
 
-        this.type = peelReference(this.entity?.type);
+        // Check if this is an implicit member access operation
+        if (this.entity?.declarationKind === "variable"
+            && this.entity.variableKind === "object"
+            && this.context.contextualReceiverType?.isConst) {
+            // A non-reference member variable will inherit const from the
+            // receiver of a member access operation.
+            this.type = peelReference(this.entity.type.cvQualified(true));
+        }
+        else {
+            this.type = peelReference(this.entity?.type);
+        }
     }
 
     public createDefaultOutlet(this: CompiledObjectDotExpression<CompleteObjectType> | CompiledFunctionDotExpression, element: JQuery, parent?: ConstructOutlet) {
@@ -3454,7 +3459,7 @@ export class DotExpression extends Expression<DotExpressionASTNode> {
 
 export interface TypedObjectDotExpression<T extends PotentiallyCompleteObjectType = PotentiallyCompleteObjectType> extends DotExpression, t_TypedExpression {
     readonly type: T;
-    readonly entity: MemberVariableEntity;
+    readonly entity: MemberVariableEntity<T>;
     readonly operand: TypedExpression<CompleteClassType>;
 }
 
@@ -3527,78 +3532,6 @@ export class RuntimeFunctionDotExpression extends RuntimeExpression<FunctionType
 }
 
 
-// export var Dot  = Expression.extend({
-//     _name: "Dot",
-//     i_runtimeConstructClass : RuntimeMemberAccess,
-//     i_childrenToCreate : ["operand"],
-//     i_childrenToExecute : ["operand"],
-
-//     i_createFromAST : function(ast, context) {
-//         Dot._parent.i_createFromAST.apply(this, arguments);
-//         this.memberName = ast.member.identifier;
-//     },
-
-//     compile : function(compilationContext) {
-//         this.i_paramTypes = compilationContext && compilationContext.paramTypes;
-//         Expressions.Dot._parent.compile.apply(this, arguments);
-//     },
-
-//     typeCheck : function(){
-//         if (!isA(this.operand.type, Types.Class)) {
-//             this.addNote(CPPError.expr.dot.class_type(this));
-//             return false;
-//         }
-
-//         // Find out what this identifies
-//         try {
-//             this.entity = this.operand.type.classScope.requiredMemberLookup(this.memberName, {paramTypes: this.i_paramTypes, isThisConst:this.operand.type.isConst});
-//             this.type = this.entity.type;
-//         }
-//         catch(e){
-//             if (isA(e, SemanticExceptions.BadLookup)){
-//                 // this.addNote(CPPError.expr.dot.memberLookup(this, this.operand.type, this.memberName));
-//                 // TODO: why is this commented?
-//                 this.addNote(e.annotation(this));
-//             }
-//             else{
-//                 throw e;
-//             }
-//         }
-
-//         if (isA(this.type, Types.Reference)){
-//             this.type = this.type.refTo;
-//             this.valueCategory = "lvalue";
-//         }
-//         else if (this.operand.valueCategory === "lvalue"){
-//             this.valueCategory = "lvalue";
-//         }
-//         else{
-//             this.valueCategory = "xvalue";
-//         }
-//     },
-
-//     upNext : function(sim: Simulation, rtConstruct: RuntimeConstruct){
-//         if (inst.index === "subexpressions"){
-//             return Expression.upNext.apply(this, arguments);
-//         }
-//         else{
-//             // entity may be MemberVariableEntity but should never be an AutoEntity
-//             assert(!isA(this.entity, AutoEntity));
-//             inst.setObjectAccessedFrom(inst.childInstances.operand.evalResult);
-//             inst.setEvalResult(this.entity.runtimeLookup(sim, inst));
-//             this.done(sim, inst);
-//             return true;
-//         }
-//     },
-
-//     isTailChild : function(child){
-//         return {isTail: false,
-//             reason: "The dot operation itself will happen after the recursive call returns.",
-//             others: [this]
-//         };
-//     }
-// });
-
 export class ArrowExpression extends Expression<ArrowExpressionASTNode> {
     public readonly construct_type = "arrow_expression";
 
@@ -3609,7 +3542,6 @@ export class ArrowExpression extends Expression<ArrowExpressionASTNode> {
     public readonly memberName: LexicalIdentifier;
 
     public readonly entity?: MemberVariableEntity | FunctionEntity;
-    public readonly functionCallReceiver?: ObjectEntity<CompleteClassType>
 
     public static createFromAST(ast: ArrowExpressionASTNode, context: ExpressionContext): ArrowExpression {
         let operand: Expression = createExpressionFromAST(ast.operand, context);
@@ -3667,7 +3599,17 @@ export class ArrowExpression extends Expression<ArrowExpressionASTNode> {
                 this.entity = entityOrError;
         }
 
-        this.type = peelReference(this.entity?.type);
+        // Check if this is an implicit member access operation
+        if (this.entity?.declarationKind === "variable"
+            && this.entity.variableKind === "object"
+            && this.context.contextualReceiverType?.isConst) {
+            // A non-reference member variable will inherit const from the
+            // receiver of a member access operation.
+            this.type = peelReference(this.entity.type.cvQualified(true));
+        }
+        else {
+            this.type = peelReference(this.entity?.type);
+        }
     }
 
     public createDefaultOutlet(this: CompiledObjectArrowExpression<CompleteObjectType> | CompiledFunctionArrowExpression, element: JQuery, parent?: ConstructOutlet) {
@@ -3699,7 +3641,7 @@ export class ArrowExpression extends Expression<ArrowExpressionASTNode> {
 
 export interface TypedObjectArrowExpression<T extends PotentiallyCompleteObjectType = PotentiallyCompleteObjectType> extends ArrowExpression, t_TypedExpression {
     readonly type: T;
-    readonly entity: MemberVariableEntity;
+    readonly entity: MemberVariableEntity<T>;
     readonly operand: TypedExpression<PointerType<CompleteClassType>>;
 }
 
@@ -3888,7 +3830,7 @@ export class PostfixIncrementExpression extends Expression<PostfixIncrementExpre
             this.type = operand.type.cvUnqualified();
 
             if (operand.type.isConst) {
-                this.addNote(CPPError.expr.postfixIncrement.const_prohibited(this));
+                this.addNote(CPPError.expr.postfixIncrement.const_prohibited(this, this.operator));
             }
         }
         else {
@@ -4206,7 +4148,7 @@ export class IdentifierExpression extends Expression<IdentifierExpressionASTNode
 
     public readonly name: LexicalIdentifier;
 
-    public readonly entity?: ObjectEntity | BoundReferenceEntity | FunctionEntity;
+    public readonly entity?: LocalVariableEntity | GlobalVariableEntity | MemberVariableEntity | FunctionEntity;
 
     // i_createFromAST: function(ast, context){
 
@@ -4239,7 +4181,18 @@ export class IdentifierExpression extends Expression<IdentifierExpressionASTNode
                 this.entity = entityOrError;
         }
 
-        this.type = peelReference(this.entity?.type);
+        // Check if this is an implicit member access operation
+        if (this.entity?.declarationKind === "variable"
+            && this.entity.variableLocation === "member"
+            && this.entity.variableKind === "object"
+            && this.context.contextualReceiverType?.isConst) {
+            // A non-reference member variable will inherit const from the
+            // receiver of a member access operation.
+            this.type = peelReference(this.entity.type.cvQualified(true));
+        }
+        else {
+            this.type = peelReference(this.entity?.type);
+        }
     }
 
     public static createFromAST(ast: IdentifierExpressionASTNode, context: ExpressionContext) {
@@ -4247,7 +4200,7 @@ export class IdentifierExpression extends Expression<IdentifierExpressionASTNode
     }
 
 
-    public getEntity<T extends CompleteObjectType>(this: TypedExpression<T>): ObjectEntity<T>;
+    public getEntity<T extends CompleteObjectType>(this: TypedExpression<T>): LocalVariableEntity<T> | GlobalVariableEntity<T> | MemberVariableEntity<T>;
     public getEntity<T extends FunctionType>(this: TypedExpression<T>): FunctionEntity<T>;
     public getEntity() {
         return this.entity;
@@ -4338,7 +4291,7 @@ export function entityLookup(expression: Expression, lookupResult: DeclaredScope
 
 export interface TypedObjectIdentifierExpression<T extends PotentiallyCompleteObjectType = PotentiallyCompleteObjectType> extends IdentifierExpression, t_TypedExpression {
     readonly type: T;
-    readonly entity: ObjectEntity<Extract<T, CompleteObjectType>> | BoundReferenceEntity<ReferenceType<T>>;
+    readonly entity: LocalVariableEntity<T> | GlobalVariableEntity<T> | MemberVariableEntity<T>;
 }
 
 export interface CompiledObjectIdentifierExpression<T extends PotentiallyCompleteObjectType = PotentiallyCompleteObjectType> extends TypedObjectIdentifierExpression<T>, SuccessfullyCompiled {

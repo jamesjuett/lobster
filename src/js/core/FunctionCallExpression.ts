@@ -76,10 +76,6 @@ export class FunctionCallExpression extends Expression<FunctionCallExpressionAST
 
         this.valueCategory = returnType instanceof ReferenceType ? "lvalue" : "prvalue";
 
-        // let staticReceiver: ObjectEntity<CompleteClassType> | undefined;
-        // if (operand instanceof DotExpression) {
-        //     staticReceiver = operand.functionCallReceiver;
-        // }
         // If we get to here, we don't attach the args directly since they will be attached under the function call.
         this.attach(this.call = new FunctionCall(context, operand.entity, args, operand.context.contextualReceiverType));
     }

@@ -862,8 +862,8 @@ export const CPPError = {
             decrement_bool_prohibited: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "expr.postfixIncrement.decrement_bool_prohibited", "The -- operator may not be used on an object of boolean type.");
             },
-            const_prohibited: function (construct: TranslationUnitConstruct) {
-                return new CompilerNote(construct, NoteKind.ERROR, "expr.postfixIncrement.const_prohibited", "The -- operator may not be used on a const object.");
+            const_prohibited: function (construct: TranslationUnitConstruct, operator: string) {
+                return new CompilerNote(construct, NoteKind.ERROR, "expr.postfixIncrement.const_prohibited", "The " + operator + " operator may not be used on a const object.");
             }
         },
         functionCall: {
