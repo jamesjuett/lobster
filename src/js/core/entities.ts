@@ -1298,40 +1298,6 @@ export class BaseSubobjectEntity extends CPPEntity<CompleteClassType> implements
 }
 
 
-
-export class MemberAccessEntity<T extends CompleteObjectType = CompleteObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
-    public readonly variableKind = "object";
-
-    public readonly containingEntity: ObjectEntity<CompleteClassType>;
-    public readonly name: string;
-
-    constructor(containingEntity: ObjectEntity<CompleteClassType>, type: T, name: string) {
-        super(type);
-        this.containingEntity = containingEntity;
-        this.name = name;
-    }
-
-    public runtimeLookup(rtConstruct: RuntimeConstruct) {
-        // Cast below should be <CPPObject<T>>, NOT MemberSubobject<T>.
-        // See return type and documentation for getMemberSubobject()
-        return <CPPObject<T>>this.containingEntity.runtimeLookup(rtConstruct).getMemberObject(this.name);
-    }
-
-    public isTyped<NarrowedT extends CompleteObjectType>(predicate: (t:CompleteObjectType) => t is NarrowedT) : this is MemberAccessEntity<NarrowedT>;
-    public isTyped<NarrowedT extends Type>(predicate: (t:Type) => t is NarrowedT) : this is never;
-    public isTyped<NarrowedT extends CompleteObjectType>(predicate: (t:CompleteObjectType) => t is NarrowedT) : this is MemberAccessEntity<NarrowedT> {
-        return predicate(this.type);
-    }
-
-    public describe() {
-        let containingObjectDesc = this.containingEntity.describe();
-        return {
-            name: containingObjectDesc.name + "." + this.name,
-            message: "the " + this.name + " member of " + containingObjectDesc.message
-        };
-    }
-}
-
 // export class BaseClassEntity extends CPPEntity<ClassType> implements ObjectEntity<ClassType> {
 //     protected static readonly _name = "BaseClassEntity";
 //     // storage: "none",
