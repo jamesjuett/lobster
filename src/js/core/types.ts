@@ -618,10 +618,7 @@ export class VoidType extends TypeBase {
 
     public englishString(plural: boolean) {
         // return "void";
-        var word = this.getCVString() + "void";
-        return plural
-            ?  "void" + "s"
-            : (isVowel(word.charAt(0)) ? "an " : "a ") + word;
+        return this.getCVString() + plural ? "voids" : "a void";
     }
 
     public _cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
