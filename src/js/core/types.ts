@@ -604,11 +604,24 @@ export class VoidType extends TypeBase {
     }
 
     public typeString(excludeBase: boolean, varname: string, decorated: boolean) {
-        return "void";
+        // return "void";
+        if (excludeBase) {
+            return varname ? varname : "";
+        }
+
+        let typeStr = this.getCVString() + "void";
+        return (
+            (decorated ? htmlDecoratedType(typeStr) : typeStr) +
+            (varname ? " " + varname : "")
+        );
     }
 
     public englishString(plural: boolean) {
-        return "void";
+        // return "void";
+        var word = this.getCVString() + "void";
+        return plural
+            ?  "void" + "s"
+            : (isVowel(word.charAt(0)) ? "an " : "a ") + word;
     }
 
     public _cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
