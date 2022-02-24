@@ -4,7 +4,7 @@ import { CompiledTemporaryDeallocator, PotentialFullExpression, RuntimePotential
 import { CompiledFunctionCall, FunctionCall, RuntimeFunctionCall } from "./FunctionCall";
 import { StringLiteralExpression, CompiledStringLiteralExpression, RuntimeStringLiteralExpression, createRuntimeExpression, standardConversion, overloadResolution, createExpressionFromAST, InitializerListExpression, AnalyticExpression } from "./expressions";
 import { ExpressionASTNode } from "../ast/ast_expressions";
-import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity, FunctionEntity, ReceiverEntity, BaseSubobjectEntity, MemberObjectEntity, ObjectEntityType, TemporaryObjectEntity, MemberVariableEntity, NewArrayEntity, DynamicLengthArrayNextElementEntity } from "./entities";
+import { ObjectEntity, UnboundReferenceEntity, ArraySubobjectEntity, FunctionEntity, ReceiverEntity, BaseSubobjectEntity, MemberObjectEntity, ObjectEntityType, TemporaryObjectEntity, MemberVariableEntity, NewArrayEntity, DynamicLengthArrayNextElementEntity, areEntitiesSemanticallyEquivalent } from "./entities";
 import { CompleteObjectType, AtomicType, BoundedArrayType, referenceCompatible, sameType, Char, FunctionType, VoidType, CompleteClassType, PotentiallyCompleteObjectType, ReferenceType, ReferredType, isCvConvertible, referenceRelated, isBoundedArrayOfType, isBoundedArrayType, ArrayOfUnknownBoundType } from "./types";
 import { assertFalse, assert, asMutable, assertNever, Mutable } from "../util/util";
 import { CPPError } from "./errors";
@@ -35,7 +35,9 @@ export abstract class Initializer extends PotentialFullExpression {
     public abstract readonly kind: InitializerKind;
 
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return other.construct_type === this.construct_type;
+        return other.construct_type === this.construct_type
+            && areEntitiesSemanticallyEquivalent(this.target, (<Initializer>other).target, equivalenceContext)
+            && areAllSemanticallyEquivalent(this.children, other.children, equivalenceContext);
         // TODO semantic equivalence
     }
 }
