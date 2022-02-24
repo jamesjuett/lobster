@@ -1219,7 +1219,7 @@ export class ReferenceType<RefTo extends PotentiallyCompleteObjectType = Potenti
     }
 
     public _cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
-        return new ReferenceType(this.refTo);
+        return new ReferenceType(this.refTo); // does nothing, reference can't be cv qualified
     }
 
 }

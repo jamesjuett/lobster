@@ -1668,8 +1668,8 @@ export class FunctionDefinition extends BasicCPPConstruct<FunctionContext, Funct
         // Create implementation and body block (before params and body statements added yet)
         let receiverType: CompleteClassType | undefined;
         if (declaration.isMemberFunction) {
-            assert(declaration.context.containingClass?.isComplete(), "Member function definitions may not be compiled until their containing class definition has been completed.");
-            receiverType = declaration.context.containingClass.type;
+            assert(declaration.type.receiverType?.isComplete(), "Member function definitions may not be compiled until their containing class definition has been completed.");
+            receiverType = declaration.type.receiverType;
         }
         
         let functionContext = createFunctionContext(context, declaration.declaredEntity, receiverType);
