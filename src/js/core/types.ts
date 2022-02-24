@@ -797,7 +797,7 @@ export abstract class SimpleType extends AtomicType {
         // no recursive calls to this.simpleType.englishString() here
         // because this.simpleType is just a string representing the type
         var word = this.getCVString() + this.simpleType;
-        return (plural ? this.simpleType + "s" : (isVowel(word.charAt(0)) ? "an " : "a ") + word);
+        return (plural ? word + "s" : (isVowel(word.charAt(0)) ? "an " : "a ") + word);
     }
 
     public valueToString(value: RawValueType) {
