@@ -3,6 +3,8 @@ Interactive Program Visualization Tools
 
 This repository is a **complete mess**. I'll clean it up someday. Feel free to look around.
 
+There's a discord now: https://discord.gg/rHvsm3eCu2
+
 # Setup
 These instructions cover everything you'll need if you want to do development work for Lobster's frontend, C++ compiler/interpreter, visualization tools, analysis framework, or regression tests.
 
