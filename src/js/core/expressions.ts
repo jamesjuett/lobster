@@ -4617,6 +4617,11 @@ export class StringLiteralExpression extends Expression<StringLiteralASTNode> {
     public describeEvalResult(depth: number): ConstructDescription {
         throw new Error("Method not implemented.");
     }
+
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, ec: SemanticContext): boolean {
+        return other.construct_type === this.construct_type
+            && this.str === other.str;
+    }
 }
 
 export interface TypedStringLiteralExpression extends StringLiteralExpression, t_TypedExpression {
