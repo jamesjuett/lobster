@@ -2,16 +2,42 @@ import { Observable } from "../util/observe";
 import { RunnableProgram } from "./Program";
 import { Memory, Value } from "./runtimeEnvironment";
 import { RuntimeConstruct, RuntimeGlobalObjectAllocator } from "./constructs";
-import { CPPRandom, Mutable, escapeString, asMutable, assertNever, assert } from "../util/util";
+import {
+    CPPRandom,
+    Mutable,
+    escapeString,
+    asMutable,
+    assertNever,
+    assert,
+} from "../util/util";
 import { DynamicObject, MainReturnObject } from "./objects";
-import { Int, PointerType, Char, CompleteObjectType, AtomicType, FunctionType, PotentiallyCompleteObjectType, ReferenceType, ReferredType, ArithmeticType, AnalyticArithmeticType, isType, isIntegralType, IntegralType, SuccessParsingResult, ErrorParsingResult } from "./types";
+import {
+    Int,
+    PointerType,
+    Char,
+    CompleteObjectType,
+    AtomicType,
+    FunctionType,
+    PotentiallyCompleteObjectType,
+    ReferenceType,
+    ReferredType,
+    ArithmeticType,
+    AnalyticArithmeticType,
+    isType,
+    isIntegralType,
+    IntegralType,
+    SuccessParsingResult,
+    ErrorParsingResult,
+} from "./types";
 import { Initializer, RuntimeDirectInitializer } from "./initializers";
-import { PassByReferenceParameterEntity, PassByValueParameterEntity } from "./entities";
+import {
+    PassByReferenceParameterEntity,
+    PassByValueParameterEntity,
+} from "./entities";
 import { CompiledExpression, RuntimeExpression } from "./expressionBase";
 import { RuntimeFunction } from "./functions";
 import { first, clone, trimStart } from "lodash";
 import { StandardInputStream } from "./streams";
-
 
 export enum SimulationEvent {
     UNDEFINED_BEHAVIOR = "undefined_behavior",
@@ -24,7 +50,7 @@ export enum SimulationEvent {
 
 export enum SimulationActionKind {
     STEP_FORWARD,
-    CIN_INPUT
+    CIN_INPUT,
 }
 
 export interface StepForwardAction {
@@ -36,17 +62,15 @@ export interface CinInputAction {
     text: string;
 }
 
-export type SimulationAction = 
-    StepForwardAction |
-    CinInputAction;
+export type SimulationAction = StepForwardAction | CinInputAction;
 
-export const STEP_FORWARD_ACTION : StepForwardAction = {
-    kind: SimulationActionKind.STEP_FORWARD
+export const STEP_FORWARD_ACTION: StepForwardAction = {
+    kind: SimulationActionKind.STEP_FORWARD,
 };
 
 export enum SimulationOutputKind {
     COUT,
-    CIN_ECHO
+    CIN_ECHO,
 }
 
 export interface CoutOutput {
@@ -59,41 +83,38 @@ export interface CinEchoOutput {
     text: string;
 }
 
-export type SimulationOutput = 
-    CoutOutput |
-    CinEchoOutput;
+export type SimulationOutput = CoutOutput | CinEchoOutput;
 
 export type SimulationMessages =
-    "started" |
-    "reset" |
-    "mainCalled" |
-    "pushed" |
-    "popped" |
-    "beforeUpNext" |
-    "afterUpNext" |
-    "beforeStepForward" |
-    "afterStepForward" |
-    "afterFullStep" |
-    "atEnded" |
-    "parameterPassedByReference" |
-    "parameterPassedByAtomicValue" |
-    "returnPassed" |
-    "istreamBufferUpdated" | 
-    "cout" |
-    "cinInput" |
-    "eventOccurred";
+    | "started"
+    | "reset"
+    | "mainCalled"
+    | "pushed"
+    | "popped"
+    | "beforeUpNext"
+    | "afterUpNext"
+    | "beforeStepForward"
+    | "afterStepForward"
+    | "afterFullStep"
+    | "atEnded"
+    | "parameterPassedByReference"
+    | "parameterPassedByAtomicValue"
+    | "returnPassed"
+    | "istreamBufferUpdated"
+    | "cout"
+    | "cinInput"
+    | "eventOccurred";
 
 type SimulationOptions = {
-    cin?: StandardInputStream,
-    start?: boolean
+    cin?: StandardInputStream;
+    start?: boolean;
 };
 
 const DEFAULT_SIMULATION_OPTIONS = {
-    start: true
-}
+    start: true,
+};
 
 export class Simulation {
-
     public readonly observable = new Observable<SimulationMessages>(this);
 
     public readonly program: RunnableProgram;
@@ -107,7 +128,8 @@ export class Simulation {
 
     public readonly stepsTaken: number;
     private readonly _actionsTaken: SimulationAction[] = [];
-    public readonly actionsTaken: readonly SimulationAction[] = this._actionsTaken;
+    public readonly actionsTaken: readonly SimulationAction[] =
+        this._actionsTaken;
     public readonly allOutput: string;
     public readonly outputProduced: readonly SimulationOutput[] = [];
 
@@ -128,22 +150,21 @@ export class Simulation {
     private readonly _eventsOccurred: {
         [p in SimulationEvent]: string[];
     } = {
-            "undefined_behavior": [],
-            "unspecified_behavior": [],
-            "implementation_defined_behavior": [],
-            "memory_leak": [],
-            "assertion_failure": [],
-            "crash": []
-        };
+        undefined_behavior: [],
+        unspecified_behavior: [],
+        implementation_defined_behavior: [],
+        memory_leak: [],
+        assertion_failure: [],
+        crash: [],
+    };
 
     public readonly eventsOccurred: {
         [p in SimulationEvent]: readonly string[];
     } = this._eventsOccurred;
 
-    public readonly hasAnyEventOccurred : boolean = false;
+    public readonly hasAnyEventOccurred: boolean = false;
 
     // MAX_SPEED: -13445, // lol TODO
-
 
     public readonly mainReturnObject!: MainReturnObject;
     public readonly mainFunction!: RuntimeFunction<FunctionType<Int>>;
@@ -175,14 +196,16 @@ export class Simulation {
         this.cin = options.cin ?? new StandardInputStream();
         this.rng = new CPPRandom();
 
-        if(options.start) {
+        if (options.start) {
             this.start();
         }
     }
 
     public clone(stepsTaken = this.stepsTaken) {
         let newSim = new Simulation(this.program);
-        this.actionsTaken.slice(0, stepsTaken).forEach(action => newSim.takeAction(action));
+        this.actionsTaken
+            .slice(0, stepsTaken)
+            .forEach((action) => newSim.takeAction(action));
         return newSim;
     }
 
@@ -219,7 +242,8 @@ export class Simulation {
         // in this.callMain()
 
         this.callMain();
-        (<Mutable<this>>this).globalAllocator = this.program.staticObjectAllocator.createRuntimeConstruct(this);
+        (<Mutable<this>>this).globalAllocator =
+            this.program.staticObjectAllocator.createRuntimeConstruct(this);
         this.push(this.globalAllocator);
 
         this.observable.send("started");
@@ -229,18 +253,25 @@ export class Simulation {
     }
 
     private callMain() {
-        (<Mutable<this>>this).mainReturnObject = new MainReturnObject(this.memory);
-        (<Mutable<this>>this).mainFunction = new RuntimeFunction(this.program.mainFunction, this, null);
+        (<Mutable<this>>this).mainReturnObject = new MainReturnObject(
+            this.memory
+        );
+        (<Mutable<this>>this).mainFunction = new RuntimeFunction(
+            this.program.mainFunction,
+            this,
+            null
+        );
         this.mainFunction.setReturnObject(this.mainReturnObject);
         this.mainFunction.pushStackFrame();
-        this.mainFunction.setCleanupConstruct(this.program.staticObjectDeallocator.createRuntimeConstruct(this));
+        this.mainFunction.setCleanupConstruct(
+            this.program.staticObjectDeallocator.createRuntimeConstruct(this)
+        );
         this.push(this.mainFunction);
         this.observable.send("mainCalled", this.mainFunction);
         this.mainFunction.gainControl();
     }
 
     public push(rt: RuntimeConstruct) {
-
         // whatever was previously on top of the stack is now waiting
         let prevTop = this.top();
         if (prevTop) {
@@ -276,14 +307,17 @@ export class Simulation {
 
     //TODO: this may be dangerous depending on whether there are cases this could skip temporary deallocators or destructors
     public popUntil(rt: RuntimeConstruct) {
-        while (this._execStack.length > 0 && this._execStack[this._execStack.length - 1] !== rt) {
+        while (
+            this._execStack.length > 0 &&
+            this._execStack[this._execStack.length - 1] !== rt
+        ) {
             this.pop();
         }
     }
-    
+
     public startCleanupUntil(rt: RuntimeConstruct) {
-        let toCleanUp = this._execStack.slice(this._execStack.indexOf(rt)+1);
-        toCleanUp.forEach(rt => rt.startCleanup());
+        let toCleanUp = this._execStack.slice(this._execStack.indexOf(rt) + 1);
+        toCleanUp.forEach((rt) => rt.startCleanup());
     }
 
     public topFunction(): RuntimeFunction | undefined {
@@ -298,12 +332,14 @@ export class Simulation {
     private allocateStringLiterals() {
         let tus = this.program.translationUnits;
         for (let tuName in tus) {
-            tus[tuName].stringLiterals.forEach((lit) => { this.memory.allocateStringLiteral(lit.str); });
-        };
+            tus[tuName].stringLiterals.forEach((lit) => {
+                this.memory.allocateStringLiteral(lit.str);
+            });
+        }
     }
 
     public takeAction(action: SimulationAction) {
-        switch(action.kind) {
+        switch (action.kind) {
             case SimulationActionKind.STEP_FORWARD:
                 this.stepForward();
                 break;
@@ -321,7 +357,7 @@ export class Simulation {
         }
 
         ++(<Mutable<this>>this).stepsTaken;
-        this._actionsTaken.push({kind: SimulationActionKind.STEP_FORWARD});
+        this._actionsTaken.push({ kind: SimulationActionKind.STEP_FORWARD });
 
         // Top rt construct will do stuff
         let rt = this.top();
@@ -340,13 +376,15 @@ export class Simulation {
         // to see if the simulation is done.
         this.upNext();
 
-        this.observable.send("afterFullStep", this.execStack.length > 0 && this.execStack[this.execStack.length - 1]);
+        this.observable.send(
+            "afterFullStep",
+            this.execStack.length > 0 &&
+                this.execStack[this.execStack.length - 1]
+        );
     }
 
     private upNext() {
-
         while (true) {
-
             // Grab the rt construct that is on top of the execution stack and up next
             let rt = this.top();
 
@@ -356,7 +394,6 @@ export class Simulation {
                 this.observable.send("atEnded");
                 return;
             }
-
 
             // up next on the rt construct
             this.observable.send("beforeUpNext", { rt: rt });
@@ -371,7 +408,7 @@ export class Simulation {
             // we can assume at this point it was not empty previously) and will loop back to
             // the top where the check for an empty stack is performed.
             if (rt === this.top()) {
-                break; // Note this will not occur when then 
+                break; // Note this will not occur when then
             }
         }
     }
@@ -383,8 +420,11 @@ export class Simulation {
     }
 
     public atEndOfMain() {
-        return this.top()?.model === this.program.mainFunction.body.localDeallocator
-        || this.top()?.model === this.program.mainFunction;
+        return (
+            this.top()?.model ===
+                this.program.mainFunction.body.localDeallocator ||
+            this.top()?.model === this.program.mainFunction
+        );
     }
 
     // stepOver: function(options){
@@ -421,7 +461,6 @@ export class Simulation {
     //     }
     // },
 
-
     // stepBackward : function(n){
     //     if (n === 0){
     //         return;
@@ -449,9 +488,6 @@ export class Simulation {
     // 	$.fx.off = false;
 
     // },
-
-
-
 
     // peek : function(query, returnArray, offset){
     //     if (this.i_execStack.length === 0){
@@ -493,7 +529,6 @@ export class Simulation {
     // 	}
     // 	return results;
     // },
-
 
     // clearRunThread: function(){
     //     if (this.runThread){
@@ -560,12 +595,26 @@ export class Simulation {
     //     this.startRunThread(func);
     // },
 
-    public parameterPassedByReference<T extends ReferenceType<PotentiallyCompleteObjectType>>(target: PassByReferenceParameterEntity<T>, arg: RuntimeExpression<ReferredType<T>, "lvalue">) {
-        this.observable.send("parameterPassedByReference", { target: target, arg: arg });
+    public parameterPassedByReference<
+        T extends ReferenceType<PotentiallyCompleteObjectType>
+    >(
+        target: PassByReferenceParameterEntity<T>,
+        arg: RuntimeExpression<ReferredType<T>, "lvalue">
+    ) {
+        this.observable.send("parameterPassedByReference", {
+            target: target,
+            arg: arg,
+        });
     }
 
-    public parameterPassedByAtomicValue<T extends AtomicType>(target: PassByValueParameterEntity<T>, arg: RuntimeExpression<T, "prvalue">) {
-        this.observable.send("parameterPassedByAtomicValue", { target: target, arg: arg });
+    public parameterPassedByAtomicValue<T extends AtomicType>(
+        target: PassByValueParameterEntity<T>,
+        arg: RuntimeExpression<T, "prvalue">
+    ) {
+        this.observable.send("parameterPassedByAtomicValue", {
+            target: target,
+            arg: arg,
+        });
     }
 
     public returnPassed(rt: RuntimeDirectInitializer) {
@@ -574,9 +623,15 @@ export class Simulation {
 
     public cinInput(text: string) {
         ++(<Mutable<this>>this).stepsTaken;
-        this._actionsTaken.push({kind: SimulationActionKind.CIN_INPUT, text: text});
+        this._actionsTaken.push({
+            kind: SimulationActionKind.CIN_INPUT,
+            text: text,
+        });
         this.cin.addToBuffer(text);
-        asMutable(this.outputProduced).push({kind: SimulationOutputKind.CIN_ECHO, text: text});
+        asMutable(this.outputProduced).push({
+            kind: SimulationOutputKind.CIN_ECHO,
+            text: text,
+        });
         (<Mutable<this>>this).isBlockingUntilCin = false;
         this.observable.send("cinInput", text);
     }
@@ -588,23 +643,32 @@ export class Simulation {
     public cout(value: Value) {
         // TODO: when ostreams are implemented properly with overloaded <<, move the special case there
         let text = "";
-        if (value.type instanceof PointerType && value.type.ptrTo instanceof Char) {
+        if (
+            value.type instanceof PointerType &&
+            value.type.ptrTo instanceof Char
+        ) {
             let addr = value.rawValue;
             let c = this.memory.getByte(addr);
             while (!Char.isNullChar(new Value(c, Char.CHAR))) {
                 text += value.type.ptrTo.valueToOstreamString(c);
                 c = this.memory.getByte(++addr);
             }
-        }
-        else {
+        } else {
             text = escapeString(value.valueToOstreamString());
         }
         (<Mutable<this>>this).allOutput += text;
-        asMutable(this.outputProduced).push({kind: SimulationOutputKind.COUT, text: text});
+        asMutable(this.outputProduced).push({
+            kind: SimulationOutputKind.COUT,
+            text: text,
+        });
         this.observable.send("cout", text);
     }
 
-    public eventOccurred(event: SimulationEvent, message: string, showAlert: boolean = false) {
+    public eventOccurred(
+        event: SimulationEvent,
+        message: string,
+        showAlert: boolean = false
+    ) {
         this._eventsOccurred[event].push(message);
         (<Mutable<this>>this).hasAnyEventOccurred = true;
 
@@ -616,10 +680,14 @@ export class Simulation {
     }
 
     public printState() {
-        return JSON.stringify({
-            memory: this.memory.printObjects(),
-            execStackIds: this.execStack.map(rt => rt.model.constructId)
-        }, null, 4);
+        return JSON.stringify(
+            {
+                memory: this.memory.printObjects(),
+                execStackIds: this.execStack.map((rt) => rt.model.constructId),
+            },
+            null,
+            4
+        );
     }
 
     // explain : function(exp){
@@ -646,7 +714,6 @@ export class Simulation {
     // },
 
     // leakCheckChildren : function(obj){
-
 
     //     // If it's a pointer into an array, hypothetically we can get to anything else in the array,
     //     // so we need to add the whole thing to the frontier.
@@ -774,4 +841,3 @@ export class Simulation {
     //     return true;
     // },
 }
-

@@ -6,16 +6,15 @@ export type CourseData = {
     full_name: string;
     term: string;
     year: number;
-}
+};
 
 export async function getCourses() {
-        
     const response = await fetch(`public_api/courses`, {
-        method: 'GET',
+        method: "GET",
         headers: {
-            'Authorization': 'bearer ' + USERS.getBearerToken()
-        }
+            Authorization: "bearer " + USERS.getBearerToken(),
+        },
     });
 
-    return await response.json() as CourseData[];
+    return (await response.json()) as CourseData[];
 }

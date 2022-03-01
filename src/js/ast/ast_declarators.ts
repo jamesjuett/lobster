@@ -25,7 +25,10 @@ export interface DeclaratorASTNode extends ASTNode {
     readonly const?: boolean;
     readonly volatile?: boolean;
     readonly name?: IdentifierASTNode;
-    readonly postfixes?: readonly (ArrayPostfixDeclaratorASTNode | FunctionPostfixDeclaratorASTNode)[];
+    readonly postfixes?: readonly (
+        | ArrayPostfixDeclaratorASTNode
+        | FunctionPostfixDeclaratorASTNode
+    )[];
 }
 
 export interface DeclaratorInitASTNode extends DeclaratorASTNode {

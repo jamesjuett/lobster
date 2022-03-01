@@ -1,7 +1,10 @@
 import { escapeString } from "../util/util";
 import { AnythingConstructASTNode, ASTNode } from "./ASTNode";
 import { TypeSpecifierASTNode } from "./ast_declarations";
-import { ArrayPostfixDeclaratorASTNode, FunctionPostfixDeclaratorASTNode } from "./ast_declarators";
+import {
+    ArrayPostfixDeclaratorASTNode,
+    FunctionPostfixDeclaratorASTNode,
+} from "./ast_declarators";
 import { IdentifierASTNode } from "./ast_identifiers";
 import { NewInitializerASTNode } from "./ast_initializers";
 
@@ -10,25 +13,25 @@ import { NewInitializerASTNode } from "./ast_initializers";
  */
 
 export type ExpressionASTNode =
-    CommaASTNode |
-    TernaryASTNode |
-    AssignmentExpressionASTNode |
-    CompoundAssignmentExpressionASTNode |
-    BinaryOperatorExpressionASTNode |
-    PointerToMemberExpressionASTNode |
-    CStyleCastExpressionASTNode |
-    UnaryOperatorExpressionASTNode |
-    PostfixExpressionASTNode |
-    ConstructExpressionASTNode |
-    IdentifierExpressionASTNode |
-    ThisExpressionASTNode |
-    NullptrExpressionASTNode |
-    NumericLiteralASTNode |
-    StringLiteralASTNode |
-    ParenthesesExpressionASTNode |
-    InitializerListExpressionASTNode |
-    OpaqueExpressionASTNode |
-    AnythingConstructASTNode;
+    | CommaASTNode
+    | TernaryASTNode
+    | AssignmentExpressionASTNode
+    | CompoundAssignmentExpressionASTNode
+    | BinaryOperatorExpressionASTNode
+    | PointerToMemberExpressionASTNode
+    | CStyleCastExpressionASTNode
+    | UnaryOperatorExpressionASTNode
+    | PostfixExpressionASTNode
+    | ConstructExpressionASTNode
+    | IdentifierExpressionASTNode
+    | ThisExpressionASTNode
+    | NullptrExpressionASTNode
+    | NumericLiteralASTNode
+    | StringLiteralASTNode
+    | ParenthesesExpressionASTNode
+    | InitializerListExpressionASTNode
+    | OpaqueExpressionASTNode
+    | AnythingConstructASTNode;
 
 export interface CommaASTNode extends ASTNode {
     readonly construct_type: "comma_expression";
@@ -52,8 +55,17 @@ export interface AssignmentExpressionASTNode extends ASTNode {
     readonly rhs: ExpressionASTNode;
 }
 
-
-export type t_CompoundAssignmentOperators = "*=" | "/=" | "%=" | "+=" | "-=" | ">>=" | "<<=" | "&=" | "^=" | "|=";
+export type t_CompoundAssignmentOperators =
+    | "*="
+    | "/="
+    | "%="
+    | "+="
+    | "-="
+    | ">>="
+    | "<<="
+    | "&="
+    | "^="
+    | "|=";
 
 export interface CompoundAssignmentExpressionASTNode extends ASTNode {
     readonly construct_type: "compound_assignment_expression";
@@ -62,20 +74,15 @@ export interface CompoundAssignmentExpressionASTNode extends ASTNode {
     readonly rhs: ExpressionASTNode;
 }
 
-
-
-
-
-
-
-
 export type BinaryOperatorExpressionASTNode =
-    ArithmeticBinaryOperatorExpressionASTNode |
-    RelationalBinaryOperatorExpressionASTNode |
-    LogicalBinaryOperatorExpressionASTNode;
+    | ArithmeticBinaryOperatorExpressionASTNode
+    | RelationalBinaryOperatorExpressionASTNode
+    | LogicalBinaryOperatorExpressionASTNode;
 
-export type t_BinaryOperators = t_ArithmeticBinaryOperators | t_RelationalBinaryOperators | t_LogicalBinaryOperators;
-
+export type t_BinaryOperators =
+    | t_ArithmeticBinaryOperators
+    | t_RelationalBinaryOperators
+    | t_LogicalBinaryOperators;
 
 export interface ArithmeticBinaryOperatorExpressionASTNode extends ASTNode {
     readonly construct_type: "arithmetic_binary_operator_expression";
@@ -85,8 +92,17 @@ export interface ArithmeticBinaryOperatorExpressionASTNode extends ASTNode {
     readonly associativity: "left";
 }
 
-export type t_ArithmeticBinaryOperators = "+" | "-" | "*" | "/" | "%" | "&" | "^" | "|" | "<<" | ">>";
-
+export type t_ArithmeticBinaryOperators =
+    | "+"
+    | "-"
+    | "*"
+    | "/"
+    | "%"
+    | "&"
+    | "^"
+    | "|"
+    | "<<"
+    | ">>";
 
 export interface RelationalBinaryOperatorExpressionASTNode extends ASTNode {
     readonly construct_type: "relational_binary_operator_expression";
@@ -98,7 +114,6 @@ export interface RelationalBinaryOperatorExpressionASTNode extends ASTNode {
 
 export type t_RelationalBinaryOperators = "<" | ">" | "<=" | ">=" | "==" | "!=";
 
-
 export interface LogicalBinaryOperatorExpressionASTNode extends ASTNode {
     readonly construct_type: "logical_binary_operator_expression";
     readonly operator: t_LogicalBinaryOperators;
@@ -109,13 +124,6 @@ export interface LogicalBinaryOperatorExpressionASTNode extends ASTNode {
 
 export type t_LogicalBinaryOperators = "&&" | "||";
 
-
-
-
-
-
-
-
 export interface PointerToMemberExpressionASTNode extends ASTNode {
     readonly construct_type: "pointer_to_member_expression";
 }
@@ -125,21 +133,32 @@ export interface CStyleCastExpressionASTNode extends ASTNode {
 }
 
 export type UnaryOperatorExpressionASTNode =
-    PrefixIncrementExpressionASTNode |
-    DereferenceExpressionASTNode |
-    AddressOfExpressionASTNode |
-    UnaryPlusExpressionASTNode |
-    UnaryMinusExpressionASTNode |
-    LogicalNotExpressionASTNode |
-    BitwiseNotExpressionASTNode |
-    SizeofExpressionASTNode |
-    SizeofTypeExpressionASTNode |
-    NewExpressionASTNode |
-    DeleteExpressionASTNode |
-    DeleteArrayExpressionASTNode;
+    | PrefixIncrementExpressionASTNode
+    | DereferenceExpressionASTNode
+    | AddressOfExpressionASTNode
+    | UnaryPlusExpressionASTNode
+    | UnaryMinusExpressionASTNode
+    | LogicalNotExpressionASTNode
+    | BitwiseNotExpressionASTNode
+    | SizeofExpressionASTNode
+    | SizeofTypeExpressionASTNode
+    | NewExpressionASTNode
+    | DeleteExpressionASTNode
+    | DeleteArrayExpressionASTNode;
 
-export type t_UnaryOperators = "++" | "--" | "*" | "&" | "+" | "-" | "!" | "~" | "sizeof" | "new" | "delete" | "delete[]";
-
+export type t_UnaryOperators =
+    | "++"
+    | "--"
+    | "*"
+    | "&"
+    | "+"
+    | "-"
+    | "!"
+    | "~"
+    | "sizeof"
+    | "new"
+    | "delete"
+    | "delete[]";
 
 export interface PrefixIncrementExpressionASTNode extends ASTNode {
     readonly construct_type: "prefix_increment_expression";
@@ -189,17 +208,16 @@ export interface SizeofTypeExpressionASTNode extends ASTNode {
     readonly construct_type: "sizeof_type_expression";
 }
 
-
-
-
-
 export interface NewDeclaratorASTNode extends ASTNode {
     readonly sub?: NewDeclaratorASTNode; // parentheses
     readonly pointer?: NewDeclaratorASTNode;
     readonly reference?: NewDeclaratorASTNode;
     readonly const?: boolean;
     readonly volatile?: boolean;
-    readonly postfixes?: readonly (ArrayPostfixDeclaratorASTNode | FunctionPostfixDeclaratorASTNode)[];
+    readonly postfixes?: readonly (
+        | ArrayPostfixDeclaratorASTNode
+        | FunctionPostfixDeclaratorASTNode
+    )[];
 }
 
 export interface NewExpressionASTNode extends ASTNode {
@@ -219,25 +237,16 @@ export interface DeleteArrayExpressionASTNode extends ASTNode {
     readonly operand: ExpressionASTNode;
 }
 
-
-
-
-
-
-
-
-
 export type PostfixExpressionASTNode =
-    StaticCastExpressionASTNode |
-    DynamicCastExpressionASTNode |
-    ReinterpretCastExpressionASTNode |
-    ConstCastExpressionASTNode |
-    SubscriptExpressionASTNode |
-    FunctionCallExpressionASTNode |
-    DotExpressionASTNode |
-    ArrowExpressionASTNode |
-    PostfixIncrementExpressionASTNode;
-
+    | StaticCastExpressionASTNode
+    | DynamicCastExpressionASTNode
+    | ReinterpretCastExpressionASTNode
+    | ConstCastExpressionASTNode
+    | SubscriptExpressionASTNode
+    | FunctionCallExpressionASTNode
+    | DotExpressionASTNode
+    | ArrowExpressionASTNode
+    | PostfixIncrementExpressionASTNode;
 
 export interface StaticCastExpressionASTNode extends ASTNode {
     readonly construct_type: "static_cast_expression";
@@ -261,10 +270,6 @@ export interface SubscriptExpressionASTNode extends ASTNode {
     readonly offset: ExpressionASTNode;
 }
 
-
-
-
-
 export interface DotExpressionASTNode extends ASTNode {
     readonly construct_type: "dot_expression";
     readonly operand: ExpressionASTNode;
@@ -283,66 +288,44 @@ export interface PostfixIncrementExpressionASTNode extends ASTNode {
     readonly operator: "++" | "--";
 }
 
-
-
-
-
 export interface ConstructExpressionASTNode extends ASTNode {
     readonly construct_type: "construct_expression";
 }
-
-
-
-
-
-
 
 export interface IdentifierExpressionASTNode extends ASTNode {
     readonly construct_type: "identifier_expression";
     readonly identifier: IdentifierASTNode;
 }
 
-
-
-
-
-
-
 export interface ThisExpressionASTNode extends ASTNode {
     readonly construct_type: "this_expression";
 }
-
 
 export interface NullptrExpressionASTNode extends ASTNode {
     readonly construct_type: "nullptr_expression";
 }
 
-
-
-
-
-
-
-
-
-
 function parseCPPChar(litValue: string) {
     return escapeString(litValue).charCodeAt(0);
-};
+}
 
 const literalJSParse = {
-    "int": parseInt,
-    "float": parseFloat,
-    "double": parseFloat,
-    "bool": (b: boolean) => (b ? 1 : 0),
-    "char": parseCPPChar
+    int: parseInt,
+    float: parseFloat,
+    double: parseFloat,
+    bool: (b: boolean) => (b ? 1 : 0),
+    char: parseCPPChar,
 };
 
 export function parseNumericLiteralValueFromAST(ast: NumericLiteralASTNode) {
     return literalJSParse[ast.type](<any>ast.value);
 }
 
-export type NumericLiteralASTNode = FloatLiteralASTNode | IntLiteralASTNode | CharLiteralASTNode | BoolLiteralASTNode;
+export type NumericLiteralASTNode =
+    | FloatLiteralASTNode
+    | IntLiteralASTNode
+    | CharLiteralASTNode
+    | BoolLiteralASTNode;
 
 export interface FloatLiteralASTNode extends ASTNode {
     readonly construct_type: "numeric_literal_expression";
@@ -368,17 +351,10 @@ export interface BoolLiteralASTNode extends ASTNode {
     readonly value: boolean;
 }
 
-
-
-
 export interface StringLiteralASTNode extends ASTNode {
     readonly construct_type: "string_literal_expression";
     readonly value: string;
 }
-
-
-
-
 
 export interface FunctionCallExpressionASTNode extends ASTNode {
     readonly construct_type: "function_call_expression";
@@ -386,29 +362,15 @@ export interface FunctionCallExpressionASTNode extends ASTNode {
     readonly args: readonly ExpressionASTNode[];
 }
 
-
-
-
-
-
 export interface ParenthesesExpressionASTNode extends ASTNode {
     readonly construct_type: "parentheses_expression";
     readonly subexpression: ExpressionASTNode;
 }
 
-
-
-
-
-
 export interface InitializerListExpressionASTNode extends ASTNode {
     readonly construct_type: "initializer_list_expression";
     readonly elements: ExpressionASTNode[];
 }
-
-
-
-
 
 export interface OpaqueExpressionASTNode extends ASTNode {
     readonly construct_type: "opaque_expression";

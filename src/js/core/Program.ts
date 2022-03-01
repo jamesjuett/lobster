@@ -1,24 +1,60 @@
-
 import { parse as cpp_parse } from "../parse/cpp_parser";
 import { NoteKind, SyntaxNote, CPPError, NoteRecorder, Note } from "./errors";
 import { Mutable, asMutable, assertFalse, assert } from "../util/util";
-import { NamespaceScope, GlobalObjectEntity, selectOverloadedDefinition, FunctionEntity, ClassEntity, NameLookupOptions, Scope, NamedScope } from "./entities";
+import {
+    NamespaceScope,
+    GlobalObjectEntity,
+    selectOverloadedDefinition,
+    FunctionEntity,
+    ClassEntity,
+    NameLookupOptions,
+    Scope,
+    NamedScope,
+} from "./entities";
 import { Observable } from "../util/observe";
-import { TranslationUnitContext, CPPConstruct, createTranslationUnitContext, ProgramContext, GlobalObjectAllocator, CompiledGlobalObjectAllocator, createLibraryContext } from "./constructs";
+import {
+    TranslationUnitContext,
+    CPPConstruct,
+    createTranslationUnitContext,
+    ProgramContext,
+    GlobalObjectAllocator,
+    CompiledGlobalObjectAllocator,
+    createLibraryContext,
+} from "./constructs";
 import { ASTNode } from "../ast/ASTNode";
 import { StringLiteralExpression } from "./expressions";
-import { FunctionType, Int, VoidType, CompleteClassType, Double } from "./types";
+import {
+    FunctionType,
+    Int,
+    VoidType,
+    CompleteClassType,
+    Double,
+} from "./types";
 import { startCase } from "lodash";
-import { registerOpaqueExpression, RuntimeOpaqueExpression } from "./opaqueExpression";
+import {
+    registerOpaqueExpression,
+    RuntimeOpaqueExpression,
+} from "./opaqueExpression";
 import { getDataPtr } from "../lib/string";
 import { Value } from "./runtimeEnvironment";
 import { FunctionCall } from "./FunctionCall";
 import { QualifiedName, identifierToString } from "./lexical";
 import { TranslationUnitAST } from "../ast/ast_program";
-import { GlobalVariableDefinition, FunctionDefinitionGroup, ClassDefinition, FunctionDefinition, CompiledFunctionDefinition, CompiledGlobalVariableDefinition, TopLevelDeclaration, createTopLevelDeclarationFromAST } from "./declarations";
-import { CompiledObjectDeallocator, createStaticDeallocator, ObjectDeallocator } from "./ObjectDeallocator";
-
-
+import {
+    GlobalVariableDefinition,
+    FunctionDefinitionGroup,
+    ClassDefinition,
+    FunctionDefinition,
+    CompiledFunctionDefinition,
+    CompiledGlobalVariableDefinition,
+    TopLevelDeclaration,
+    createTopLevelDeclarationFromAST,
+} from "./declarations";
+import {
+    CompiledObjectDeallocator,
+    createStaticDeallocator,
+    ObjectDeallocator,
+} from "./ObjectDeallocator";
 
 /**
  *
@@ -27,14 +63,14 @@ import { CompiledObjectDeallocator, createStaticDeallocator, ObjectDeallocator }
  *
  */
 export class Program {
-
     // public readonly observable = new Observable(this);
 
     public readonly context: ProgramContext = { program: this };
 
     public readonly isCompilationUpToDate: boolean = true;
 
-    public readonly sourceFiles: { [index: string]: SourceFile } = Object.assign({}, LIBRARY_FILES);
+    public readonly sourceFiles: { [index: string]: SourceFile } =
+        Object.assign({}, LIBRARY_FILES);
     public readonly translationUnits: { [index: string]: TranslationUnit } = {};
 
     public readonly staticObjects: readonly GlobalVariableDefinition[] = [];
@@ -43,9 +79,15 @@ export class Program {
 
     private readonly functionCalls: readonly FunctionCall[] = [];
 
-    public readonly linkedObjectDefinitions: { [index: string]: GlobalVariableDefinition | undefined } = {};
-    public readonly linkedFunctionDefinitions: { [index: string]: FunctionDefinitionGroup | undefined } = {};
-    public readonly linkedClassDefinitions: { [index: string]: ClassDefinition | undefined } = {};
+    public readonly linkedObjectDefinitions: {
+        [index: string]: GlobalVariableDefinition | undefined;
+    } = {};
+    public readonly linkedFunctionDefinitions: {
+        [index: string]: FunctionDefinitionGroup | undefined;
+    } = {};
+    public readonly linkedClassDefinitions: {
+        [index: string]: ClassDefinition | undefined;
+    } = {};
 
     public readonly linkedObjectEntities: readonly GlobalObjectEntity[] = [];
     public readonly linkedFunctionEntities: readonly FunctionEntity[] = [];
@@ -55,18 +97,27 @@ export class Program {
 
     public readonly mainFunction?: FunctionDefinition;
 
-
-    public constructor(sourceFiles: readonly SourceFile[], translationUnits: Set<string>) {
-
-        sourceFiles.forEach(file => {
+    public constructor(
+        sourceFiles: readonly SourceFile[],
+        translationUnits: Set<string>
+    ) {
+        sourceFiles.forEach((file) => {
             this.sourceFiles[file.name] = file;
         });
 
         translationUnits.forEach((tuName) => {
-            assert(!!this.sourceFiles[tuName], `Source file ${tuName} not found.`);
+            assert(
+                !!this.sourceFiles[tuName],
+                `Source file ${tuName} not found.`
+            );
 
-            let tu = this.translationUnits[tuName] = new TranslationUnit(this,
-                new PreprocessedSource(this.sourceFiles[tuName], this.sourceFiles));
+            let tu = (this.translationUnits[tuName] = new TranslationUnit(
+                this,
+                new PreprocessedSource(
+                    this.sourceFiles[tuName],
+                    this.sourceFiles
+                )
+            ));
         });
 
         if (!this.notes.hasSyntaxErrors) {
@@ -88,44 +139,57 @@ export class Program {
         // Note that "multiple definition" errors are handled when the definitions
         // are registered with the program, so we don't have to take care of them
         // here and thus don't even call "link" if there was a previous definition.
-        this.linkedObjectEntities.forEach(le =>
-            le.definition ?? le.link(this.linkedObjectDefinitions[le.qualifiedName.str])
+        this.linkedObjectEntities.forEach(
+            (le) =>
+                le.definition ??
+                le.link(this.linkedObjectDefinitions[le.qualifiedName.str])
         );
-        this.linkedFunctionEntities.forEach(le =>
-            le.definition ?? le.link(this.linkedFunctionDefinitions[le.qualifiedName.str])
+        this.linkedFunctionEntities.forEach(
+            (le) =>
+                le.definition ??
+                le.link(this.linkedFunctionDefinitions[le.qualifiedName.str])
         );
-        this.linkedClassEntities.forEach(le =>
-            le.definition ?? le.link(this.linkedClassDefinitions[le.qualifiedName.str])
+        this.linkedClassEntities.forEach(
+            (le) =>
+                le.definition ??
+                le.link(this.linkedClassDefinitions[le.qualifiedName.str])
         );
 
         let mainLookup = this.linkedFunctionDefinitions["main"];
         if (mainLookup) {
             if (mainLookup.definitions.length === 1) {
                 (<Mutable<this>>this).mainFunction = mainLookup.definitions[0];
-            }
-            else {
-                mainLookup.definitions.forEach(mainDef => this.addNote(CPPError.link.main_multiple_def(mainDef.declaration)));
+            } else {
+                mainLookup.definitions.forEach((mainDef) =>
+                    this.addNote(
+                        CPPError.link.main_multiple_def(mainDef.declaration)
+                    )
+                );
             }
         }
 
-        (<Mutable<this>>this).staticObjectAllocator = new GlobalObjectAllocator(this.context, this.staticObjects);
-        
+        (<Mutable<this>>this).staticObjectAllocator = new GlobalObjectAllocator(
+            this.context,
+            this.staticObjects
+        );
+
         if (this.mainFunction) {
             // Map from definitions to entities below to avoid any duplicates
             // (this.linkedObjectEntities might have duplicates)
-            (<Mutable<this>>this).staticObjectDeallocator = createStaticDeallocator(this.mainFunction.context, this.staticObjects.map(def => def.declaredEntity));
+            (<Mutable<this>>this).staticObjectDeallocator =
+                createStaticDeallocator(
+                    this.mainFunction.context,
+                    this.staticObjects.map((def) => def.declaredEntity)
+                );
         }
     }
 
     private defineIntrinsics() {
-
         // let intrinsicsTU = new TranslationUnit(this, new PreprocessedSource(new SourceFile("_intrinsics.cpp", ""), {}));
-
         // let assertDecl = <FunctionDeclaration>createDeclarationFromAST(cpp_parse("void assert(bool);", {startRule: "declaration"}), intrinsicsTU.context)[0];
         // let functionContext = createFunctionContext(intrinsicsTU.context, assertDecl.declaredEntity);
-        // let assertDef = new FunctionDefinition(this.context, assertDecl, 
+        // let assertDef = new FunctionDefinition(this.context, assertDecl,
         //     )
-
     }
 
     public registerGlobalObjectEntity(entity: GlobalObjectEntity) {
@@ -141,41 +205,57 @@ export class Program {
     }
 
     public getLinkedFunctionEntity(qualifiedName: QualifiedName) {
-        return this.linkedFunctionEntities.find(le => le.qualifiedName.str === qualifiedName.str);
+        return this.linkedFunctionEntities.find(
+            (le) => le.qualifiedName.str === qualifiedName.str
+        );
     }
 
     public getLinkedObjectEntity(qualifiedName: QualifiedName) {
-        return this.linkedObjectEntities.find(le => le.qualifiedName.str === qualifiedName.str);
+        return this.linkedObjectEntities.find(
+            (le) => le.qualifiedName.str === qualifiedName.str
+        );
     }
 
-    public registerGlobalObjectDefinition(qualifiedName: QualifiedName, def: GlobalVariableDefinition) {
+    public registerGlobalObjectDefinition(
+        qualifiedName: QualifiedName,
+        def: GlobalVariableDefinition
+    ) {
         if (!this.linkedObjectDefinitions[qualifiedName.str]) {
             this.linkedObjectDefinitions[qualifiedName.str] = def;
             asMutable(this.staticObjects).push(def);
-        }
-        else {
+        } else {
             // One definition rule violation
             this.addNote(CPPError.link.multiple_def(def, qualifiedName.str));
         }
     }
 
-    public registerFunctionDefinition(qualifiedName: QualifiedName, def: FunctionDefinition) {
+    public registerFunctionDefinition(
+        qualifiedName: QualifiedName,
+        def: FunctionDefinition
+    ) {
         let prevDef = this.linkedFunctionDefinitions[qualifiedName.str];
         if (!prevDef) {
-            this.linkedFunctionDefinitions[qualifiedName.str] = new FunctionDefinitionGroup([def]);
-        }
-        else {
+            this.linkedFunctionDefinitions[qualifiedName.str] =
+                new FunctionDefinitionGroup([def]);
+        } else {
             // Already some definitions for functions with this same name. Check if there's
             // a conflicting overload that violates ODR
-            let conflictingDef = selectOverloadedDefinition(prevDef.definitions, def.declaration.type);
+            let conflictingDef = selectOverloadedDefinition(
+                prevDef.definitions,
+                def.declaration.type
+            );
             if (conflictingDef) {
-                if (!def.declaration.isMemberFunction || def.isOutOfLineMemberFunctionDefinition) {
-                    this.addNote(CPPError.link.multiple_def(def, qualifiedName.str));
+                if (
+                    !def.declaration.isMemberFunction ||
+                    def.isOutOfLineMemberFunctionDefinition
+                ) {
+                    this.addNote(
+                        CPPError.link.multiple_def(def, qualifiedName.str)
+                    );
                 }
                 // else ignore inline member functions with conflicting definitions
                 // those errors would be caught in the check for conflicting class definitions
-            }
-            else {
+            } else {
                 prevDef.addDefinition(def);
             }
         }
@@ -186,15 +266,17 @@ export class Program {
      * this is important since the code attempting to register the duplicate defintion can instead
      * use the existing one, to avoid multiple instances of identical definitions. If there was a
      * conflict, returns the newly added definition.
-     * @param qualifiedName 
-     * @param def 
+     * @param qualifiedName
+     * @param def
      */
-    public registerClassDefinition(qualifiedName: QualifiedName, def: ClassDefinition) {
+    public registerClassDefinition(
+        qualifiedName: QualifiedName,
+        def: ClassDefinition
+    ) {
         let prevDef = this.linkedClassDefinitions[qualifiedName.str];
         if (!prevDef) {
-            return this.linkedClassDefinitions[qualifiedName.str] = def;
-        }
-        else {
+            return (this.linkedClassDefinitions[qualifiedName.str] = def);
+        } else {
             // Multiple definitions. If they are from the same translation unit, this is always
             // prohibited, but the error will be generated by the scope in that translation unit,
             // so we do not need to handle it here. However, multiple definitions in different
@@ -223,11 +305,11 @@ export class Program {
         return this.notes.hasErrors;
     }
 
-    public isCompiled() : this is CompiledProgram {
+    public isCompiled(): this is CompiledProgram {
         return !this.notes.hasErrors;
     }
 
-    public isRunnable() : this is RunnableProgram {
+    public isRunnable(): this is RunnableProgram {
         return this.isCompiled() && !!this.mainFunction;
     }
 
@@ -251,12 +333,16 @@ export class Program {
     //         }
     //     }
     // }
-};
+}
 
 function sameTokens(ast1: ASTNode | undefined, ast2: ASTNode | undefined) {
     let ast1text = ast1?.source.text;
     let ast2Text = ast2?.source.text;
-    return ast1text && ast2Text && ast1text.replace(/\s/g, '') === ast2Text.replace(/\s/g, '');
+    return (
+        ast1text &&
+        ast2Text &&
+        ast1text.replace(/\s/g, "") === ast2Text.replace(/\s/g, "")
+    );
 }
 
 export interface CompiledProgram extends Program {
@@ -271,9 +357,11 @@ export interface RunnableProgram extends CompiledProgram {
 }
 
 export class SimpleProgram extends Program {
-    
     public constructor(source: string) {
-        super([new SourceFile("main.cpp", source)], new Set<string>(["main.cpp"]));
+        super(
+            [new SourceFile("main.cpp", source)],
+            new Set<string>(["main.cpp"])
+        );
     }
 }
 
@@ -283,7 +371,6 @@ export class SimpleProgram extends Program {
  * and expect it to update - changes to a file's context require a completely new object.
  */
 export class SourceFile {
-
     public readonly name: string;
     public readonly text: string;
     public readonly isLibrary: boolean;
@@ -298,7 +385,6 @@ export class SourceFile {
     //     this.i_text = text;
     //     this.send("textChanged");
     // },
-
 }
 
 interface SourceReferenceInclude {
@@ -307,16 +393,24 @@ interface SourceReferenceInclude {
 }
 
 export class SourceReference {
-
     /**
      * Creates a wrapper to represent a reference to source code that has been included in another file.
      */
-    public static createIncluded(sourceFile: SourceFile, lineIncluded: number, originalReference: SourceReference) {
-        var obj = new SourceReference(originalReference.sourceFile, originalReference.line, originalReference.column,
-            originalReference.start, originalReference.end);
+    public static createIncluded(
+        sourceFile: SourceFile,
+        lineIncluded: number,
+        originalReference: SourceReference
+    ) {
+        var obj = new SourceReference(
+            originalReference.sourceFile,
+            originalReference.line,
+            originalReference.column,
+            originalReference.start,
+            originalReference.end
+        );
         obj._includes.push({
             sourceFile: sourceFile,
-            lineIncluded: lineIncluded
+            lineIncluded: lineIncluded,
         });
         originalReference.includes.forEach((inc) => obj._includes.push(inc));
         return obj;
@@ -329,9 +423,16 @@ export class SourceReference {
     public readonly end: number;
 
     private readonly _includes: SourceReferenceInclude[] = [];
-    public readonly includes: readonly SourceReferenceInclude[] = this._includes;
+    public readonly includes: readonly SourceReferenceInclude[] =
+        this._includes;
 
-    public constructor(sourceFile: SourceFile, line: number, column: number, start: number, end: number) {
+    public constructor(
+        sourceFile: SourceFile,
+        line: number,
+        column: number,
+        start: number,
+        end: number
+    ) {
         this.sourceFile = sourceFile;
         this.line = line;
         this.column = column;
@@ -351,7 +452,6 @@ export class SourceReference {
     //
     //     });
     // }
-
 }
 
 interface IncludeMapping {
@@ -366,10 +466,11 @@ interface IncludeMapping {
 }
 
 class PreprocessedSource {
-
     public readonly primarySourceFile: SourceFile;
     public readonly name: string;
-    public readonly availableToInclude: { [index: string]: SourceFile | undefined };
+    public readonly availableToInclude: {
+        [index: string]: SourceFile | undefined;
+    };
 
     public readonly notes = new NoteRecorder();
 
@@ -382,7 +483,11 @@ class PreprocessedSource {
     public readonly numLines: number;
     public readonly length: number;
 
-    public constructor(sourceFile: SourceFile, availableToInclude: { [index: string]: SourceFile | undefined }, alreadyIncluded: { [index: string]: boolean } = {}) {
+    public constructor(
+        sourceFile: SourceFile,
+        availableToInclude: { [index: string]: SourceFile | undefined },
+        alreadyIncluded: { [index: string]: boolean } = {}
+    ) {
         this.primarySourceFile = sourceFile;
         this.name = sourceFile.name;
         this.availableToInclude = availableToInclude;
@@ -397,13 +502,14 @@ class PreprocessedSource {
         let currentIncludeLineNumber = 1;
         let originalIncludeLineNumber = 1;
 
-        this.includedSourceFiles[this.primarySourceFile.name] = this.primarySourceFile;
+        this.includedSourceFiles[this.primarySourceFile.name] =
+            this.primarySourceFile;
 
         // Find and replace #include lines. Will also populate i_includes array.
         // [^\S\n] is a character class for all whitespace other than newlines
-        this.preprocessedText = codeStr.replace(/#include[^\S\n]+["<](.*)[">]/g,
+        this.preprocessedText = codeStr.replace(
+            /#include[^\S\n]+["<](.*)[">]/g,
             (includeLine, filename, offset, original) => {
-
                 let mapping: Mutable<Partial<IncludeMapping>> = {};
 
                 // Find the line number of this include by adding up the number of newline characters
@@ -428,8 +534,17 @@ class PreprocessedSource {
 
                 // check for self inclusion
                 if (alreadyIncluded[filename]) {
-                    this.notes.addNote(CPPError.preprocess.recursiveInclude(
-                        new SourceReference(sourceFile, currentIncludeLineNumber, 0, offset, currentIncludeOffset)));
+                    this.notes.addNote(
+                        CPPError.preprocess.recursiveInclude(
+                            new SourceReference(
+                                sourceFile,
+                                currentIncludeLineNumber,
+                                0,
+                                offset,
+                                currentIncludeOffset
+                            )
+                        )
+                    );
 
                     // replace the whole #include line with spaces. Can't just remove or it messes up offsets.
                     return Array(includeLine.length + 1).join(" ");
@@ -439,17 +554,33 @@ class PreprocessedSource {
                 let includedSourceFile = this.availableToInclude[filename];
                 //TODO: what happens if the file doesn't exist?
                 if (!includedSourceFile) {
-                    this.notes.addNote(CPPError.preprocess.fileNotFound(
-                        new SourceReference(sourceFile, currentIncludeLineNumber, 0, offset, currentIncludeOffset), filename));
+                    this.notes.addNote(
+                        CPPError.preprocess.fileNotFound(
+                            new SourceReference(
+                                sourceFile,
+                                currentIncludeLineNumber,
+                                0,
+                                offset,
+                                currentIncludeOffset
+                            ),
+                            filename
+                        )
+                    );
 
                     // replace the whole #include line with spaces. Can't just remove or it messes up offsets.
                     return Array(includeLine.length + 1).join(" ");
                 }
 
-                let included = new PreprocessedSource(includedSourceFile, this.availableToInclude,
-                    Object.assign({}, alreadyIncluded));
+                let included = new PreprocessedSource(
+                    includedSourceFile,
+                    this.availableToInclude,
+                    Object.assign({}, alreadyIncluded)
+                );
 
-                Object.assign(this.includedSourceFiles, included.includedSourceFiles);
+                Object.assign(
+                    this.includedSourceFiles,
+                    included.includedSourceFiles
+                );
                 this.notes.addNotes(included.notes.allNotes);
 
                 mapping.numLines = included.numLines;
@@ -479,7 +610,6 @@ class PreprocessedSource {
     }
 
     private filterSourceCode(codeStr: string) {
-
         // remove carriage returns
         codeStr = codeStr.replace(/\r/g, "");
 
@@ -523,19 +653,36 @@ class PreprocessedSource {
         return codeStr;
     }
 
-    public getSourceReference(line: number, column: number, start: number, end: number): SourceReference {
-
+    public getSourceReference(
+        line: number,
+        column: number,
+        start: number,
+        end: number
+    ): SourceReference {
         // Iterate through all includes and check if any would contain
         let offset = 0;
         let lineOffset = 1;
         for (let i = 0; i < this.includes.length; ++i) {
             let inc = this.includes[i];
             if (line < inc.startLine) {
-                return new SourceReference(this.primarySourceFile, line - lineOffset + 1, column, start && start - offset, end && end - offset);
-            }
-            else if (inc.startLine <= line && line < inc.endLine) {
-                return SourceReference.createIncluded(this.primarySourceFile, inc.lineIncluded,
-                    inc.included.getSourceReference(line - inc.startLine + 1, column, start && start - inc.startOffset, end && end - inc.startOffset));
+                return new SourceReference(
+                    this.primarySourceFile,
+                    line - lineOffset + 1,
+                    column,
+                    start && start - offset,
+                    end && end - offset
+                );
+            } else if (inc.startLine <= line && line < inc.endLine) {
+                return SourceReference.createIncluded(
+                    this.primarySourceFile,
+                    inc.lineIncluded,
+                    inc.included.getSourceReference(
+                        line - inc.startLine + 1,
+                        column,
+                        start && start - inc.startOffset,
+                        end && end - inc.startOffset
+                    )
+                );
             }
             offset += inc.lengthDelta;
             lineOffset += inc.lineDelta;
@@ -543,12 +690,15 @@ class PreprocessedSource {
 
         // If this line wasn't part of any of the includes, just return a regular source reference to the original
         // source file associated with this translation unit
-        return new SourceReference(this.primarySourceFile, line - lineOffset + 1, column, start && start - offset, end && end - offset);
+        return new SourceReference(
+            this.primarySourceFile,
+            line - lineOffset + 1,
+            column,
+            start && start - offset,
+            end && end - offset
+        );
     }
-
 }
-
-
 
 /**
  * TranslationUnit
@@ -559,7 +709,6 @@ class PreprocessedSource {
  *   "compilationFinished": after compilation is finished
  */
 export class TranslationUnit {
-
     public readonly context: TranslationUnitContext;
 
     // public readonly observable = new Observable(this);
@@ -586,13 +735,23 @@ export class TranslationUnit {
      * @param primarySourceFile Contains the source code for this translation unit.
      * @param sourceFiles The set of files to be available for inclusion via #include directives.
      */
-    public constructor(program: Program, preprocessedSource: PreprocessedSource) {
+    public constructor(
+        program: Program,
+        preprocessedSource: PreprocessedSource
+    ) {
         this.program = program;
         this.source = preprocessedSource;
-        preprocessedSource.notes.allNotes.forEach(note => this.addNote(note)); // Don't use this.notes.addNotes here since that would miss adding them to the program as well
-        this.globalScope = new NamespaceScope(this, preprocessedSource.primarySourceFile.name + "_GLOBAL_SCOPE");
+        preprocessedSource.notes.allNotes.forEach((note) => this.addNote(note)); // Don't use this.notes.addNotes here since that would miss adding them to the program as well
+        this.globalScope = new NamespaceScope(
+            this,
+            preprocessedSource.primarySourceFile.name + "_GLOBAL_SCOPE"
+        );
         this.name = preprocessedSource.name;
-        this.context = createTranslationUnitContext(program.context, this, this.globalScope);
+        this.context = createTranslationUnitContext(
+            program.context,
+            this,
+            this.globalScope
+        );
 
         try {
             // This is kind of a hack to communicate with the PEG.js generated parsing code.
@@ -608,22 +767,29 @@ export class TranslationUnit {
 
             // Note this is not checked by the TS type system. We just have to manually ensure
             // the structure produced by the grammar/parser matches what we expect.
-            let parsedAST: TranslationUnitAST = cpp_parse(this.source.preprocessedText);
+            let parsedAST: TranslationUnitAST = cpp_parse(
+                this.source.preprocessedText
+            );
             this.parsedAST = parsedAST;
 
             this.createBuiltInGlobals();
             this.compileTopLevelDeclarations(this.parsedAST);
-        }
-        catch (err: any) {
+        } catch (err: any) {
             if (err.name == "SyntaxError") {
-                this.addNote(new SyntaxNote(
-                    this.getSourceReference(err.location.start.line, err.location.start.column,
-                        err.location.start.offset, err.location.start.offset + 1),
-                    NoteKind.ERROR,
-                    "syntax",
-                    "A syntax error was detected on this line. If there doesn't appear to be an issue here, the error might have occurred on a previous line that caused the compiler to get off track."));
-            }
-            else {
+                this.addNote(
+                    new SyntaxNote(
+                        this.getSourceReference(
+                            err.location.start.line,
+                            err.location.start.column,
+                            err.location.start.offset,
+                            err.location.start.offset + 1
+                        ),
+                        NoteKind.ERROR,
+                        "syntax",
+                        "A syntax error was detected on this line. If there doesn't appear to be an issue here, the error might have occurred on a previous line that caused the compiler to get off track."
+                    )
+                );
+            } else {
                 console.log(err.stack);
                 throw err;
             }
@@ -639,11 +805,9 @@ export class TranslationUnit {
         //     this.i_globalScope.addEntity(StaticEntity.instance({name:"cout", type:Types.OStream.instance()}));
         //     this.i_globalScope.addEntity(StaticEntity.instance({name:"cin", type:Types.IStream.instance()}));
         // }
-
         // asMutable(this.topLevelDeclarations).push(createTopLevelDeclarationFromAST(
         //     <ClassDefinitionASTNode>cpp_parse("class ostream { };", {startRule: "declaration"}),
         //     this.context));
-
         // asMutable(this.topLevelDeclarations).push(createTopLevelDeclarationFromAST(
         //     <NonMemberSimpleDeclarationASTNode>{
         //         construct_type: "simple_declaration",
@@ -652,52 +816,46 @@ export class TranslationUnit {
         //         specs: {typeSpecs: ["ostream"], classSpecifiers: [], storageSpecs: [], elaboratedTypeSpecifiers: []},
         //     },
         //     this.context)[0]);
-
         // // TODO NEW rework so that endlEntity doesn't have to be public (other parts of code look for it currently)
         // this.endlEntity = StaticEntity.instance({name:"endl", type:Types.Char.instance()});
         // this.endlEntity.defaultValue = 10; // 10 is ascii code for \n
         // this.i_globalScope.addEntity(this.endlEntity);
-
-
         // var cassert = MagicFunctionEntity.instance(MagicFunctionDefinition.instance(
         //     "assert",
         //     Types.Function.instance(Types.Void.instance(), [Types.Bool.instance()])
         // ));
         // this.i_globalScope.addEntity(cassert);
-
         // var pause = MagicFunctionEntity.instance(MagicFunctionDefinition.instance(
         //     "pause",
         //     Types.Function.instance(Types.Void.instance(), [])
         // ));
         // this.i_globalScope.addEntity(pause);
-
-
         // var pauseIf = MagicFunctionEntity.instance(MagicFunctionDefinition.instance(
         //     "pauseIf",
         //     Types.Function.instance(Types.Void.instance(), [Types.Bool.instance()])
         // ));
         // this.i_globalScope.addEntity(pauseIf);
-
-
         // this.i_globalScope.addEntity(MagicFunctionEntity.instance(
         //     MagicFunctionDefinition.instance("rand",
         //         Types.Function.instance(Types.Int.instance(), []))));
-
     }
 
     private compileTopLevelDeclarations(ast: TranslationUnitAST) {
         ast.declarations.forEach((declAST) => {
             let sourceRef = this.getSourceReferenceForAST(declAST);
             let topLevelContext = sourceRef.sourceFile.isLibrary
-                ? createLibraryContext(this.context) : this.context;
-            
-            let declsOrFuncDef = createTopLevelDeclarationFromAST(declAST, topLevelContext);
+                ? createLibraryContext(this.context)
+                : this.context;
+
+            let declsOrFuncDef = createTopLevelDeclarationFromAST(
+                declAST,
+                topLevelContext
+            );
             if (Array.isArray(declsOrFuncDef)) {
-                declsOrFuncDef.forEach(decl => {
+                declsOrFuncDef.forEach((decl) => {
                     asMutable(this.topLevelDeclarations).push(decl);
                 });
-            }
-            else {
+            } else {
                 asMutable(this.topLevelDeclarations).push(declsOrFuncDef);
             }
         });
@@ -719,15 +877,30 @@ export class TranslationUnit {
             return assertFalse("Can't find source reference for construct");
         }
         let src = construct.ast.source;
-        return this.getSourceReference(src.line, src.column, src.start, src.end);
+        return this.getSourceReference(
+            src.line,
+            src.column,
+            src.start,
+            src.end
+        );
     }
 
     public getSourceReferenceForAST(ast: ASTNode) {
         let src = ast.source;
-        return this.getSourceReference(src.line, src.column, src.start, src.end);
+        return this.getSourceReference(
+            src.line,
+            src.column,
+            src.start,
+            src.end
+        );
     }
 
-    public getSourceReference(line: number, column: number, start: number, end: number) {
+    public getSourceReference(
+        line: number,
+        column: number,
+        start: number,
+        end: number
+    ) {
         return this.source.getSourceReference(line, column, start, end);
     }
 
@@ -741,21 +914,27 @@ export class TranslationUnit {
      * If you've got a string like "std::vector", just use .split("::"") to
      * get the corresponding array, like ["std", "vector"].
      */
-    public qualifiedLookup(name: QualifiedName, options: NameLookupOptions = {kind: "normal"}){
+    public qualifiedLookup(
+        name: QualifiedName,
+        options: NameLookupOptions = { kind: "normal" }
+    ) {
         let comps = name.components;
         assert(comps.length > 0);
 
-        var scope : NamedScope | undefined = this.globalScope;
-        for(var i = 0; scope && i < comps.length - 1; ++i) {
+        var scope: NamedScope | undefined = this.globalScope;
+        for (var i = 0; scope && i < comps.length - 1; ++i) {
             scope = scope.children[comps[i]];
         }
 
-        if (!scope){
+        if (!scope) {
             return undefined;
         }
 
         var unqualifiedName = comps[comps.length - 1];
-        var result = scope.lookup(unqualifiedName, Object.assign({}, options, {noParent: true}));
+        var result = scope.lookup(
+            unqualifiedName,
+            Object.assign({}, options, { noParent: true })
+        );
 
         // Qualified lookup suppresses virtual function call mechanism, so if we
         // just looked up a MemberFunctionEntity, we create a proxy to do that.
@@ -768,10 +947,10 @@ export class TranslationUnit {
     }
 }
 
-
-
-const LIBRARY_FILES : {[index:string]: SourceFile} = {
-    _lobster_implicit: new SourceFile("_lobster_implicit.h", `
+const LIBRARY_FILES: { [index: string]: SourceFile } = {
+    _lobster_implicit: new SourceFile(
+        "_lobster_implicit.h",
+        `
         class initializer_list<int> {
           const int *begin;
           const int *end;
@@ -804,8 +983,10 @@ const LIBRARY_FILES : {[index:string]: SourceFile} = {
            : begin(other.begin), end(other.end) {}
         };
         
-    `, true)
-}
+    `,
+        true
+    ),
+};
 
 export function registerLibraryHeader(name: string, file: SourceFile) {
     assert(!LIBRARY_FILES[name]);

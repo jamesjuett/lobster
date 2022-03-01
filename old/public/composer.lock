@@ -34,22 +34,14 @@
                 }
             },
             "autoload": {
-                "classmap": [
-                    "src/"
-                ]
+                "classmap": ["src/"]
             },
             "notification-url": "https://packagist.org/downloads/",
-            "include-path": [
-                "src/"
-            ],
-            "license": [
-                "Apache-2.0"
-            ],
+            "include-path": ["src/"],
+            "license": ["Apache-2.0"],
             "description": "Client library for Google APIs",
             "homepage": "http://developers.google.com/api-client-library/php",
-            "keywords": [
-                "google"
-            ],
+            "keywords": ["google"],
             "time": "2014-09-30 19:33:59"
         },
         {
@@ -80,9 +72,7 @@
                 }
             },
             "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
+            "license": ["MIT"],
             "authors": [
                 {
                     "name": "Josh Lockhart",
@@ -92,11 +82,7 @@
             ],
             "description": "Slim Framework, a PHP micro framework",
             "homepage": "http://github.com/codeguy/Slim",
-            "keywords": [
-                "microframework",
-                "rest",
-                "router"
-            ],
+            "keywords": ["microframework", "rest", "router"],
             "time": "2017-01-07 12:21:41"
         }
     ],

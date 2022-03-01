@@ -1,7 +1,16 @@
-import { ProgramTest, SingleTranslationUnitTest, NoErrorsNoWarningsVerifier, NoBadRuntimeEventsVerifier, BasicSynchronousRunnerTest, NoteVerifier, OutputVerifier, EndOfMainStateVerifier } from "./verifiers";
+import {
+    ProgramTest,
+    SingleTranslationUnitTest,
+    NoErrorsNoWarningsVerifier,
+    NoBadRuntimeEventsVerifier,
+    BasicSynchronousRunnerTest,
+    NoteVerifier,
+    OutputVerifier,
+    EndOfMainStateVerifier,
+} from "./verifiers";
 import { CompilationNotesOutlet } from "../view/editors";
 
-import "../lib/standard"
+import "../lib/standard";
 import { checkLocalAtomicVariableValues } from "../analysis/runtime";
 import { createCinTests } from "./tests_cin";
 import { createDynamicMemoryTests } from "./tests_dynamic_memory";
@@ -15,36 +24,43 @@ $(() => {
         var programElem = $('<div class="col-xs-6"></div>');
 
         programElem.append("Translation Units: <br />");
-        for(var name in test.program.translationUnits) {
+        for (var name in test.program.translationUnits) {
             programElem.append("<code>" + name + "</code><br />");
         }
 
         programElem.append("Source Files: <br />");
         var filesElem = $("<pre></pre>");
         filesElem.hide();
-        var showFilesButton = $('<button class="btn btn-primary">Show</button>');
-        showFilesButton.click(function() {
-            showFilesButton.html(showFilesButton.html() === "Show" ? "Hide" : "Show");
+        var showFilesButton = $(
+            '<button class="btn btn-primary">Show</button>'
+        );
+        showFilesButton.click(function () {
+            showFilesButton.html(
+                showFilesButton.html() === "Show" ? "Hide" : "Show"
+            );
             filesElem.toggle();
         });
         programElem.append(showFilesButton);
         for (let tuName in test.program.translationUnits) {
             var sourceFile = test.program.sourceFiles[tuName];
-            test.program.translationUnits
+            test.program.translationUnits;
             filesElem.append(sourceFile.name + "\n" + sourceFile.text);
         }
         programElem.append(filesElem);
 
-
         var resultsElem = $('<div class="col-xs-6"></div>');
-//            resultsElem.append(test.results.status);
-//            resultsElem.append("<br />");
+        //            resultsElem.append(test.results.status);
+        //            resultsElem.append("<br />");
         var success = true;
-        for(var i = 0; i < test.results.length; ++i) {
+        for (var i = 0; i < test.results.length; ++i) {
             var result = test.results[i];
 
-            var statusElem = $("<span class='label'>"+result.status+"</span>");
-            statusElem.addClass(result.status === "success" ? "label-success" : "label-danger");
+            var statusElem = $(
+                "<span class='label'>" + result.status + "</span>"
+            );
+            statusElem.addClass(
+                result.status === "success" ? "label-success" : "label-danger"
+            );
             resultsElem.append(statusElem);
             resultsElem.append(" " + result.verifierName);
             resultsElem.append("<br />");
@@ -55,7 +71,7 @@ $(() => {
             }
         }
         let notesElem = $("<ul></ul>").appendTo(resultsElem);
-        (new CompilationNotesOutlet(notesElem)).updateNotes(test.program);
+        new CompilationNotesOutlet(notesElem).updateNotes(test.program);
 
         var testElem = $('<div class="container lobster-test-result"></div>');
         testElem.append("<h4>" + test.name + "</h4>");
@@ -67,41 +83,38 @@ $(() => {
         if (success) {
             ++numTestsSuccessful;
         }
-        $("#allTestsResults").html(numTestsSuccessful + "/" + numTests + " tests successful")
+        $("#allTestsResults").html(
+            numTestsSuccessful + "/" + numTests + " tests successful"
+        );
     };
 
     ProgramTest.setDefaultReporter(showTest);
 
     // Empty main
+    new SingleTranslationUnitTest("Empty Main", "int main() { }", [
+        new NoErrorsNoWarningsVerifier(),
+        new NoBadRuntimeEventsVerifier(true),
+    ]);
+
+    // ---------- Basic Declaration Tests ----------
+
     new SingleTranslationUnitTest(
-        "Empty Main",
-        "int main() { }",
+        "Simple Error",
+        `int main() {
+  int &x;
+  int *ptr = 3;
+}`,
         [
-            new NoErrorsNoWarningsVerifier(),
-            new NoBadRuntimeEventsVerifier(true)
+            new NoteVerifier([
+                { line: 2, id: "declaration.init.referenceBind" },
+                { line: 3, id: "declaration.init.convert" },
+            ]),
         ]
     );
 
     // ---------- Basic Declaration Tests ----------
-    
-    new SingleTranslationUnitTest(
-      "Simple Error",
-`int main() {
-  int &x;
-  int *ptr = 3;
-}`,
-      [
-          new NoteVerifier([
-            {line: 2, id: "declaration.init.referenceBind"},
-            {line: 3, id: "declaration.init.convert"},
-          ])
-      ]
-    );
 
-    // ---------- Basic Declaration Tests ----------
-
-    var basicDeclarationTestCode =
-        `int main() {
+    var basicDeclarationTestCode = `int main() {
   // A variety of declartions, including pointers and references
   int var = 3;
   int *ptr = &var;
@@ -166,22 +179,22 @@ $(() => {
 
 }`;
     var fundamentalTypesToTest = ["int", "double", "char"];
-    fundamentalTypesToTest.map(function(t) {
+    fundamentalTypesToTest.map(function (t) {
         new SingleTranslationUnitTest(
             "Basic Declaration Test - " + t,
             basicDeclarationTestCode.replace(/int/g, t),
             [
                 new NoErrorsNoWarningsVerifier(),
-                new NoBadRuntimeEventsVerifier(true)
+                new NoBadRuntimeEventsVerifier(true),
             ]
         );
     });
 
-        // ---------- Basic String Literal Test ----------
+    // ---------- Basic String Literal Test ----------
 
-        new SingleTranslationUnitTest(
-          "Basic String Literal Test",
-`bool strs_equal(const char *str1, const char *str2) {
+    new SingleTranslationUnitTest(
+        "Basic String Literal Test",
+        `bool strs_equal(const char *str1, const char *str2) {
   while(*str1 || *str2) {
     if (*str1 != *str2) {
       return false;
@@ -228,17 +241,14 @@ int main() {
   
   assert(strs_equal(big, "hey"));
 }`,
-          [
-              new NoErrorsNoWarningsVerifier(),
-              new NoBadRuntimeEventsVerifier(true)
-          ]
-      );
+        [new NoErrorsNoWarningsVerifier(), new NoBadRuntimeEventsVerifier(true)]
+    );
 
-      // ---------- Basic Reference Test ----------
-  
-      new SingleTranslationUnitTest(
-          "Basic Reference Test",
-  `int main() {
+    // ---------- Basic Reference Test ----------
+
+    new SingleTranslationUnitTest(
+        "Basic Reference Test",
+        `int main() {
   int x = 3;
   int &y = x;
   assert(y == 3);
@@ -247,17 +257,14 @@ int main() {
   y = 5;
   assert(x == 5); 
 }`,
-          [
-              new NoErrorsNoWarningsVerifier(),
-              new NoBadRuntimeEventsVerifier(true)
-          ]
-      );
+        [new NoErrorsNoWarningsVerifier(), new NoBadRuntimeEventsVerifier(true)]
+    );
 
-      // ---------- Const Reference Test ----------
-  
-      new SingleTranslationUnitTest(
-          "Const Reference Test",
-  `int main() {
+    // ---------- Const Reference Test ----------
+
+    new SingleTranslationUnitTest(
+        "Const Reference Test",
+        `int main() {
   int x;
   int &rx = x;
   const int &crx = x;
@@ -285,28 +292,26 @@ int main() {
   cry = crx;
 }
 `,
-    [
-      new NoteVerifier([
-        {line: 6, id: "expr.assignment.lhs_const"},
-        {line: 8, id: "expr.assignment.lhs_const"},
-        {line: 11, id: "declaration.init.referenceConstness"},
-        {line: 14, id: "expr.assignment.lhs_const"},
-        {line: 16, id: "expr.assignment.lhs_const"},
-        {line: 20, id: "expr.assignment.lhs_const"},
-        {line: 21, id: "expr.assignment.lhs_const"},
-        {line: 25, id: "expr.assignment.lhs_const"},
-        {line: 26, id: "expr.assignment.lhs_const"},
-      ])
-    ]);
+        [
+            new NoteVerifier([
+                { line: 6, id: "expr.assignment.lhs_const" },
+                { line: 8, id: "expr.assignment.lhs_const" },
+                { line: 11, id: "declaration.init.referenceConstness" },
+                { line: 14, id: "expr.assignment.lhs_const" },
+                { line: 16, id: "expr.assignment.lhs_const" },
+                { line: 20, id: "expr.assignment.lhs_const" },
+                { line: 21, id: "expr.assignment.lhs_const" },
+                { line: 25, id: "expr.assignment.lhs_const" },
+                { line: 26, id: "expr.assignment.lhs_const" },
+            ]),
+        ]
+    );
 
+    // ---------- Basic Reference Test ----------
 
-      
-
-      // ---------- Basic Reference Test ----------
-  
-      new SingleTranslationUnitTest(
-          "Basic Reference Test",
-  `int main() {
+    new SingleTranslationUnitTest(
+        "Basic Reference Test",
+        `int main() {
   int x = 3;
   int &y = x;
   assert(y == 3);
@@ -315,18 +320,14 @@ int main() {
   y = 5;
   assert(x == 5); 
 }`,
-          [
-              new NoErrorsNoWarningsVerifier(),
-              new NoBadRuntimeEventsVerifier(true)
-          ]
-      );
-
+        [new NoErrorsNoWarningsVerifier(), new NoBadRuntimeEventsVerifier(true)]
+    );
 
     // ---------- Basic Selection Test ----------
 
     new SingleTranslationUnitTest(
         "Basic Selection Test",
-`int main() {
+        `int main() {
   int a = 3;
   int b = 4;
 
@@ -382,12 +383,9 @@ int main() {
 
   // TODO: add test for error when something inside selection scope is used outside
 }`,
-        [
-            new NoErrorsNoWarningsVerifier(),
-            new NoBadRuntimeEventsVerifier(true)
-        ]
+        [new NoErrorsNoWarningsVerifier(), new NoBadRuntimeEventsVerifier(true)]
     );
-  
+
     // ---------- Basic Iteration Test ----------
 
     new SingleTranslationUnitTest(
@@ -462,24 +460,14 @@ int main() {
   }
 
 }`,
-        [
-            new NoErrorsNoWarningsVerifier(),
-            new NoBadRuntimeEventsVerifier(true)
-        ]
+        [new NoErrorsNoWarningsVerifier(), new NoBadRuntimeEventsVerifier(true)]
     );
 
+    // ---------- Basic Expression Test ----------
 
-
-
-
-
-
-
-        // ---------- Basic Expression Test ----------
-
-        new SingleTranslationUnitTest(
-          "Basic Expression Test",
-          `int plus2(int x) {
+    new SingleTranslationUnitTest(
+        "Basic Expression Test",
+        `int plus2(int x) {
     return x + 2;
   }
   
@@ -629,20 +617,14 @@ int main() {
     // delete *q3;
     // delete q3;
   }`,
-          [
-              new NoErrorsNoWarningsVerifier(),
-              new NoBadRuntimeEventsVerifier(true)
-          ]
-      );
+        [new NoErrorsNoWarningsVerifier(), new NoBadRuntimeEventsVerifier(true)]
+    );
 
+    // ---------- Basic Nullptr Test ----------
 
-
-
-        // ---------- Basic Nullptr Test ----------
-
-        new SingleTranslationUnitTest(
-          "Basic Nullptr Test",
-`
+    new SingleTranslationUnitTest(
+        "Basic Nullptr Test",
+        `
 int main() {
   int *p1 = 0;
   int *p2 = NULL;
@@ -652,20 +634,14 @@ int main() {
   assert(!p3);
 }
 `,
-          [
-              new NoErrorsNoWarningsVerifier(),
-              new NoBadRuntimeEventsVerifier(true)
-          ]
-      );
+        [new NoErrorsNoWarningsVerifier(), new NoBadRuntimeEventsVerifier(true)]
+    );
 
+    // ---------- Basic Parameter Test ----------
 
-
-
-      // ---------- Basic Parameter Test ----------
-
-  new SingleTranslationUnitTest(
-      "Basic Parameter Test",
-      `int func1(int x, int y) {
+    new SingleTranslationUnitTest(
+        "Basic Parameter Test",
+        `int func1(int x, int y) {
   x = x + 10;
   y = y + 10;
   return x;
@@ -716,19 +692,14 @@ int main() {
   assert(j == 33);
   
 }`,
-      [
-          new NoErrorsNoWarningsVerifier(),
-          new NoBadRuntimeEventsVerifier(true)
-      ]
-  );
+        [new NoErrorsNoWarningsVerifier(), new NoBadRuntimeEventsVerifier(true)]
+    );
 
-  
-  
-// ---------- Basic Class Test ----------
+    // ---------- Basic Class Test ----------
 
-new SingleTranslationUnitTest(
-"Basic Class Test",
-`class A {
+    new SingleTranslationUnitTest(
+        "Basic Class Test",
+        `class A {
   public:
     
     int x;
@@ -813,18 +784,14 @@ new SingleTranslationUnitTest(
     assert(ptr->getY() == 5.0);
     assert(&ptr->getY() == &a.y);
   }`,
-[
-    new NoErrorsNoWarningsVerifier(),
-    new NoBadRuntimeEventsVerifier(true)
-]
-);
+        [new NoErrorsNoWarningsVerifier(), new NoBadRuntimeEventsVerifier(true)]
+    );
 
+    // ---------- Basic Class Composition Test ----------
 
-// ---------- Basic Class Composition Test ----------
-
-new SingleTranslationUnitTest(
-  "Basic Class Composition Test",
-  `class Coffee {
+    new SingleTranslationUnitTest(
+        "Basic Class Composition Test",
+        `class Coffee {
     public:  
       int creams;
       int sugars;
@@ -901,20 +868,14 @@ new SingleTranslationUnitTest(
       assert(&prof1.favTriangle != &prof2.favTriangle);
       
     }`,
-  [
-      new NoErrorsNoWarningsVerifier(),
-      new NoBadRuntimeEventsVerifier(true)
-  ]
-  );
+        [new NoErrorsNoWarningsVerifier(), new NoBadRuntimeEventsVerifier(true)]
+    );
 
+    // ---------- Big Three Test ----------
 
-
-
-// ---------- Big Three Test ----------
-
-new SingleTranslationUnitTest(
-  "Big Three Test",
-  `#include <iostream>
+    new SingleTranslationUnitTest(
+        "Big Three Test",
+        `#include <iostream>
 using namespace std;
 
 class Mole {
@@ -985,10 +946,10 @@ int main() {
   cout << "end of main" << endl;
 }
 `,
-  [
-      new NoErrorsNoWarningsVerifier(),
-      new NoBadRuntimeEventsVerifier(true),
-      new OutputVerifier(`Mole ctor: 3
+        [
+            new NoErrorsNoWarningsVerifier(),
+            new NoBadRuntimeEventsVerifier(true),
+            new OutputVerifier(`Mole ctor: 3
 Line 1
 Mole ctor: 12
 Mole dtor: 12
@@ -1027,17 +988,15 @@ Mole dtor: 99
 Mole dtor: 99
 Mole dtor: 3
 Mole dtor: 3
-`)
-  ]
-  );
-
-
+`),
+        ]
+    );
 
     // ---------- Constructor Declaration Test ----------
-    
+
     new SingleTranslationUnitTest(
-      "Constructor Declaration Test",
-`class A {
+        "Constructor Declaration Test",
+        `class A {
 public:
   A();
   A(int);
@@ -1052,24 +1011,24 @@ public:
 int main() {
   
 }`,
-      [
-          new NoteVerifier([
-            {line: 5, id: "declaration.ctor.return_type_prohibited"},
-            {line: 6, id: "declaration.missing_type_specifier"},
-            {line: 7, id: "declaration.ctor.return_type_prohibited"},
-            {line: 8, id: "declaration.ctor.return_type_prohibited"},
-            {line: 8, id: "declaration.ctor.previous_declaration"},
-            {line: 9, id: "declaration.missing_type_specifier"},
-            {line: 10, id: "declaration.ctor.previous_declaration"},
-          ])
-      ]
+        [
+            new NoteVerifier([
+                { line: 5, id: "declaration.ctor.return_type_prohibited" },
+                { line: 6, id: "declaration.missing_type_specifier" },
+                { line: 7, id: "declaration.ctor.return_type_prohibited" },
+                { line: 8, id: "declaration.ctor.return_type_prohibited" },
+                { line: 8, id: "declaration.ctor.previous_declaration" },
+                { line: 9, id: "declaration.missing_type_specifier" },
+                { line: 10, id: "declaration.ctor.previous_declaration" },
+            ]),
+        ]
     );
 
-        // ---------- Basic Default Ctor Test ----------
-    
-new SingleTranslationUnitTest(
-"Basic Default Constructor Test",
-`class A {
+    // ---------- Basic Default Ctor Test ----------
+
+    new SingleTranslationUnitTest(
+        "Basic Default Constructor Test",
+        `class A {
   private:
     int a;
     int b;
@@ -1082,15 +1041,12 @@ new SingleTranslationUnitTest(
     A a;
     int y = 2;
   }`,
-[
-    new NoErrorsNoWarningsVerifier(),
-    new NoBadRuntimeEventsVerifier(true)
-]
-);
-    
-      // ---------- Basic SimulationRunner Test ----------
+        [new NoErrorsNoWarningsVerifier(), new NoBadRuntimeEventsVerifier(true)]
+    );
 
-      new SingleTranslationUnitTest(
+    // ---------- Basic SimulationRunner Test ----------
+
+    new SingleTranslationUnitTest(
         "Basic SimulationRunner Test",
         `int main() {
 
@@ -1108,14 +1064,12 @@ new SingleTranslationUnitTest(
   assert((f + g) * 2 == 30);
   assert((f) + (((g)) + 2) * (2 == 25) == 5);
 }`,
-        [
-            new BasicSynchronousRunnerTest()
-        ]
+        [new BasicSynchronousRunnerTest()]
     );
-    
-      // ---------- Basic Virtual Function Test ----------
 
-      new SingleTranslationUnitTest(
+    // ---------- Basic Virtual Function Test ----------
+
+    new SingleTranslationUnitTest(
         "Basic Virtual Function Test",
         `#include <iostream>
 using namespace std;
@@ -1165,20 +1119,19 @@ int main() {
 4
 3
 6
-`)
+`),
         ]
     );
-    
 
-        createCinTests();
-        createObjectLifetimeTests();
-        createDynamicMemoryTests();
+    createCinTests();
+    createObjectLifetimeTests();
+    createDynamicMemoryTests();
 
     // string test
-    
-        new SingleTranslationUnitTest(
-            "Basic String Test",
-            `#include <iostream>
+
+    new SingleTranslationUnitTest(
+        "Basic String Test",
+        `#include <iostream>
     #include <string>
     using namespace std;
     
@@ -1191,17 +1144,14 @@ int main() {
       string s2(cstr);
       cout << "hello" << endl;
     }`,
-            [
-                new NoErrorsNoWarningsVerifier(),
-                new NoBadRuntimeEventsVerifier(true)
-            ]
-        );
+        [new NoErrorsNoWarningsVerifier(), new NoBadRuntimeEventsVerifier(true)]
+    );
 
     // string operators test
-    
-        new SingleTranslationUnitTest(
-            "String + Operators Test",
-`#include <iostream>
+
+    new SingleTranslationUnitTest(
+        "String + Operators Test",
+        `#include <iostream>
 #include <string>
 using namespace std;
 
@@ -1226,11 +1176,11 @@ int main() {
   s = s += "e"; // dcbabcde
   cout << s << endl;
 }`,
-            [
-                new NoErrorsNoWarningsVerifier(),
-                new NoBadRuntimeEventsVerifier(true),
-                new OutputVerifier(
-`
+        [
+            new NoErrorsNoWarningsVerifier(),
+            new NoBadRuntimeEventsVerifier(true),
+            new OutputVerifier(
+                `
 a
 ba
 bab
@@ -1239,17 +1189,16 @@ cbabc
 dcbabc
 dcbabcd
 dcbabcde
-`)
-            ]
-        );
+`
+            ),
+        ]
+    );
 
-        
-
-// Basic Compound Assignment---------------------
+    // Basic Compound Assignment---------------------
 
     new SingleTranslationUnitTest(
-      "Basic Compound Assignment Test",
-      `#include <iostream>
+        "Basic Compound Assignment Test",
+        `#include <iostream>
 using namespace std;
 
 int main() {
@@ -1282,18 +1231,14 @@ int main() {
   
   cout << x << endl;
 }`,
-      [
-          new NoErrorsNoWarningsVerifier(),
-          new NoBadRuntimeEventsVerifier(true)
-      ]
-  );
+        [new NoErrorsNoWarningsVerifier(), new NoBadRuntimeEventsVerifier(true)]
+    );
 
+    // Pointer Compound Assignment---------------------
 
-// Pointer Compound Assignment---------------------
-
-new SingleTranslationUnitTest(
-  "Pointer Compound Assignment Test",
-  `#include <iostream>
+    new SingleTranslationUnitTest(
+        "Pointer Compound Assignment Test",
+        `#include <iostream>
 using namespace std;
 
 int main() {
@@ -1335,17 +1280,14 @@ ptr -= 1;
 assert(ptr == p2);
 
 }`,
-  [
-      new NoErrorsNoWarningsVerifier(),
-      new NoBadRuntimeEventsVerifier(true)
-  ]
-);
+        [new NoErrorsNoWarningsVerifier(), new NoBadRuntimeEventsVerifier(true)]
+    );
 
-// Basic Array Aggregate Initialization---------------------
+    // Basic Array Aggregate Initialization---------------------
 
-new SingleTranslationUnitTest(
-  "Basic Array Aggregate Initialization Test",
-  `using namespace std;
+    new SingleTranslationUnitTest(
+        "Basic Array Aggregate Initialization Test",
+        `using namespace std;
 
 int func(int x) {
   return x -1;
@@ -1371,21 +1313,9 @@ int main() {
   assert(arr3[3] == 0);
   assert(arr3[4] == 0);
 }`,
-  [
-      new NoErrorsNoWarningsVerifier(),
-      new NoBadRuntimeEventsVerifier(true)
-  ]
-);
-
-
-
-
-
-
-
+        [new NoErrorsNoWarningsVerifier(), new NoBadRuntimeEventsVerifier(true)]
+    );
 });
-
-
 
 /**
  * Complicated class declarations and stuff

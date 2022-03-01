@@ -1,7 +1,12 @@
 import { Checkpoint } from "../analysis/checkpoints";
 import { StaticAnalysisExtra } from "../analysis/extras";
 import { ExerciseSpecification } from "../exercises";
-import { listenTo, messageResponse, MessageResponses, Observable } from "../util/observe";
+import {
+    listenTo,
+    messageResponse,
+    MessageResponses,
+    Observable,
+} from "../util/observe";
 import { Mutable, assert, asMutable } from "../util/util";
 import { Note } from "./errors";
 import { SourceFile, Program } from "./Program";
@@ -13,20 +18,19 @@ export interface FileData {
 }
 
 type ProjectMessages =
-    "nameSet" |
-    "compilationOutOfDate" |
-    "compilationFinished" |
-    "fileAdded" |
-    "fileRemoved" |
-    "fileContentsSet" |
-    "translationUnitAdded" |
-    "translationUnitRemoved" |
-    "translationUnitStatusSet" |
-    "noteAdded" |
-    "saveRequested";
+    | "nameSet"
+    | "compilationOutOfDate"
+    | "compilationFinished"
+    | "fileAdded"
+    | "fileRemoved"
+    | "fileContentsSet"
+    | "translationUnitAdded"
+    | "translationUnitRemoved"
+    | "translationUnitStatusSet"
+    | "noteAdded"
+    | "saveRequested";
 
 export class Project {
-
     public observable = new Observable<ProjectMessages>(this);
 
     public readonly name: string;
@@ -36,7 +40,7 @@ export class Project {
     private translationUnitNames: Set<string> = new Set<string>();
 
     public readonly program: Program; // ! set by call to this.recompile() in ctor
-    
+
     public readonly exercise: Exercise;
 
     public readonly extras: readonly StaticAnalysisExtra[];
@@ -46,34 +50,41 @@ export class Project {
     private pendingAutoCompileTimeout?: number;
     private autoCompileDelay?: number;
 
-    public constructor(name: string, id: number | undefined, files: readonly FileData[], exercise: Exercise, extras: readonly StaticAnalysisExtra[] = []) {
+    public constructor(
+        name: string,
+        id: number | undefined,
+        files: readonly FileData[],
+        exercise: Exercise,
+        extras: readonly StaticAnalysisExtra[] = []
+    ) {
         this.name = name;
         this.id = id;
         this.exercise = exercise?.setProject(this);
         this.extras = extras;
 
-        files.forEach(f => this.addFile(new SourceFile(f.name, f.code), f.isTranslationUnit));
+        files.forEach((f) =>
+            this.addFile(new SourceFile(f.name, f.code), f.isTranslationUnit)
+        );
 
         this.program = new Program([], new Set<string>()); // will get replaced immediately
         this.recompile();
     }
-    
+
     public setName(name: string) {
-    (<Mutable<this>>this).name = name;
+        (<Mutable<this>>this).name = name;
         this.observable.send("nameSet");
     }
 
-    public getFileData() : readonly FileData[] {
-        return this.sourceFiles.map(sf => ({
+    public getFileData(): readonly FileData[] {
+        return this.sourceFiles.map((sf) => ({
             name: sf.name,
             code: sf.text,
-            isTranslationUnit: this.translationUnitNames.has(sf.name)
+            isTranslationUnit: this.translationUnitNames.has(sf.name),
         }));
     }
 
     public addFile(file: SourceFile, isTranslationUnit: boolean) {
-
-        let i = this.sourceFiles.findIndex(sf => sf.name === file.name);
+        let i = this.sourceFiles.findIndex((sf) => sf.name === file.name);
         assert(i === -1, "Attempt to add duplicate file.");
 
         // Add file
@@ -90,23 +101,24 @@ export class Project {
     }
 
     public removeFile(filename: string) {
-        let i = this.sourceFiles.findIndex(f => f.name === filename);
+        let i = this.sourceFiles.findIndex((f) => f.name === filename);
         assert(i !== -1, "Attempt to remove nonexistent file from project.");
 
         // Remove file
-        let [removed] = asMutable(this.sourceFiles).splice(i,1);
+        let [removed] = asMutable(this.sourceFiles).splice(i, 1);
 
         // clear out previous record of whether it was a translation unit
         this.translationUnitNames.delete(filename);
 
         this.observable.send("fileRemoved", removed);
-
     }
 
     public setFileContents(file: SourceFile) {
-        
-        let i = this.sourceFiles.findIndex(sf => sf.name === file.name);
-        assert(i !== -1, "Cannot update contents for a file that is not part of this project.");
+        let i = this.sourceFiles.findIndex((sf) => sf.name === file.name);
+        assert(
+            i !== -1,
+            "Cannot update contents for a file that is not part of this project."
+        );
 
         // Update file contents
         asMutable(this.sourceFiles)[i] = file;
@@ -117,15 +129,16 @@ export class Project {
     }
 
     public setTranslationUnit(name: string, isTranslationUnit: boolean) {
-        
-        let i = this.sourceFiles.findIndex(sf => sf.name === name);
-        assert(i !== -1, "Cannot update translation unit status for a file that is not part of this project.");
+        let i = this.sourceFiles.findIndex((sf) => sf.name === name);
+        assert(
+            i !== -1,
+            "Cannot update translation unit status for a file that is not part of this project."
+        );
 
         // Update translation unit status
         if (isTranslationUnit) {
             this.translationUnitNames.add(name);
-        }
-        else {
+        } else {
             this.translationUnitNames.delete(name);
         }
 
@@ -136,18 +149,20 @@ export class Project {
 
     public recompile() {
         try {
-            (<Mutable<this>>this).program = new Program(this.sourceFiles, this.translationUnitNames);
-        }
-        catch(e) {
-            console.log("Unexpected Lobster crash during compilation. :(")
+            (<Mutable<this>>this).program = new Program(
+                this.sourceFiles,
+                this.translationUnitNames
+            );
+        } catch (e) {
+            console.log("Unexpected Lobster crash during compilation. :(");
             console.log(e);
-            this.sourceFiles.forEach(sf => {
+            this.sourceFiles.forEach((sf) => {
                 console.log(sf.name);
                 console.log(sf.text);
             });
         }
 
-        this.extras.forEach(extra => extra(this.program));
+        this.extras.forEach((extra) => extra(this.program));
 
         this.observable.send("compilationFinished", this.program);
 
@@ -166,13 +181,15 @@ export class Project {
      */
     public toggleTranslationUnit(tuName: string) {
         // If it's a valid source file, its name will be a key in the map
-        assert(this.sourceFiles.map(sf => sf.name).indexOf(tuName) !== -1, `No source file found for translation unit: ${tuName}`);
+        assert(
+            this.sourceFiles.map((sf) => sf.name).indexOf(tuName) !== -1,
+            `No source file found for translation unit: ${tuName}`
+        );
 
         if (this.translationUnitNames.has(tuName)) {
             this.translationUnitNames.delete(tuName);
             this.observable.send("translationUnitRemoved", tuName);
-        }
-        else {
+        } else {
             this.translationUnitNames.add(tuName);
             this.observable.send("translationUnitAdded", tuName);
         }
@@ -183,7 +200,7 @@ export class Project {
     private compilationOutOfDate() {
         (<Mutable<this>>this).isCompilationOutOfDate = true;
         this.observable.send("compilationOutOfDate");
-        
+
         if (this.autoCompileDelay !== undefined) {
             this.dispatchAutoCompile();
         }
@@ -205,7 +222,7 @@ export class Project {
             this.pendingAutoCompileTimeout = undefined;
         }, this.autoCompileDelay);
     }
-    
+
     /**
      * Turns on auto-compilation. Any changes to the project source will
      * trigger a recompile, which begins after no subsequent changes have
@@ -235,18 +252,19 @@ export class Project {
     }
 }
 
-export type ExerciseMessages = 
-    "allCheckpointEvaluationStarted" |
-    "allCheckpointEvaluationFinished" |
-    "checkpointEvaluationFinished" |
-    "exerciseChanged";
+export type ExerciseMessages =
+    | "allCheckpointEvaluationStarted"
+    | "allCheckpointEvaluationFinished"
+    | "checkpointEvaluationFinished"
+    | "exerciseChanged";
 
 export type ExerciseCompletionPredicate = (ex: Exercise) => boolean;
-export const COMPLETION_LAST_CHECKPOINT = (ex: Exercise) => ex.checkpointCompletions[ex.checkpoints.length - 1];
-export const COMPLETION_ALL_CHECKPOINTS = (ex: Exercise) => ex.checkpointCompletions.every(status => status);
+export const COMPLETION_LAST_CHECKPOINT = (ex: Exercise) =>
+    ex.checkpointCompletions[ex.checkpoints.length - 1];
+export const COMPLETION_ALL_CHECKPOINTS = (ex: Exercise) =>
+    ex.checkpointCompletions.every((status) => status);
 
 export class Exercise {
-
     public readonly project?: Project;
 
     public readonly checkpoints: readonly Checkpoint[];
@@ -266,8 +284,8 @@ export class Exercise {
 
     public constructor(spec: ExerciseSpecification) {
         this.checkpoints = spec.checkpoints;
-        this.checkpointEvaluationsFinished = this.checkpoints.map(c => false);
-        this.checkpointCompletions = this.checkpoints.map(c => false);
+        this.checkpointEvaluationsFinished = this.checkpoints.map((c) => false);
+        this.checkpointCompletions = this.checkpoints.map((c) => false);
         this.completionCriteria = spec.completionCriteria;
         this.completionMessage = spec.completionMessage;
     }
@@ -280,8 +298,12 @@ export class Exercise {
 
     public changeSpecification(spec: ExerciseSpecification) {
         asMutable(this).checkpoints = spec.checkpoints;
-        asMutable(this).checkpointEvaluationsFinished = this.checkpoints.map(c => false);
-        asMutable(this).checkpointCompletions = this.checkpoints.map(c => false);
+        asMutable(this).checkpointEvaluationsFinished = this.checkpoints.map(
+            (c) => false
+        );
+        asMutable(this).checkpointCompletions = this.checkpoints.map(
+            (c) => false
+        );
         this.completionCriteria = spec.completionCriteria;
         asMutable(this).completionMessage = spec.completionMessage;
         this.observable.send("exerciseChanged", this);
@@ -295,24 +317,27 @@ export class Exercise {
     private async evaluateCheckpoints() {
         assert(this.project);
 
-        asMutable(this).checkpointEvaluationsFinished = this.checkpoints.map(c => false);
-        asMutable(this).checkpointCompletions = this.checkpoints.map(c => false);
+        asMutable(this).checkpointEvaluationsFinished = this.checkpoints.map(
+            (c) => false
+        );
+        asMutable(this).checkpointCompletions = this.checkpoints.map(
+            (c) => false
+        );
         this.observable.send("allCheckpointEvaluationStarted", this);
 
-        await Promise.all(this.checkpoints.map(
-            async (checkpoint, i) => {
+        await Promise.all(
+            this.checkpoints.map(async (checkpoint, i) => {
                 try {
                     let result = await checkpoint.evaluate(this.project!);
                     asMutable(this.checkpointEvaluationsFinished)[i] = true;
                     asMutable(this.checkpointCompletions)[i] = result;
                     this.observable.send("checkpointEvaluationFinished", this);
                     return result;
-                }
-                catch {
+                } catch {
                     return false; // TODO: this results in a false when interrupted - maybe I should let the interruption propagate?
                 }
-            }
-        ));
+            })
+        );
 
         this.observable.send("allCheckpointEvaluationFinished", this);
     }

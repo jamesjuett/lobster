@@ -1,10 +1,9 @@
 /* Buttons generated with the Bootstrap Button Generator at http://blog.koalite.com/bbg/ */
 
-
 .btn-style-muted {
     color: #000000;
-    background-color: #DAB3FF;
-    border-color: #A17EC2;
+    background-color: #dab3ff;
+    border-color: #a17ec2;
 }
 
 .btn-style-muted:hover,
@@ -13,8 +12,8 @@
 .btn-style-muted.active,
 .open .dropdown-toggle.btn-style-muted {
     color: #000000;
-    background-color: #C382FF;
-    border-color: #A17EC2;
+    background-color: #c382ff;
+    border-color: #a17ec2;
 }
 
 .btn-style-muted:active,
@@ -38,26 +37,19 @@ fieldset[disabled] .btn-style-muted:active,
 .btn-style-muted.disabled.active,
 .btn-style-muted[disabled].active,
 fieldset[disabled] .btn-style-muted.active {
-    background-color: #DAB3FF;
-    border-color: #A17EC2;
+    background-color: #dab3ff;
+    border-color: #a17ec2;
 }
 
 .btn-style-muted .badge {
-    color: #DAB3FF;
+    color: #dab3ff;
     background-color: #000000;
 }
 
-
-
-
-
-
-
-
 .btn-danger-muted {
     color: #000000;
-    background-color: #FC9C9A;
-    border-color: #BD6B6A;
+    background-color: #fc9c9a;
+    border-color: #bd6b6a;
 }
 
 .btn-danger-muted:hover,
@@ -66,8 +58,8 @@ fieldset[disabled] .btn-style-muted.active {
 .btn-danger-muted.active,
 .open .dropdown-toggle.btn-danger-muted {
     color: #000000;
-    background-color: #F26F6D;
-    border-color: #BD6B6A;
+    background-color: #f26f6d;
+    border-color: #bd6b6a;
 }
 
 .btn-danger-muted:active,
@@ -91,23 +83,19 @@ fieldset[disabled] .btn-danger-muted:active,
 .btn-danger-muted.disabled.active,
 .btn-danger-muted[disabled].active,
 fieldset[disabled] .btn-danger-muted.active {
-    background-color: #FC9C9A;
-    border-color: #BD6B6A;
+    background-color: #fc9c9a;
+    border-color: #bd6b6a;
 }
 
 .btn-danger-muted .badge {
-    color: #FC9C9A;
+    color: #fc9c9a;
     background-color: #000000;
 }
 
-
-
-
-
 .btn-warning-muted {
     color: #000000;
-    background-color: #FADA9B;
-    border-color: #C7A869;
+    background-color: #fada9b;
+    border-color: #c7a869;
 }
 
 .btn-warning-muted:hover,
@@ -116,8 +104,8 @@ fieldset[disabled] .btn-danger-muted.active {
 .btn-warning-muted.active,
 .open .dropdown-toggle.btn-warning-muted {
     color: #000000;
-    background-color: #FCC453;
-    border-color: #C7A869;
+    background-color: #fcc453;
+    border-color: #c7a869;
 }
 
 .btn-warning-muted:active,
@@ -141,24 +129,19 @@ fieldset[disabled] .btn-warning-muted:active,
 .btn-warning-muted.disabled.active,
 .btn-warning-muted[disabled].active,
 fieldset[disabled] .btn-warning-muted.active {
-    background-color: #FADA9B;
-    border-color: #C7A869;
+    background-color: #fada9b;
+    border-color: #c7a869;
 }
 
 .btn-warning-muted .badge {
-    color: #FADA9B;
+    color: #fada9b;
     background-color: #000000;
 }
 
-
-
-
-
-
 .btn-primary-muted {
     color: #000000;
-    background-color: #AAD4FA;
-    border-color: #7198BD;
+    background-color: #aad4fa;
+    border-color: #7198bd;
 }
 
 .btn-primary-muted:hover,
@@ -167,8 +150,8 @@ fieldset[disabled] .btn-warning-muted.active {
 .btn-primary-muted.active,
 .open .dropdown-toggle.btn-primary-muted {
     color: #000000;
-    background-color: #6CA7FA;
-    border-color: #7198BD;
+    background-color: #6ca7fa;
+    border-color: #7198bd;
 }
 
 .btn-primary-muted:active,
@@ -192,25 +175,19 @@ fieldset[disabled] .btn-primary-muted:active,
 .btn-primary-muted.disabled.active,
 .btn-primary-muted[disabled].active,
 fieldset[disabled] .btn-primary-muted.active {
-    background-color: #AAD4FA;
-    border-color: #7198BD;
+    background-color: #aad4fa;
+    border-color: #7198bd;
 }
 
 .btn-primary-muted .badge {
-    color: #AAD4FA;
+    color: #aad4fa;
     background-color: #000000;
 }
 
-
-
-
-
-
-
 .btn-success-muted {
     color: #000000;
-    background-color: #B6FCB6;
-    border-color: #66B066;
+    background-color: #b6fcb6;
+    border-color: #66b066;
 }
 
 .btn-success-muted:hover,
@@ -219,8 +196,8 @@ fieldset[disabled] .btn-primary-muted.active {
 .btn-success-muted.active,
 .open .dropdown-toggle.btn-success-muted {
     color: #000000;
-    background-color: #69D669;
-    border-color: #66B066;
+    background-color: #69d669;
+    border-color: #66b066;
 }
 
 .btn-success-muted:active,
@@ -244,11 +221,11 @@ fieldset[disabled] .btn-success-muted:active,
 .btn-success-muted.disabled.active,
 .btn-success-muted[disabled].active,
 fieldset[disabled] .btn-success-muted.active {
-    background-color: #B6FCB6;
-    border-color: #66B066;
+    background-color: #b6fcb6;
+    border-color: #66b066;
 }
 
 .btn-success-muted .badge {
-    color: #B6FCB6;
+    color: #b6fcb6;
     background-color: #000000;
 }

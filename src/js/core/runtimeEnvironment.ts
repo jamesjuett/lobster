@@ -1,9 +1,40 @@
 import { assert, assertFalse, Mutable, CPPRandom } from "../util/util";
 import { Observable } from "../util/observe";
-import { CPPObject, AutoObject, StringLiteralObject, StaticObject, TemporaryObject, DynamicObject, InvalidObject, ArraySubobject } from "./objects";
-import { Bool, Char, ObjectPointerType, ArrayPointerType, similarType, subType, PointerType, sameType, AtomicType, IntegralType, Int, ArrayElemType, BoundedArrayType, ReferenceType, PointerToCompleteType, CompleteObjectType } from "./types";
+import {
+    CPPObject,
+    AutoObject,
+    StringLiteralObject,
+    StaticObject,
+    TemporaryObject,
+    DynamicObject,
+    InvalidObject,
+    ArraySubobject,
+} from "./objects";
+import {
+    Bool,
+    Char,
+    ObjectPointerType,
+    ArrayPointerType,
+    similarType,
+    subType,
+    PointerType,
+    sameType,
+    AtomicType,
+    IntegralType,
+    Int,
+    ArrayElemType,
+    BoundedArrayType,
+    ReferenceType,
+    PointerToCompleteType,
+    CompleteObjectType,
+} from "./types";
 import last from "lodash/last";
-import { GlobalObjectEntity, LocalObjectEntity, LocalReferenceEntity, TemporaryObjectEntity } from "./entities";
+import {
+    GlobalObjectEntity,
+    LocalObjectEntity,
+    LocalReferenceEntity,
+    TemporaryObjectEntity,
+} from "./entities";
 import { RuntimeConstruct } from "./constructs";
 import { CompiledGlobalVariableDefinition } from "./declarations";
 import { RuntimeFunction } from "./functions";
@@ -21,14 +52,13 @@ export class Value<T extends AtomicType = AtomicType> {
 
     public readonly rawValue: RawValueType;
 
-
     // TODO: ts: change any type for value to match type expected for CPP type of value
     constructor(rawValue: RawValueType, type: T, isValid: boolean = true) {
         // TODO: remove this.value in favor of using rawValue() function
         this.rawValue = rawValue;
         this.type = type;
         this._isValid = isValid;
-    };
+    }
 
     public get isValid() {
         // Note: this is implemented as a getter since it is necessary to call isValueValid on the type each time.
@@ -36,7 +66,9 @@ export class Value<T extends AtomicType = AtomicType> {
         return this._isValid && this.type.isValueValid(this.rawValue);
     }
 
-    public isTyped<NarrowedT extends AtomicType>(predicate: (t:AtomicType) => t is NarrowedT) : this is Value<NarrowedT> {
+    public isTyped<NarrowedT extends AtomicType>(
+        predicate: (t: AtomicType) => t is NarrowedT
+    ): this is Value<NarrowedT> {
         return predicate(this.type);
     }
 
@@ -45,11 +77,19 @@ export class Value<T extends AtomicType = AtomicType> {
     }
 
     public cvUnqualified() {
-        return new Value<T>(this.rawValue, this.type.cvUnqualified(), this.isValid);
+        return new Value<T>(
+            this.rawValue,
+            this.type.cvUnqualified(),
+            this.isValid
+        );
     }
 
     public cvQualified(isConst: boolean, isVolatile: boolean = false) {
-        return new Value<T>(this.rawValue, this.type.cvQualified(isConst, isVolatile), this.isValid);
+        return new Value<T>(
+            this.rawValue,
+            this.type.cvQualified(isConst, isVolatile),
+            this.isValid
+        );
     }
 
     public invalidated() {
@@ -60,83 +100,103 @@ export class Value<T extends AtomicType = AtomicType> {
         return new Value<Bool>(
             this.rawValue === otherValue.rawValue ? 1 : 0,
             new Bool(),
-            this.isValid && otherValue.isValid);
+            this.isValid && otherValue.isValid
+        );
     }
 
     public rawEquals(otherRawValue: RawValueType) {
         return this.rawValue === otherRawValue;
     }
 
-    public combine(otherValue: Value<T>, combiner: (a: RawValueType, b: RawValueType) => RawValueType) {
+    public combine(
+        otherValue: Value<T>,
+        combiner: (a: RawValueType, b: RawValueType) => RawValueType
+    ) {
         assert(similarType(this.type, otherValue.type));
         return new Value<T>(
             combiner(this.rawValue, otherValue.rawValue),
             this.type,
-            this.isValid && otherValue.isValid);
+            this.isValid && otherValue.isValid
+        );
     }
 
-    public pointerOffset<T extends PointerToCompleteType>(this: Value<T>, offsetValue: Value<IntegralType>, subtract: boolean = false) {
+    public pointerOffset<T extends PointerToCompleteType>(
+        this: Value<T>,
+        offsetValue: Value<IntegralType>,
+        subtract: boolean = false
+    ) {
         return new Value<T>(
-            (subtract ?
-                this.rawValue - this.type.ptrTo.size * offsetValue.rawValue :
-                this.rawValue + this.type.ptrTo.size * offsetValue.rawValue),
+            subtract
+                ? this.rawValue - this.type.ptrTo.size * offsetValue.rawValue
+                : this.rawValue + this.type.ptrTo.size * offsetValue.rawValue,
             this.type,
-            this.isValid && offsetValue.isValid);
+            this.isValid && offsetValue.isValid
+        );
     }
 
-    public pointerOffsetRaw<T extends PointerToCompleteType>(this: Value<T>, rawOffsetValue: number, subtract: boolean = false) {
+    public pointerOffsetRaw<T extends PointerToCompleteType>(
+        this: Value<T>,
+        rawOffsetValue: number,
+        subtract: boolean = false
+    ) {
         return new Value<T>(
-            (subtract ?
-                this.rawValue - this.type.ptrTo.size * rawOffsetValue :
-                this.rawValue + this.type.ptrTo.size * rawOffsetValue),
+            subtract
+                ? this.rawValue - this.type.ptrTo.size * rawOffsetValue
+                : this.rawValue + this.type.ptrTo.size * rawOffsetValue,
             this.type,
-            this.isValid);
+            this.isValid
+        );
     }
 
-    public pointerDifference(this: Value<PointerToCompleteType>, otherValue: Value<PointerToCompleteType>) {
+    public pointerDifference(
+        this: Value<PointerToCompleteType>,
+        otherValue: Value<PointerToCompleteType>
+    ) {
         return new Value<Int>(
             (this.rawValue - otherValue.rawValue) / this.type.ptrTo.size,
             new Int(),
-            this.isValid && otherValue.isValid);
+            this.isValid && otherValue.isValid
+        );
     }
 
-    public compare(otherValue: Value<T>, comparer: (a: RawValueType, b: RawValueType) => boolean) {
+    public compare(
+        otherValue: Value<T>,
+        comparer: (a: RawValueType, b: RawValueType) => boolean
+    ) {
         assert(similarType(this.type, otherValue.type));
         return new Value<Bool>(
             comparer(this.rawValue, otherValue.rawValue) ? 1 : 0,
             new Bool(),
-            this.isValid && otherValue.isValid);
+            this.isValid && otherValue.isValid
+        );
     }
 
     public modify(modifier: (a: RawValueType) => RawValueType) {
-        return new Value<T>(
-            modifier(this.rawValue),
-            this.type,
-            this.isValid);
+        return new Value<T>(modifier(this.rawValue), this.type, this.isValid);
     }
-    
+
     public add(otherValue: Value<T>) {
-        return this.combine(otherValue, (a,b) => a + b);
+        return this.combine(otherValue, (a, b) => a + b);
     }
 
     public addRaw(x: number) {
-        return this.modify(a => a + x);
+        return this.modify((a) => a + x);
     }
-    
+
     public sub(otherValue: Value<T>) {
-        return this.combine(otherValue, (a,b) => a - b);
+        return this.combine(otherValue, (a, b) => a - b);
     }
 
     public subRaw(x: number) {
-        return this.modify(a => a - x);
+        return this.modify((a) => a - x);
     }
-    
+
     public arithmeticNegate() {
-        return this.modify(a => -a);
+        return this.modify((a) => -a);
     }
-    
+
     public logicalNot() {
-        return this.modify(a => a === 0 ? 1 : 0);
+        return this.modify((a) => (a === 0 ? 1 : 0));
     }
 
     public toString() {
@@ -160,7 +220,8 @@ export class Value<T extends AtomicType = AtomicType> {
      */
     public setRawValue(rawValue: RawValueType) {
         (<RawValueType>this.rawValue) = rawValue;
-        (<boolean>this.isValid) = this.isValid && this.type.isValueValid(this.rawValue);
+        (<boolean>this.isValid) =
+            this.isValid && this.type.isValueValid(this.rawValue);
     }
 
     public describe() {
@@ -195,7 +256,9 @@ export class Memory {
     // at the end of the constructor.
     private bytes!: RawValueType[]; //TODO: Hack - instead of real bytes, memory just stores the raw value in the first byte of an object
     private objects!: { [index: number]: CPPObject<CompleteObjectType> };
-    private stringLiteralMap!: { [index: string]: StringLiteralObject | undefined };
+    private stringLiteralMap!: {
+        [index: string]: StringLiteralObject | undefined;
+    };
     private staticObjects!: { [index: string]: StaticObject };
     private temporaryObjects!: { [index: number]: TemporaryObject };
     public readonly stack!: MemoryStack;
@@ -204,11 +267,18 @@ export class Memory {
     private staticTop!: number;
     private temporaryBottom!: number;
 
-    constructor(capacity?: number, staticCapacity?: number, stackCapacity?: number) {
+    constructor(
+        capacity?: number,
+        staticCapacity?: number,
+        stackCapacity?: number
+    ) {
         this.capacity = capacity || 100000;
         this.staticCapacity = staticCapacity || Math.floor(this.capacity / 10);
-        this.stackCapacity = stackCapacity || Math.floor((this.capacity - this.staticCapacity) / 2);
-        this.heapCapacity = this.capacity - this.staticCapacity - this.stackCapacity;
+        this.stackCapacity =
+            stackCapacity ||
+            Math.floor((this.capacity - this.staticCapacity) / 2);
+        this.heapCapacity =
+            this.capacity - this.staticCapacity - this.stackCapacity;
 
         this.staticStart = 0;
         this.staticEnd = this.staticStart + this.staticCapacity;
@@ -223,14 +293,17 @@ export class Memory {
         this.temporaryCapacity = 100000;
         this.temporaryEnd = this.temporaryStart + this.temporaryCapacity;
 
-        assert(this.staticCapacity < this.capacity && this.stackCapacity < this.capacity && this.heapCapacity < this.capacity);
+        assert(
+            this.staticCapacity < this.capacity &&
+                this.stackCapacity < this.capacity &&
+                this.heapCapacity < this.capacity
+        );
         assert(this.heapEnd == this.capacity);
 
         this.reset();
     }
 
     public reset() {
-
         let rng = new CPPRandom(0);
 
         // memory is a sequence of bytes, addresses starting at 0
@@ -256,7 +329,6 @@ export class Memory {
     }
 
     public readByte(addr: number) {
-
         // Notify any other object that is interested in that byte
         // var begin = ad - Type.getMaxSize();
         //for(var i = ad; begin < i; --i){
@@ -317,7 +389,6 @@ export class Memory {
     }
 
     public setBytes(addr: number, values: RawValueType[]) {
-
         for (var i = 0; i < values.length; ++i) {
             this.bytes[addr + i] = values[i];
         }
@@ -333,7 +404,6 @@ export class Memory {
     }
 
     public writeBytes(addr: number, values: RawValueType[]) {
-
         //TODO remove this commented code
         //if (isA(fromObj, TemporaryObject)){
         //    var objBytes = this.temporaryObjects[fromObj.entityId];
@@ -370,17 +440,23 @@ export class Memory {
     // returns an anonymous object representing the given address interpreted as the requested type.
     // (In C++, reading/writing to this object will cause undefined behavior.)
     // TODO: prevent writing to zero or negative address objects?
-    public dereference<Elem_type extends ArrayElemType>(ptr: Value<ArrayPointerType<Elem_type>>): ArraySubobject<Elem_type>;
-    public dereference<T extends CompleteObjectType>(ptr: Value<ObjectPointerType<T>>): CPPObject<T>;
-    public dereference<T extends CompleteObjectType>(ptr: Value<PointerType<T>>): CPPObject<T> | InvalidObject<T>;
-    public dereference(ptr: Value<PointerToCompleteType>): CPPObject | ArraySubobject | InvalidObject {
-
+    public dereference<Elem_type extends ArrayElemType>(
+        ptr: Value<ArrayPointerType<Elem_type>>
+    ): ArraySubobject<Elem_type>;
+    public dereference<T extends CompleteObjectType>(
+        ptr: Value<ObjectPointerType<T>>
+    ): CPPObject<T>;
+    public dereference<T extends CompleteObjectType>(
+        ptr: Value<PointerType<T>>
+    ): CPPObject<T> | InvalidObject<T>;
+    public dereference(
+        ptr: Value<PointerToCompleteType>
+    ): CPPObject | ArraySubobject | InvalidObject {
         var addr = ptr.rawValue;
 
         // Handle special cases for pointers with RTTI
         if (ptr.type.isArrayPointerType()) {
             return ptr.type.arrayObject.getArrayElemSubobjectByAddress(addr);
-
         }
         if (ptr.type.isObjectPointerType() && ptr.type.isValueValid(addr)) {
             return ptr.type.pointedObject;
@@ -389,7 +465,11 @@ export class Memory {
         // Grab object from memory
         var obj = this.objects[addr];
 
-        if (obj && (similarType(obj.type, ptr.type.ptrTo) || subType(obj.type, ptr.type.ptrTo))) {
+        if (
+            obj &&
+            (similarType(obj.type, ptr.type.ptrTo) ||
+                subType(obj.type, ptr.type.ptrTo))
+        ) {
             return obj;
         }
 
@@ -399,10 +479,11 @@ export class Memory {
     }
 
     public allLiveObjects() {
-        return Object.values(this.objects).filter(obj => obj.isAlive);
+        return Object.values(this.objects).filter((obj) => obj.isAlive);
     }
 
-    public allocateObject(object: CPPObject<CompleteObjectType>) { // TODO: allocateObject is not the best name for this
+    public allocateObject(object: CPPObject<CompleteObjectType>) {
+        // TODO: allocateObject is not the best name for this
         this.objects[object.address] = object;
         this.observable.send("objectAllocated", object);
     }
@@ -410,7 +491,7 @@ export class Memory {
     /**
      * Ends the lifetime of an object. Its data actually remains in memory, but is marked as dead and invalid.
      * If the object is already dead, does nothing.
-     * @param addr 
+     * @param addr
      * @param killer The runtime construct that killed the object
      */
     public killObject(obj: CPPObject, killer?: RuntimeConstruct) {
@@ -423,17 +504,20 @@ export class Memory {
     /**
      * Allocates and returns a string literal object, unless a string literal with exactly
      * the same contents has already been allocated, in which case that same object is returned.
-     * @param contents 
+     * @param contents
      */
     public allocateStringLiteral(contents: string) {
         let previousObj = this.stringLiteralMap[contents];
         if (previousObj) {
             return previousObj;
-        }
-        else {
+        } else {
             // only need to allocate a string literal object if we didn't already have an identical one
             // length + 1 below is for null character
-            let object = new StringLiteralObject(new BoundedArrayType(Char.CHAR, contents.length + 1), this, this.staticTop);
+            let object = new StringLiteralObject(
+                new BoundedArrayType(Char.CHAR, contents.length + 1),
+                this,
+                this.staticTop
+            );
             this.allocateObject(object);
             object.beginLifetime();
 
@@ -456,18 +540,34 @@ export class Memory {
     }
 
     public allocateStatic(def: CompiledGlobalVariableDefinition) {
-        var obj = new StaticObject(def, def.declaredEntity.type, this, this.staticTop);
+        var obj = new StaticObject(
+            def,
+            def.declaredEntity.type,
+            this,
+            this.staticTop
+        );
         this.allocateObject(obj);
         this.staticTop += obj.size;
         this.staticObjects[def.declaredEntity.qualifiedName.str] = obj;
     }
 
-    public staticLookup<T extends CompleteObjectType>(staticEntity: GlobalObjectEntity<T>) {
-        return <StaticObject<T>>this.staticObjects[staticEntity.qualifiedName.str];
+    public staticLookup<T extends CompleteObjectType>(
+        staticEntity: GlobalObjectEntity<T>
+    ) {
+        return <StaticObject<T>>(
+            this.staticObjects[staticEntity.qualifiedName.str]
+        );
     }
 
-    public allocateTemporaryObject<T extends CompleteObjectType>(tempEntity: TemporaryObjectEntity<T>) {
-        let obj = new TemporaryObject(tempEntity.type, this, this.temporaryBottom, tempEntity.name);
+    public allocateTemporaryObject<T extends CompleteObjectType>(
+        tempEntity: TemporaryObjectEntity<T>
+    ) {
+        let obj = new TemporaryObject(
+            tempEntity.type,
+            this,
+            this.temporaryBottom,
+            tempEntity.name
+        );
         this.allocateObject(obj);
         this.temporaryBottom += tempEntity.type.size;
         this.temporaryObjects[tempEntity.entityId] = obj;
@@ -475,9 +575,11 @@ export class Memory {
         return obj;
     }
 
-
     // TODO: think of some way to prevent accidentally calling the other deallocate directly with a temporary obj
-    public deallocateTemporaryObject(obj: TemporaryObject, killer?: RuntimeConstruct) {
+    public deallocateTemporaryObject(
+        obj: TemporaryObject,
+        killer?: RuntimeConstruct
+    ) {
         this.killObject(obj, killer);
         //this.temporaryBottom += obj.type.size;
         delete this.temporaryObjects[obj.address];
@@ -491,15 +593,16 @@ export class Memory {
             let desc = obj.describe();
             if (obj.type.isAtomicType()) {
                 let atomicObj = <CPPObject<AtomicType>>obj;
-                objs[desc.name || desc.message] = (atomicObj.isValueValid() ? atomicObj.rawValue() : "??");
-            }
-            else {
+                objs[desc.name || desc.message] = atomicObj.isValueValid()
+                    ? atomicObj.rawValue()
+                    : "??";
+            } else {
                 objs[desc.name || desc.message] = obj.rawValue();
             }
         }
         return JSON.stringify(objs, null, 4);
     }
-};
+}
 
 class MemoryStack {
     private static readonly _name = "MemoryStack";
@@ -546,7 +649,7 @@ class MemoryStack {
     }
 
     public toString() {
-        var str = "<ul class=\"stackFrames\">";
+        var str = '<ul class="stackFrames">';
         for (var i = 0; i < this.frames.length; ++i) {
             var frame = this.frames[i];
             str += "<li>" + frame.toString() + "</li>";
@@ -607,9 +710,7 @@ class MemoryHeap {
     }
 }
 
-
-type MemoryFrameMessages =
-    "referenceBound";
+type MemoryFrameMessages = "referenceBound";
 
 export class MemoryFrame {
     private static readonly _name = "MemoryFrame";
@@ -624,10 +725,15 @@ export class MemoryFrame {
     public readonly size: number;
 
     public readonly localObjects: readonly AutoObject[];
-    public readonly localObjectsByName: { [index: string]: AutoObject | undefined } = {};
+    public readonly localObjectsByName: {
+        [index: string]: AutoObject | undefined;
+    } = {};
 
-    private readonly localObjectsByEntityId: { [index: number]: AutoObject } = {};
-    private readonly localReferencesByEntityId: { [index: number]: CPPObject | undefined } = {};
+    private readonly localObjectsByEntityId: { [index: number]: AutoObject } =
+        {};
+    private readonly localReferencesByEntityId: {
+        [index: number]: CPPObject | undefined;
+    } = {};
     private readonly localReferenceEntities: readonly LocalReferenceEntity[];
 
     public constructor(memory: Memory, start: number, rtFunc: RuntimeFunction) {
@@ -650,12 +756,16 @@ export class MemoryFrame {
         // }
 
         let functionLocals = rtFunc.model.context.functionLocals;
-        
+
         // Push objects for all entities in the block
         this.localObjects = functionLocals.localObjects.map((objEntity) => {
-
             // Create and allocate the object
-            let obj = new AutoObject(objEntity.definition, objEntity.type, memory, addr);
+            let obj = new AutoObject(
+                objEntity.definition,
+                objEntity.type,
+                memory,
+                addr
+            );
             this.memory.allocateObject(obj);
             this.localObjectsByEntityId[objEntity.entityId] = obj;
             this.localObjectsByName[obj.name] = obj;
@@ -685,7 +795,9 @@ export class MemoryFrame {
         return str;
     }
 
-    public localObjectLookup<T extends CompleteObjectType>(entity: LocalObjectEntity<T>) {
+    public localObjectLookup<T extends CompleteObjectType>(
+        entity: LocalObjectEntity<T>
+    ) {
         return <AutoObject<T>>this.localObjectsByEntityId[entity.entityId];
     }
 
@@ -694,8 +806,12 @@ export class MemoryFrame {
     //     this.localObjectLookup(entity).writeValue(newValue);
     // }
 
-    public localReferenceLookup<T extends CompleteObjectType>(entity: LocalReferenceEntity<ReferenceType<T>>) {
-        return <CPPObject<T> | undefined>this.localReferencesByEntityId[entity.entityId];
+    public localReferenceLookup<T extends CompleteObjectType>(
+        entity: LocalReferenceEntity<ReferenceType<T>>
+    ) {
+        return <CPPObject<T> | undefined>(
+            this.localReferencesByEntityId[entity.entityId]
+        );
     }
 
     public bindLocalReference(entity: LocalReferenceEntity, obj: CPPObject) {
@@ -711,5 +827,4 @@ export class MemoryFrame {
     //         //addr += ref.type.size;
     //     });
     // }
-
-};
+}

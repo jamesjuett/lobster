@@ -1,13 +1,12 @@
-
-import { Program, SimpleProgram, SourceFile } from './src/js/core/Program';
-import { readFileSync, writeFileSync } from 'fs';
-import { encode } from 'he';
-import { Simulation } from './src/js/core/Simulation';
-import { SynchronousSimulationRunner } from './src/js/core/simulationRunners';
+import { Program, SimpleProgram, SourceFile } from "./src/js/core/Program";
+import { readFileSync, writeFileSync } from "fs";
+import { encode } from "he";
+import { Simulation } from "./src/js/core/Simulation";
+import { SynchronousSimulationRunner } from "./src/js/core/simulationRunners";
 
 import "./src/js/lib/standard";
 
-let submissions : string[] = JSON.parse(readFileSync("recursion.json", "utf-8"));
+let submissions: string[] = JSON.parse(readFileSync("recursion.json", "utf-8"));
 
 // function applyHarness(sub: string) {
 //     return  `
@@ -95,7 +94,6 @@ let submissions : string[] = JSON.parse(readFileSync("recursion.json", "utf-8"))
 // `;
 // }
 
-
 // function applyHarness(sub: string) {
 //     return  `
 //     int MAX_APPS = 5;
@@ -117,7 +115,7 @@ let submissions : string[] = JSON.parse(readFileSync("recursion.json", "utf-8"))
 // }
 
 function applyHarness(sub: string) {
-    return  `
+    return `
     struct Node {
         int datum;
         Node *left;
@@ -150,25 +148,22 @@ function applyHarness(sub: string) {
 
 // let header = `
 
-
-
-
 // `;
 
 function getFunc(program: Program, name: string) {
     return program.linkedFunctionDefinitions[name]?.definitions[0];
 }
 
-let equivalenceGroups : {
-    submission: string,
-    program: Program,
-    testCasesPassed?: boolean
-    runtimeEvent?: boolean
+let equivalenceGroups: {
+    submission: string;
+    program: Program;
+    testCasesPassed?: boolean;
+    runtimeEvent?: boolean;
 }[][] = [];
 
 submissions.forEach((sub, i) => {
     console.log(i);
-    
+
     let p = new SimpleProgram(applyHarness(sub));
 
     // Try compiling with an extra \n} added at the very end
@@ -178,67 +173,77 @@ submissions.forEach((sub, i) => {
 
     // Try compiling with an extra ; added after lines ending in a character or digit
     if (!getFunc(p, "countEqual")) {
-        p = new SimpleProgram(applyHarness(sub.replace(/(?<=[a-zA-Z0-9])\n/, ";\n")));
+        p = new SimpleProgram(
+            applyHarness(sub.replace(/(?<=[a-zA-Z0-9])\n/, ";\n"))
+        );
     }
 
     if (!getFunc(p, "countEqual")) {
         // Didn't parse or can't find function, make a new group
-        equivalenceGroups.push([{submission: sub, program: p}]);
+        equivalenceGroups.push([{ submission: sub, program: p }]);
         return;
     }
 
-    let equivGroup = equivalenceGroups.find(group => {
+    let equivGroup = equivalenceGroups.find((group) => {
         let rep = group[0].program;
         let repFunc = getFunc(rep, "countEqual");
-        return repFunc && getFunc(p, "countEqual")!.isSemanticallyEquivalent(repFunc, {});
+        return (
+            repFunc &&
+            getFunc(p, "countEqual")!.isSemanticallyEquivalent(repFunc, {})
+        );
     });
-    
+
     let sim: Simulation | undefined;
     if (p.isRunnable()) {
         console.log("runnable");
         sim = new Simulation(p);
-        new SynchronousSimulationRunner(sim).stepToEnd(2000)
-    }
-    else {
-        console.log(p.notes.allNotes.map(n => n.message));
+        new SynchronousSimulationRunner(sim).stepToEnd(2000);
+    } else {
+        console.log(p.notes.allNotes.map((n) => n.message));
     }
 
     let result = {
         submission: sub,
         program: p,
         testCasesPassed: sim && !sim.hasAnyEventOccurred,
-        runtimeEvent: sim?.hasAnyEventOccurred
-    }
+        runtimeEvent: sim?.hasAnyEventOccurred,
+    };
 
     if (equivGroup) {
         equivGroup.push(result);
-    }
-    else {
+    } else {
         equivalenceGroups.push([result]);
     }
 });
 
-equivalenceGroups.sort((a,b) => b.length - a.length);
+equivalenceGroups.sort((a, b) => b.length - a.length);
 
 let out = {
     num_total: submissions.length,
     num_groups: equivalenceGroups.length,
-    num_to_grade: equivalenceGroups.filter(eg => !eg[0].testCasesPassed).length,
-    num_parsed: equivalenceGroups.filter(g => getFunc(g[0].program, "countEqual")).length,
-    num_failed: equivalenceGroups.filter(g => !getFunc(g[0].program, "countEqual")).length,
-    num_single: equivalenceGroups.filter(g => g.length === 1).length,
-    num_test_cases_passed: equivalenceGroups.filter(g=>g[0].testCasesPassed).length,
-    num_runtime_event: equivalenceGroups.filter(g=>g[0].runtimeEvent).length,
-    group_lengths: equivalenceGroups.map(eg => eg.length),
-    groups: equivalenceGroups.map((eg,i) => ({
+    num_to_grade: equivalenceGroups.filter((eg) => !eg[0].testCasesPassed)
+        .length,
+    num_parsed: equivalenceGroups.filter((g) =>
+        getFunc(g[0].program, "countEqual")
+    ).length,
+    num_failed: equivalenceGroups.filter(
+        (g) => !getFunc(g[0].program, "countEqual")
+    ).length,
+    num_single: equivalenceGroups.filter((g) => g.length === 1).length,
+    num_test_cases_passed: equivalenceGroups.filter((g) => g[0].testCasesPassed)
+        .length,
+    num_runtime_event: equivalenceGroups.filter((g) => g[0].runtimeEvent)
+        .length,
+    group_lengths: equivalenceGroups.map((eg) => eg.length),
+    groups: equivalenceGroups.map((eg, i) => ({
         group: i,
         parsed: !!getFunc(eg[0].program, "countEqual"),
         num: eg.length,
         testCasesPassed: eg[0].testCasesPassed,
         runtimeEvent: eg[0].runtimeEvent,
-        submissions: eg.map(g => g.submission)
-    }))
-}
+        submissions: eg.map((g) => g.submission),
+    })),
+};
 
 writeFileSync("equivalent_matches.json", JSON.stringify(out, null, 2), "utf8");
 
@@ -255,7 +260,25 @@ table {
 </style>
 </head><body>
 
-${out.groups.map(g => `<table><tr>${g.testCasesPassed ? `<td style="vertical-align: middle; font-size: 48pt; color: green;"><i class="bi bi-check-circle"></i></td>` : ""} ${g.submissions.map(sub => `<td><pre><code>${encode(sub)}</code></pre>${g.testCasesPassed ? `<div style="text-align: center;">CORRECT</div>` : ""}</td>`).join("")}</tr></table>`).join("")}
+${out.groups
+    .map(
+        (g) =>
+            `<table><tr>${
+                g.testCasesPassed
+                    ? `<td style="vertical-align: middle; font-size: 48pt; color: green;"><i class="bi bi-check-circle"></i></td>`
+                    : ""
+            } ${g.submissions
+                .map(
+                    (sub) =>
+                        `<td><pre><code>${encode(sub)}</code></pre>${
+                            g.testCasesPassed
+                                ? `<div style="text-align: center;">CORRECT</div>`
+                                : ""
+                        }</td>`
+                )
+                .join("")}</tr></table>`
+    )
+    .join("")}
 
 </body></html>`;
 

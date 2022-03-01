@@ -1,14 +1,11 @@
 import { DefaultLobsterOutlet } from "./view/simOutlets";
 
-import "./lib/standard"
+import "./lib/standard";
 import { Users } from "./frontend/user";
 import { ProjectList } from "./frontend/projects";
 import { LobsterApplication } from "./frontend/application";
 
-
-
 $(async () => {
-
     // let element = $("#lobster1");
 
     // let i_tabsElem = element.find(".lobster-simulation-outlet-tabs");
@@ -16,10 +13,10 @@ $(async () => {
     // let project = new Project("Test Project", [{name: "file.cpp", code: "int main() {\n  int x = 2;\n}", isTranslationUnit: true}, {name: "file2.cpp", code: "blah wheee", isTranslationUnit: false} ]);
     // // let sourcePane = element.find("#sourcePane");
     // let lobsterOutlet = new DefaultLobsterOutlet($("#lobster1"), );
-    
+
     let app = new LobsterApplication();
 
-//        console = ValueEntity.instance();
+    //        console = ValueEntity.instance();
 
     // if ((elem = statusElem = element.find(".status")).length !== 0) {
     //     status = Outlets.HtmlOutlet.instance(elem, true).listenTo(errorStatus);
@@ -38,12 +35,10 @@ $(async () => {
     //         listenTo(stackFrames);
     //     }
     // }
-    
+
     // if ((elem = element.find(".memory")).length !== 0) {
     //     memory = Outlets.CPP.Memory.instance(elem, sim.memory);
     // }
 
     // runButton = element.find(".runButton");
-
-
 });

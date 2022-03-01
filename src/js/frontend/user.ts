@@ -12,12 +12,9 @@ export type UserInfo = {
     is_super: boolean;
 };
 
-type UserMessages =
-    "userLoggedIn" |
-    "userLoggedOut";
+type UserMessages = "userLoggedIn" | "userLoggedOut";
 
 export class Users {
-    
     public observable = new Observable<UserMessages>(this);
 
     public readonly currentUser?: UserInfo;
@@ -25,24 +22,22 @@ export class Users {
     public async checkLogin() {
         if (Cookies.get("bearer")) {
             const response = await fetch("api/users/me", {
-                method: 'GET',
+                method: "GET",
                 headers: {
-                    'Authorization': 'bearer ' + Cookies.get('bearer')
-                }
+                    Authorization: "bearer " + Cookies.get("bearer"),
+                },
             });
 
             if (response.status === 200) {
-                let newUser = await response.json() as UserInfo;
+                let newUser = (await response.json()) as UserInfo;
                 if (!this.currentUser || newUser.id !== this.currentUser.id) {
                     (<Mutable<this>>this).currentUser = newUser;
                     this.observable.send("userLoggedIn", newUser);
                 }
-            }
-            else {
+            } else {
                 this.logout();
             }
-        }
-        else {
+        } else {
             this.logout();
         }
     }
@@ -57,10 +52,8 @@ export class Users {
     }
 
     public getBearerToken() {
-        return Cookies.get('bearer');
+        return Cookies.get("bearer");
     }
-
 }
 
 export let USERS = new Users();
-

@@ -7,7 +7,9 @@ console.log("hello");
 // let x = new PointerType(new Int(), true);
 // console.log(x.toString());
 
-let file1 = new SourceFile("test.cpp", `
+let file1 = new SourceFile(
+    "test.cpp",
+    `
 
 int square(int x) {
     return x * x;
@@ -37,7 +39,8 @@ int main() {
 //    int &e4 = enigma(e1, e2, &e3);
 //    e4 = e4 + 1;
 }
-`);
+`
+);
 let program = new Program([file1], ["test.cpp"]);
 console.log(program);
 
@@ -46,7 +49,7 @@ if (program.isRunnable()) {
     console.log(sim);
     sim.memory.printObjects();
     let timeout = setInterval(() => {
-        sim.stepForward()
+        sim.stepForward();
         sim.memory.printObjects();
         if (sim.atEnd) {
             clearInterval(timeout);

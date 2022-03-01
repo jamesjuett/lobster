@@ -1,11 +1,18 @@
 import { ASTNode } from "./ASTNode";
-import { ExpressionASTNode, InitializerListExpressionASTNode } from "./ast_expressions";
+import {
+    ExpressionASTNode,
+    InitializerListExpressionASTNode,
+} from "./ast_expressions";
 
+export type InitializerASTNode =
+    | DirectInitializerASTNode
+    | CopyInitializerASTNode
+    | ListInitializerASTNode;
 
-export type InitializerASTNode = DirectInitializerASTNode | CopyInitializerASTNode | ListInitializerASTNode;
-
-export type NewInitializerASTNode = ValueInitializerASTNode | DirectInitializerASTNode | ListInitializerASTNode;
-
+export type NewInitializerASTNode =
+    | ValueInitializerASTNode
+    | DirectInitializerASTNode
+    | ListInitializerASTNode;
 
 export interface ValueInitializerASTNode extends ASTNode {
     construct_type: "value_initializer";

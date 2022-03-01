@@ -1,14 +1,29 @@
 import { TemporaryObjectEntity } from "./entities";
 import { Mutable, assertFalse, assert } from "../util/util";
-import { CompleteClassType, CompleteObjectType, isCompleteClassType } from "./types";
+import {
+    CompleteClassType,
+    CompleteObjectType,
+    isCompleteClassType,
+} from "./types";
 import { TemporaryObject } from "./objects";
-import { TranslationUnitContext, BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, StackType, CPPConstruct, SemanticContext } from "./constructs";
+import {
+    TranslationUnitContext,
+    BasicCPPConstruct,
+    SuccessfullyCompiled,
+    RuntimeConstruct,
+    StackType,
+    CPPConstruct,
+    SemanticContext,
+} from "./constructs";
 import { ASTNode } from "../ast/ASTNode";
 import { CPPError } from "./errors";
 import { FunctionCall, CompiledFunctionCall } from "./FunctionCall";
 import { AnalyticConstruct } from "./predicates";
 
-export abstract class PotentialFullExpression<ContextType extends TranslationUnitContext = TranslationUnitContext, ASTType extends ASTNode = ASTNode> extends BasicCPPConstruct<ContextType, ASTType> {
+export abstract class PotentialFullExpression<
+    ContextType extends TranslationUnitContext = TranslationUnitContext,
+    ASTType extends ASTNode = ASTNode
+> extends BasicCPPConstruct<ContextType, ASTType> {
     public readonly temporaryObjects: TemporaryObjectEntity[] = [];
     public readonly temporaryDeallocator?: TemporaryDeallocator;
     public onAttach(parent: CPPConstruct) {
@@ -27,12 +42,15 @@ export abstract class PotentialFullExpression<ContextType extends TranslationUni
         // assert in addTemporaryObject() to prevent this.) That means it is now
         // safe to compile and add the temporary deallocator construct as a child.
         if (this.temporaryObjects.length > 0) {
-            (<TemporaryDeallocator>this.temporaryDeallocator) = new TemporaryDeallocator(this.context, this.temporaryObjects);
+            (<TemporaryDeallocator>this.temporaryDeallocator) =
+                new TemporaryDeallocator(this.context, this.temporaryObjects);
             this.attach(this.temporaryDeallocator!);
         }
     }
     public isFullExpression(): boolean {
-        return !this.parent || !(this.parent instanceof PotentialFullExpression);
+        return (
+            !this.parent || !(this.parent instanceof PotentialFullExpression)
+        );
     }
     // TODO: this function can probably be cleaned up so that it doesn't require these ugly runtime checks
     /**
@@ -49,11 +67,17 @@ export abstract class PotentialFullExpression<ContextType extends TranslationUni
         return this.parent.findFullExpression();
     }
     private addTemporaryObject(tempObjEnt: TemporaryObjectEntity) {
-        assert(!this.parent, "Temporary objects may not be added to a full expression after it has been attached.");
+        assert(
+            !this.parent,
+            "Temporary objects may not be added to a full expression after it has been attached."
+        );
         this.temporaryObjects.push(tempObjEnt);
         tempObjEnt.setOwner(this);
     }
-    public createTemporaryObject<T extends CompleteObjectType>(type: T, name: string): TemporaryObjectEntity<T> {
+    public createTemporaryObject<T extends CompleteObjectType>(
+        type: T,
+        name: string
+    ): TemporaryObjectEntity<T> {
         let fe = this.findFullExpression();
         var tempObjEnt = new TemporaryObjectEntity(type, this, fe, name);
         this.temporaryObjects[tempObjEnt.entityId] = tempObjEnt;
@@ -61,11 +85,15 @@ export abstract class PotentialFullExpression<ContextType extends TranslationUni
     }
 }
 
-export interface CompiledPotentialFullExpression extends PotentialFullExpression, SuccessfullyCompiled {
+export interface CompiledPotentialFullExpression
+    extends PotentialFullExpression,
+        SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator;
 }
 
-export abstract class RuntimePotentialFullExpression<C extends CompiledPotentialFullExpression = CompiledPotentialFullExpression> extends RuntimeConstruct<C> {
+export abstract class RuntimePotentialFullExpression<
+    C extends CompiledPotentialFullExpression = CompiledPotentialFullExpression
+> extends RuntimeConstruct<C> {
     public readonly temporaryDeallocator?: RuntimeTemporaryDeallocator;
 
     public readonly temporaryObjects: {
@@ -74,31 +102,41 @@ export abstract class RuntimePotentialFullExpression<C extends CompiledPotential
 
     public readonly containingFullExpression: RuntimePotentialFullExpression;
 
-    public constructor(model: C, stackType: StackType, parent: RuntimeConstruct) {
+    public constructor(
+        model: C,
+        stackType: StackType,
+        parent: RuntimeConstruct
+    ) {
         super(model, stackType, parent);
         if (this.model.temporaryDeallocator) {
-            this.temporaryDeallocator = this.model.temporaryDeallocator.createRuntimeConstruct(this);
+            this.temporaryDeallocator =
+                this.model.temporaryDeallocator.createRuntimeConstruct(this);
             this.setCleanupConstruct(this.temporaryDeallocator);
         }
         this.containingFullExpression = this.findFullExpression();
     }
-    
+
     private findFullExpression(): RuntimePotentialFullExpression {
         let rt: RuntimeConstruct = this;
-        while (rt instanceof RuntimePotentialFullExpression && !rt.model.isFullExpression() && rt.parent) {
+        while (
+            rt instanceof RuntimePotentialFullExpression &&
+            !rt.model.isFullExpression() &&
+            rt.parent
+        ) {
             rt = rt.parent;
         }
         if (rt instanceof RuntimePotentialFullExpression) {
             return rt;
-        }
-        else {
+        } else {
             return assertFalse();
         }
     }
 }
 
-
-export class TemporaryDeallocator extends BasicCPPConstruct<TranslationUnitContext, ASTNode> {
+export class TemporaryDeallocator extends BasicCPPConstruct<
+    TranslationUnitContext,
+    ASTNode
+> {
     public readonly construct_type = "TemporaryDeallocator";
 
     public readonly parent?: PotentialFullExpression;
@@ -106,7 +144,10 @@ export class TemporaryDeallocator extends BasicCPPConstruct<TranslationUnitConte
 
     public readonly dtors: (FunctionCall | undefined)[];
 
-    public constructor(context: TranslationUnitContext, temporaryObjects: TemporaryObjectEntity[]) {
+    public constructor(
+        context: TranslationUnitContext,
+        temporaryObjects: TemporaryObjectEntity[]
+    ) {
         super(context, undefined); // Has no AST
         this.temporaryObjects = temporaryObjects;
 
@@ -114,46 +155,63 @@ export class TemporaryDeallocator extends BasicCPPConstruct<TranslationUnitConte
             if (temp.isTyped(isCompleteClassType)) {
                 let dtor = temp.type.classDefinition.destructor;
                 if (dtor) {
-                    let dtorCall = new FunctionCall(context, dtor, [], temp.type);
+                    let dtorCall = new FunctionCall(
+                        context,
+                        dtor,
+                        [],
+                        temp.type
+                    );
                     this.attach(dtorCall);
                     return dtorCall;
-                }
-                else{
-                    this.addNote(CPPError.declaration.dtor.no_destructor_temporary(temp.owner, temp));
+                } else {
+                    this.addNote(
+                        CPPError.declaration.dtor.no_destructor_temporary(
+                            temp.owner,
+                            temp
+                        )
+                    );
                 }
             }
             return undefined;
         });
     }
 
-    public createRuntimeConstruct(this: CompiledTemporaryDeallocator, parent: RuntimePotentialFullExpression) {
+    public createRuntimeConstruct(
+        this: CompiledTemporaryDeallocator,
+        parent: RuntimePotentialFullExpression
+    ) {
         return new RuntimeTemporaryDeallocator(this, parent);
     }
 
-    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
+    public isSemanticallyEquivalent_impl(
+        other: AnalyticConstruct,
+        equivalenceContext: SemanticContext
+    ): boolean {
         return other.construct_type === this.construct_type;
         // TODO semantic equivalence
     }
 }
 
-export interface CompiledTemporaryDeallocator extends TemporaryDeallocator, SuccessfullyCompiled {
-
+export interface CompiledTemporaryDeallocator
+    extends TemporaryDeallocator,
+        SuccessfullyCompiled {
     readonly dtors: (CompiledFunctionCall | undefined)[];
-    
 }
 
 export class RuntimeTemporaryDeallocator extends RuntimeConstruct<CompiledTemporaryDeallocator> {
-
     private index = 0;
-    private justDestructed: TemporaryObject<CompleteClassType> | undefined = undefined;
+    private justDestructed: TemporaryObject<CompleteClassType> | undefined =
+        undefined;
     public readonly parent!: RuntimePotentialFullExpression; // narrows type from base class
 
-    public constructor(model: CompiledTemporaryDeallocator, parent: RuntimePotentialFullExpression) {
+    public constructor(
+        model: CompiledTemporaryDeallocator,
+        parent: RuntimePotentialFullExpression
+    ) {
         super(model, "expression", parent);
     }
 
     protected upNextImpl() {
-
         let tempObjects = this.model.temporaryObjects;
 
         if (this.justDestructed) {
@@ -161,7 +219,7 @@ export class RuntimeTemporaryDeallocator extends RuntimeConstruct<CompiledTempor
             this.justDestructed = undefined;
         }
 
-        while(this.index < tempObjects.length) {
+        while (this.index < tempObjects.length) {
             // Destroy temp at given index
             let temp = tempObjects[this.index];
             let dtor = this.model.dtors[this.index];
@@ -183,8 +241,7 @@ export class RuntimeTemporaryDeallocator extends RuntimeConstruct<CompiledTempor
 
                 // return so that the dtor, which is now on top of the stack, can run instead
                 return;
-            }
-            else {
+            } else {
                 let obj = temp.runtimeLookup(this.parent);
                 if (!obj) {
                     // some obscure cases (e.g. non-evaluated operand of ternary operator)
@@ -199,13 +256,5 @@ export class RuntimeTemporaryDeallocator extends RuntimeConstruct<CompiledTempor
         this.startCleanup();
     }
 
-    public stepForwardImpl() {
-
-    }
+    public stepForwardImpl() {}
 }
-
-
-
-
-
-

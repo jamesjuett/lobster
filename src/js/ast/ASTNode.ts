@@ -1,4 +1,3 @@
-
 export interface ASTNode {
     // readonly construct_type: string;
     readonly source: {
@@ -10,7 +9,7 @@ export interface ASTNode {
     };
     readonly library_id?: number;
     readonly library_unsupported?: boolean;
-};
+}
 
 export interface AnythingConstructASTNode extends ASTNode {
     readonly construct_type: "anything_construct";

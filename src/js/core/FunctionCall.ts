@@ -1,21 +1,47 @@
-import { areEntitiesSemanticallyEquivalent, FunctionEntity, PassByReferenceParameterEntity, PassByValueParameterEntity, TemporaryObjectEntity } from "./entities";
+import {
+    areEntitiesSemanticallyEquivalent,
+    FunctionEntity,
+    PassByReferenceParameterEntity,
+    PassByValueParameterEntity,
+    TemporaryObjectEntity,
+} from "./entities";
 import { Mutable, assert } from "../util/util";
-import { AtomicType, CompleteClassType, CompleteReturnType, FunctionType, ReferenceType, VoidType } from "./types";
+import {
+    AtomicType,
+    CompleteClassType,
+    CompleteReturnType,
+    FunctionType,
+    ReferenceType,
+    VoidType,
+} from "./types";
 import { CPPObject } from "./objects";
-import { TranslationUnitContext, SuccessfullyCompiled, RuntimeConstruct, areSemanticallyEquivalent, SemanticContext, areAllSemanticallyEquivalent } from "./constructs";
+import {
+    TranslationUnitContext,
+    SuccessfullyCompiled,
+    RuntimeConstruct,
+    areSemanticallyEquivalent,
+    SemanticContext,
+    areAllSemanticallyEquivalent,
+} from "./constructs";
 import { CPPError } from "./errors";
-import { CompiledDirectInitializer, DirectInitializer, RuntimeDirectInitializer } from "./initializers";
-import { CompiledExpression, Expression, TypedExpression } from "./expressionBase";
+import {
+    CompiledDirectInitializer,
+    DirectInitializer,
+    RuntimeDirectInitializer,
+} from "./initializers";
+import {
+    CompiledExpression,
+    Expression,
+    TypedExpression,
+} from "./expressionBase";
 import { CompiledFunctionDefinition } from "./declarations";
 import { RuntimeFunction } from "./functions";
-import { PotentialFullExpression, CompiledTemporaryDeallocator, RuntimePotentialFullExpression } from "./PotentialFullExpression";
+import {
+    PotentialFullExpression,
+    CompiledTemporaryDeallocator,
+    RuntimePotentialFullExpression,
+} from "./PotentialFullExpression";
 import { AnalyticConstruct } from "./predicates";
-
-
-
-
-
-
 
 export class FunctionCall extends PotentialFullExpression {
     public readonly construct_type = "FunctionCall";
@@ -39,7 +65,12 @@ export class FunctionCall extends PotentialFullExpression {
      * @param args Arguments to the function.
      * @param receiverType
      */
-    public constructor(context: TranslationUnitContext, func: FunctionEntity<FunctionType<CompleteReturnType>>, args: readonly TypedExpression[], receiverType: CompleteClassType | undefined) {
+    public constructor(
+        context: TranslationUnitContext,
+        func: FunctionEntity<FunctionType<CompleteReturnType>>,
+        args: readonly TypedExpression[],
+        receiverType: CompleteClassType | undefined
+    ) {
         super(context, undefined);
 
         this.func = func;
@@ -48,15 +79,19 @@ export class FunctionCall extends PotentialFullExpression {
         let paramTypes = this.func.type.paramTypes;
         if (args.length !== paramTypes.length) {
             this.addNote(CPPError.param.numParams(this));
-            this.attachAll(this.args = args);
+            this.attachAll((this.args = args));
             return;
         }
 
         // Note - destructors are allowed to ignore const semantics.
         // That is, even though a destructor is a non-const member function,
         // it is allowed to be called on const objects and suspends their constness
-        if (this.func.isMemberFunction && !this.func.isDestructor
-            && receiverType?.isConst && !this.func.type.receiverType?.isConst) {
+        if (
+            this.func.isMemberFunction &&
+            !this.func.isDestructor &&
+            receiverType?.isConst &&
+            !this.func.type.receiverType?.isConst
+        ) {
             this.addNote(CPPError.param.thisConst(this, receiverType));
         }
 
@@ -65,17 +100,26 @@ export class FunctionCall extends PotentialFullExpression {
         this.argInitializers = args.map((arg, i) => {
             let paramType = paramTypes[i];
             if (paramType.isReferenceType()) {
-                return DirectInitializer.create(context, new PassByReferenceParameterEntity(this.func, paramType, i), [arg], "copy");
-            }
-            else {
+                return DirectInitializer.create(
+                    context,
+                    new PassByReferenceParameterEntity(this.func, paramType, i),
+                    [arg],
+                    "copy"
+                );
+            } else {
                 assert(paramType.isCompleteParameterType());
-                return DirectInitializer.create(context, new PassByValueParameterEntity(this.func, paramType, i), [arg], "copy");
+                return DirectInitializer.create(
+                    context,
+                    new PassByValueParameterEntity(this.func, paramType, i),
+                    [arg],
+                    "copy"
+                );
             }
         });
         this.attachAll(this.argInitializers);
 
         // For convenience, an array with reference to the final arguments (i.e. including conversions) for the call
-        this.args = this.argInitializers.map(argInit => argInit.args[0]);
+        this.args = this.argInitializers.map((argInit) => argInit.args[0]);
 
         // TODO
         // this.isRecursive = this.func.definition === this.context.containingFunction;
@@ -83,8 +127,14 @@ export class FunctionCall extends PotentialFullExpression {
         // If return by reference, the return object already exists and no need to create a temporary.
         // Else, for a return by value, we do need to create a temporary object.
         let returnType = this.func.type.returnType;
-        if (!(returnType instanceof VoidType) && !(returnType instanceof ReferenceType)) {
-            this.returnByValueTarget = this.createTemporaryObject(returnType, `[${this.func.name}() return]`);
+        if (
+            !(returnType instanceof VoidType) &&
+            !(returnType instanceof ReferenceType)
+        ) {
+            this.returnByValueTarget = this.createTemporaryObject(
+                returnType,
+                `[${this.func.name}() return]`
+            );
         }
 
         // TODO: need to check that it's not an auxiliary function call before adding these?
@@ -143,10 +193,13 @@ export class FunctionCall extends PotentialFullExpression {
     //     //this.containingFunction().isTailRecursive = this.containingFunction().isTailRecursive && isTail;
     //     this.canUseTCO = this.isRecursive && this.isTail;
     // },
-    public createRuntimeFunctionCall<T extends FunctionType<CompleteReturnType> = FunctionType<CompleteReturnType>>(
+    public createRuntimeFunctionCall<
+        T extends FunctionType<CompleteReturnType> = FunctionType<CompleteReturnType>
+    >(
         this: CompiledFunctionCall<T>,
         parent: RuntimeConstruct,
-        receiver: CPPObject<CompleteClassType> | undefined): RuntimeFunctionCall<T> {
+        receiver: CPPObject<CompleteClassType> | undefined
+    ): RuntimeFunctionCall<T> {
         return new RuntimeFunctionCall<T>(this, parent, receiver);
     }
 
@@ -162,31 +215,58 @@ export class FunctionCall extends PotentialFullExpression {
     //     desc.message = "a call to " + this.func.describe(sim).message;
     //     return desc;
     // }
-    public isReturnByValue(): this is TypedFunctionCall<FunctionType<AtomicType | CompleteClassType>> {
+    public isReturnByValue(): this is TypedFunctionCall<
+        FunctionType<AtomicType | CompleteClassType>
+    > {
         let returnType = this.func.type.returnType;
         return returnType.isAtomicType() || returnType.isCompleteClassType();
     }
 
-    public isReturnByReference(): this is TypedFunctionCall<FunctionType<ReferenceType>> {
+    public isReturnByReference(): this is TypedFunctionCall<
+        FunctionType<ReferenceType>
+    > {
         return this.func.type.returnType.isReferenceType();
     }
 
     public isReturnVoid(): this is TypedFunctionCall<FunctionType<VoidType>> {
         return this.func.type.returnType.isVoidType();
     }
-    
-    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return other.construct_type === this.construct_type
-            && areEntitiesSemanticallyEquivalent(this.func, other.func, equivalenceContext)
-            && areAllSemanticallyEquivalent(this.args, other.args, equivalenceContext);
+
+    public isSemanticallyEquivalent_impl(
+        other: AnalyticConstruct,
+        equivalenceContext: SemanticContext
+    ): boolean {
+        return (
+            other.construct_type === this.construct_type &&
+            areEntitiesSemanticallyEquivalent(
+                this.func,
+                other.func,
+                equivalenceContext
+            ) &&
+            areAllSemanticallyEquivalent(
+                this.args,
+                other.args,
+                equivalenceContext
+            )
+        );
     }
 }
 
-export interface TypedFunctionCall<T extends FunctionType<CompleteReturnType> = FunctionType<CompleteReturnType>> extends FunctionCall, SuccessfullyCompiled {
-    readonly returnByValueTarget: T["returnType"] extends (AtomicType | CompleteClassType) ? TemporaryObjectEntity<T["returnType"]> : undefined;
+export interface TypedFunctionCall<
+    T extends FunctionType<CompleteReturnType> = FunctionType<CompleteReturnType>
+> extends FunctionCall,
+        SuccessfullyCompiled {
+    readonly returnByValueTarget: T["returnType"] extends
+        | AtomicType
+        | CompleteClassType
+        ? TemporaryObjectEntity<T["returnType"]>
+        : undefined;
 }
 
-export interface CompiledFunctionCall<T extends FunctionType<CompleteReturnType> = FunctionType<CompleteReturnType>> extends TypedFunctionCall<T>, SuccessfullyCompiled {
+export interface CompiledFunctionCall<
+    T extends FunctionType<CompleteReturnType> = FunctionType<CompleteReturnType>
+> extends TypedFunctionCall<T>,
+        SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator; // to match CompiledPotentialFullExpression structure
 
     readonly args: readonly CompiledExpression[];
@@ -197,10 +277,10 @@ export const INDEX_FUNCTION_CALL_PUSH = 0;
 export const INDEX_FUNCTION_CALL_ARGUMENTS = 1;
 export const INDEX_FUNCTION_CALL_CALL = 2;
 export const INDEX_FUNCTION_CALL_RETURN = 3;
-export class RuntimeFunctionCall<T extends FunctionType<CompleteReturnType> = FunctionType<CompleteReturnType>> extends RuntimePotentialFullExpression<CompiledFunctionCall<T>> {
-
+export class RuntimeFunctionCall<
+    T extends FunctionType<CompleteReturnType> = FunctionType<CompleteReturnType>
+> extends RuntimePotentialFullExpression<CompiledFunctionCall<T>> {
     public readonly model!: CompiledFunctionCall<T>; // narrows type of member in base class
-
 
     // public readonly functionDef : FunctionDefinition;
     public readonly calledFunction: RuntimeFunction<T>;
@@ -209,9 +289,17 @@ export class RuntimeFunctionCall<T extends FunctionType<CompleteReturnType> = Fu
     public readonly receiver?: CPPObject<CompleteClassType>;
 
     // public readonly hasBeenCalled: boolean = false;
-    public readonly index: typeof INDEX_FUNCTION_CALL_PUSH | typeof INDEX_FUNCTION_CALL_ARGUMENTS | typeof INDEX_FUNCTION_CALL_CALL | typeof INDEX_FUNCTION_CALL_RETURN;
+    public readonly index:
+        | typeof INDEX_FUNCTION_CALL_PUSH
+        | typeof INDEX_FUNCTION_CALL_ARGUMENTS
+        | typeof INDEX_FUNCTION_CALL_CALL
+        | typeof INDEX_FUNCTION_CALL_RETURN;
 
-    public constructor(model: CompiledFunctionCall<T>, parent: RuntimeConstruct, receiver?: CPPObject<CompleteClassType>) {
+    public constructor(
+        model: CompiledFunctionCall<T>,
+        parent: RuntimeConstruct,
+        receiver?: CPPObject<CompleteClassType>
+    ) {
         super(model, "call", parent);
 
         this.receiver = receiver;
@@ -222,20 +310,27 @@ export class RuntimeFunctionCall<T extends FunctionType<CompleteReturnType> = Fu
         // It also assumes the function definition has the correct return type.
         // Note that the cast to a CompiledFunctionDefinition with return type T is fine w.r.t.
         // covariant return types because T can't ever be more specific than just "a class type".
-        let functionDef = <CompiledFunctionDefinition<T>>this.model.func.getDynamicallyBoundFunction(receiver)!;
+        let functionDef = <CompiledFunctionDefinition<T>>(
+            this.model.func.getDynamicallyBoundFunction(receiver)!
+        );
 
         // Create argument initializer instances
-        this.argInitializers = this.model.argInitializers.map((aInit) => aInit.createRuntimeInitializer(this));
-
-
+        this.argInitializers = this.model.argInitializers.map((aInit) =>
+            aInit.createRuntimeInitializer(this)
+        );
 
         // TODO: TCO? would reuse this.containingRuntimeFunction instead of creating new
-        this.calledFunction = functionDef.createRuntimeFunction(this, this.receiver);
+        this.calledFunction = functionDef.createRuntimeFunction(
+            this,
+            this.receiver
+        );
 
         // TODO: TCO? if using TCO, don't create a new return object, just reuse the old one
         if (this.isReturnByValue()) {
             // If return-by-value, set return object to temporary
-            this.calledFunction.setReturnObject(this.model.returnByValueTarget.objectInstance(this));
+            this.calledFunction.setReturnObject(
+                this.model.returnByValueTarget.objectInstance(this)
+            );
         }
         this.index = INDEX_FUNCTION_CALL_PUSH;
     }
@@ -248,8 +343,7 @@ export class RuntimeFunctionCall<T extends FunctionType<CompleteReturnType> = Fu
                 this.sim.push(this.argInitializers[i]);
             }
             (<Mutable<this>>this).index = INDEX_FUNCTION_CALL_CALL;
-        }
-        else if (this.index === INDEX_FUNCTION_CALL_RETURN) {
+        } else if (this.index === INDEX_FUNCTION_CALL_RETURN) {
             this.receiver && this.receiver.callEnded();
             this.calledFunction.loseControl();
             this.containingRuntimeFunction?.gainControl();
@@ -259,13 +353,10 @@ export class RuntimeFunctionCall<T extends FunctionType<CompleteReturnType> = Fu
 
     protected stepForwardImpl(): void {
         if (this.index === INDEX_FUNCTION_CALL_PUSH) {
-
             // TODO: TCO? just do a tailCallReset, send "tailCalled" message
             this.calledFunction.pushStackFrame();
             (<Mutable<this>>this).index = INDEX_FUNCTION_CALL_ARGUMENTS;
-        }
-        else if (this.index === INDEX_FUNCTION_CALL_CALL) {
-
+        } else if (this.index === INDEX_FUNCTION_CALL_CALL) {
             this.containingRuntimeFunction?.loseControl();
             this.sim.push(this.calledFunction);
             this.calledFunction.gainControl();
@@ -276,10 +367,11 @@ export class RuntimeFunctionCall<T extends FunctionType<CompleteReturnType> = Fu
 
             (<Mutable<this>>this).index = INDEX_FUNCTION_CALL_RETURN;
         }
-
     }
 
-    public isReturnByValue(): this is RuntimeFunctionCall<FunctionType<AtomicType | CompleteClassType>> {
+    public isReturnByValue(): this is RuntimeFunctionCall<
+        FunctionType<AtomicType | CompleteClassType>
+    > {
         return this.model.isReturnByValue();
     }
 }

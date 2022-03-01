@@ -1,21 +1,54 @@
 import { Program, TranslationUnit, SourceReference } from "./Program";
-import { Scope, FunctionEntity, LocalObjectEntity, LocalVariableEntity, LocalReferenceEntity, BlockScope, ClassEntity, MemberVariableEntity, ClassScope, CompleteClassEntity, TemporaryObjectEntity, CPPEntity } from "./entities";
+import {
+    Scope,
+    FunctionEntity,
+    LocalObjectEntity,
+    LocalVariableEntity,
+    LocalReferenceEntity,
+    BlockScope,
+    ClassEntity,
+    MemberVariableEntity,
+    ClassScope,
+    CompleteClassEntity,
+    TemporaryObjectEntity,
+    CPPEntity,
+} from "./entities";
 import { Note, NoteKind, CPPError, NoteRecorder } from "./errors";
 import { asMutable, Mutable, assertFalse, assert } from "../util/util";
 import { Simulation } from "./Simulation";
 import { Observable } from "../util/observe";
-import { CompleteObjectType, ReferenceType, PeelReference, VoidType, PotentialReturnType, Type, AtomicType, FunctionType, CompleteClassType, ExpressionType, isCompleteClassType } from "./types";
-import { GlobalVariableDefinition, CompiledGlobalVariableDefinition, CompiledFunctionDefinition, ClassDefinition, Declarator, FunctionDefinition, ClassDeclaration } from "./declarations";
+import {
+    CompleteObjectType,
+    ReferenceType,
+    PeelReference,
+    VoidType,
+    PotentialReturnType,
+    Type,
+    AtomicType,
+    FunctionType,
+    CompleteClassType,
+    ExpressionType,
+    isCompleteClassType,
+} from "./types";
+import {
+    GlobalVariableDefinition,
+    CompiledGlobalVariableDefinition,
+    CompiledFunctionDefinition,
+    ClassDefinition,
+    Declarator,
+    FunctionDefinition,
+    ClassDeclaration,
+} from "./declarations";
 import { RuntimeFunction } from "./functions";
 import { CPPObject, TemporaryObject } from "./objects";
 import { Block, ForStatement, WhileStatement } from "./statements";
-import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
+import {
+    PotentialFullExpression,
+    RuntimePotentialFullExpression,
+} from "./PotentialFullExpression";
 import { ASTNode } from "../ast/ASTNode";
 import { AccessSpecifier } from "../ast/ast_declarations";
 import { AnalyticConstruct } from "./predicates";
-
-
-
 
 export interface ConstructDescription {
     name?: string;
@@ -26,7 +59,7 @@ export interface Explanation {
     message: string;
 }
 
-export const EMPTY_SOURCE = { line: 0, column: 0, start: 0, end: 0, text: ""};
+export const EMPTY_SOURCE = { line: 0, column: 0, start: 0, end: 0, text: "" };
 
 export interface ProgramContext {
     readonly program: Program;
@@ -36,10 +69,11 @@ export interface ProgramContext {
     readonly libraryUnsupported?: boolean;
 }
 
-export function createImplicitContext<ContextType extends ProgramContext>(context: ContextType): ContextType {
+export function createImplicitContext<ContextType extends ProgramContext>(
+    context: ContextType
+): ContextType {
     return Object.assign({}, context, { implicit: true });
 }
-
 
 export interface TranslationUnitContext extends ProgramContext {
     readonly translationUnit: TranslationUnit;
@@ -48,11 +82,21 @@ export interface TranslationUnitContext extends ProgramContext {
     readonly isLibrary: boolean;
 }
 
-export function createTranslationUnitContext(parentContext: ProgramContext, translationUnit: TranslationUnit, contextualScope: Scope): TranslationUnitContext {
-    return Object.assign({}, parentContext, { translationUnit: translationUnit, contextualScope: contextualScope, isLibrary: false });
+export function createTranslationUnitContext(
+    parentContext: ProgramContext,
+    translationUnit: TranslationUnit,
+    contextualScope: Scope
+): TranslationUnitContext {
+    return Object.assign({}, parentContext, {
+        translationUnit: translationUnit,
+        contextualScope: contextualScope,
+        isLibrary: false,
+    });
 }
 
-export function createLibraryContext(parentContext: TranslationUnitContext): TranslationUnitContext {
+export function createLibraryContext(
+    parentContext: TranslationUnitContext
+): TranslationUnitContext {
     return Object.assign({}, parentContext, { isLibrary: true });
 }
 
@@ -61,12 +105,22 @@ export interface ExpressionContext extends TranslationUnitContext {
     readonly contextualReceiverType?: CompleteClassType;
 }
 
-export function createExpressionContextWithParameterTypes(parentContext: TranslationUnitContext, contextualParameterTypes: readonly (ExpressionType | undefined)[]): ExpressionContext {
-    return Object.assign({}, parentContext, { contextualParameterTypes: contextualParameterTypes });
+export function createExpressionContextWithParameterTypes(
+    parentContext: TranslationUnitContext,
+    contextualParameterTypes: readonly (ExpressionType | undefined)[]
+): ExpressionContext {
+    return Object.assign({}, parentContext, {
+        contextualParameterTypes: contextualParameterTypes,
+    });
 }
 
-export function createExpressionContextWithReceiverType(parentContext: TranslationUnitContext, contextualReceiverType: CompleteClassType): ExpressionContext {
-    return Object.assign({}, parentContext, { contextualReceiverType: contextualReceiverType });
+export function createExpressionContextWithReceiverType(
+    parentContext: TranslationUnitContext,
+    contextualReceiverType: CompleteClassType
+): ExpressionContext {
+    return Object.assign({}, parentContext, {
+        contextualReceiverType: contextualReceiverType,
+    });
 }
 
 export interface FunctionContext extends TranslationUnitContext {
@@ -75,21 +129,37 @@ export interface FunctionContext extends TranslationUnitContext {
     readonly contextualReceiverType?: CompleteClassType;
 }
 
-export function isFunctionContext(context: TranslationUnitContext) : context is FunctionContext {
-    return !!((context as FunctionContext).containingFunction);
+export function isFunctionContext(
+    context: TranslationUnitContext
+): context is FunctionContext {
+    return !!(context as FunctionContext).containingFunction;
 }
 
-export function createFunctionContext(parentContext: TranslationUnitContext, containingFunction: FunctionEntity, contextualReceiverType: CompleteClassType): MemberFunctionContext;
-export function createFunctionContext(parentContext: TranslationUnitContext, containingFunction: FunctionEntity, contextualReceiverType?: CompleteClassType): FunctionContext;
-export function createFunctionContext(parentContext: TranslationUnitContext, containingFunction: FunctionEntity, contextualReceiverType?: CompleteClassType): FunctionContext {
+export function createFunctionContext(
+    parentContext: TranslationUnitContext,
+    containingFunction: FunctionEntity,
+    contextualReceiverType: CompleteClassType
+): MemberFunctionContext;
+export function createFunctionContext(
+    parentContext: TranslationUnitContext,
+    containingFunction: FunctionEntity,
+    contextualReceiverType?: CompleteClassType
+): FunctionContext;
+export function createFunctionContext(
+    parentContext: TranslationUnitContext,
+    containingFunction: FunctionEntity,
+    contextualReceiverType?: CompleteClassType
+): FunctionContext {
     return Object.assign({}, parentContext, {
         containingFunction: containingFunction,
         functionLocals: new ContextualLocals(),
-        contextualReceiverType: contextualReceiverType
+        contextualReceiverType: contextualReceiverType,
     });
 }
 
-export function isMemberFunctionContext(context: TranslationUnitContext) : context is MemberFunctionContext {
+export function isMemberFunctionContext(
+    context: TranslationUnitContext
+): context is MemberFunctionContext {
     return isFunctionContext(context) && !!context.contextualReceiverType;
 }
 
@@ -103,14 +173,24 @@ export interface BlockContext extends FunctionContext {
     readonly withinLoop?: true;
 }
 
-export function createBlockContext(parentContext: FunctionContext, sharedScope?: BlockScope): BlockContext {
+export function createBlockContext(
+    parentContext: FunctionContext,
+    sharedScope?: BlockScope
+): BlockContext {
     return Object.assign({}, parentContext, {
-        contextualScope: sharedScope || new BlockScope(parentContext.translationUnit, parentContext.contextualScope),
-        blockLocals: new ContextualLocals()
+        contextualScope:
+            sharedScope ||
+            new BlockScope(
+                parentContext.translationUnit,
+                parentContext.contextualScope
+            ),
+        blockLocals: new ContextualLocals(),
     });
 }
 
-export function isMemberBlockContext(context: BlockContext) : context is MemberBlockContext {
+export function isMemberBlockContext(
+    context: BlockContext
+): context is MemberBlockContext {
     return !!context.contextualReceiverType;
 }
 
@@ -118,13 +198,15 @@ export interface MemberBlockContext extends BlockContext {
     readonly contextualReceiverType: CompleteClassType;
 }
 
-export function isBlockContext(context: TranslationUnitContext): context is BlockContext {
+export function isBlockContext(
+    context: TranslationUnitContext
+): context is BlockContext {
     return context.contextualScope instanceof BlockScope;
 }
 
 export function createLoopContext<C extends BlockContext>(parentContext: C) {
     return Object.assign({}, parentContext, {
-        withinLoop: true
+        withinLoop: true,
     });
 }
 
@@ -148,7 +230,9 @@ export function createLoopContext<C extends BlockContext>(parentContext: C) {
 //     }
 // }
 
-export function isClassContext(context: TranslationUnitContext) : context is ClassContext {
+export function isClassContext(
+    context: TranslationUnitContext
+): context is ClassContext {
     return !!(context as ClassContext).containingClass; // && !!(context as ClassContext).classMembers;
 }
 
@@ -160,24 +244,43 @@ export interface ClassContext extends TranslationUnitContext {
 }
 
 export function createClassContext(
-    parentContext: TranslationUnitContext, classEntity: ClassEntity,
-    baseClass?: CompleteClassEntity, templateType?: AtomicType): ClassContext {
+    parentContext: TranslationUnitContext,
+    classEntity: ClassEntity,
+    baseClass?: CompleteClassEntity,
+    templateType?: AtomicType
+): ClassContext {
     return Object.assign({}, parentContext, {
-        contextualScope: new ClassScope(parentContext.translationUnit, classEntity.name, parentContext.contextualScope, baseClass?.definition?.context.contextualScope),
+        contextualScope: new ClassScope(
+            parentContext.translationUnit,
+            classEntity.name,
+            parentContext.contextualScope,
+            baseClass?.definition?.context.contextualScope
+        ),
         baseClass: baseClass,
         containingClass: classEntity,
-        templateType: templateType
+        templateType: templateType,
     });
 }
 
-export function isMemberSpecificationContext(context: TranslationUnitContext) : context is MemberSpecificationContext {
-    return isClassContext(context) && !!(context as MemberSpecificationContext).accessLevel;
+export function isMemberSpecificationContext(
+    context: TranslationUnitContext
+): context is MemberSpecificationContext {
+    return (
+        isClassContext(context) &&
+        !!(context as MemberSpecificationContext).accessLevel
+    );
 }
 
-export function createOutOfLineFunctionDefinitionContext(declarationContext: MemberSpecificationContext, newParent: TranslationUnitContext) {
+export function createOutOfLineFunctionDefinitionContext(
+    declarationContext: MemberSpecificationContext,
+    newParent: TranslationUnitContext
+) {
     return Object.assign({}, declarationContext, {
-        contextualScope: declarationContext.contextualScope.createAlternateParentProxy(newParent.contextualScope),
-        translationUnit: newParent.translationUnit
+        contextualScope:
+            declarationContext.contextualScope.createAlternateParentProxy(
+                newParent.contextualScope
+            ),
+        translationUnit: newParent.translationUnit,
     });
 }
 
@@ -185,64 +288,101 @@ export interface MemberSpecificationContext extends ClassContext {
     readonly accessLevel: AccessSpecifier;
 }
 
-export function createMemberSpecificationContext(classContext: ClassContext, accessLevel: AccessSpecifier): MemberSpecificationContext {
+export function createMemberSpecificationContext(
+    classContext: ClassContext,
+    accessLevel: AccessSpecifier
+): MemberSpecificationContext {
     return Object.assign({}, classContext, {
-        accessLevel: accessLevel
+        accessLevel: accessLevel,
     });
 }
 
-export type SemanticContext = {
+export type SemanticContext = {};
 
-};
-
-export function areAllSemanticallyEquivalent(constructs: readonly CPPConstruct[], others: readonly CPPConstruct[], equivalenceContext: SemanticContext) : boolean{
-
+export function areAllSemanticallyEquivalent(
+    constructs: readonly CPPConstruct[],
+    others: readonly CPPConstruct[],
+    equivalenceContext: SemanticContext
+): boolean {
     // Don't care about deallocators in semantic analysis
-    constructs = constructs.filter(c => c.construct_type !== "TemporaryDeallocator" && c.construct_type !== "LocalDeallocator");
-    others = others.filter(c => c.construct_type !== "TemporaryDeallocator" && c.construct_type !== "LocalDeallocator");
+    constructs = constructs.filter(
+        (c) =>
+            c.construct_type !== "TemporaryDeallocator" &&
+            c.construct_type !== "LocalDeallocator"
+    );
+    others = others.filter(
+        (c) =>
+            c.construct_type !== "TemporaryDeallocator" &&
+            c.construct_type !== "LocalDeallocator"
+    );
 
     return all_equiv_helper(constructs, others, equivalenceContext);
 }
 
-function all_equiv_helper(constructs: readonly CPPConstruct[], others: readonly CPPConstruct[], ec: SemanticContext) : boolean {
+function all_equiv_helper(
+    constructs: readonly CPPConstruct[],
+    others: readonly CPPConstruct[],
+    ec: SemanticContext
+): boolean {
     if (constructs.length === 0 && others.length === 0) {
         return true;
-    }
-    else if (constructs.length === 0) {
-        return others.every(o => isAnythingConstruct(o));
-    }
-    else if (others.length === 0) {
-        return constructs.every(c => isAnythingConstruct(c));
-    }
-    else {
-        return areSemanticallyEquivalent(constructs[0], others[0], ec) && all_equiv_helper(constructs.slice(1), others.slice(1), ec)
-            || isAnythingConstruct(constructs[0]) && all_equiv_helper(constructs.slice(1), others, ec)
-            || isAnythingConstruct(others[0]) && all_equiv_helper(constructs, others.slice(1), ec);
+    } else if (constructs.length === 0) {
+        return others.every((o) => isAnythingConstruct(o));
+    } else if (others.length === 0) {
+        return constructs.every((c) => isAnythingConstruct(c));
+    } else {
+        return (
+            (areSemanticallyEquivalent(constructs[0], others[0], ec) &&
+                all_equiv_helper(constructs.slice(1), others.slice(1), ec)) ||
+            (isAnythingConstruct(constructs[0]) &&
+                all_equiv_helper(constructs.slice(1), others, ec)) ||
+            (isAnythingConstruct(others[0]) &&
+                all_equiv_helper(constructs, others.slice(1), ec))
+        );
     }
 }
 
-export function isAnythingConstruct(construct: CPPConstruct | undefined) : boolean {
+export function isAnythingConstruct(
+    construct: CPPConstruct | undefined
+): boolean {
     if (construct?.construct_type === "anything_construct") {
         return true;
     }
-    
+
     let ac = <AnalyticConstruct>construct;
-    if (ac?.construct_type === "block" && ac.statements.length === 1 && isAnythingConstruct(ac.statements[0])) {
+    if (
+        ac?.construct_type === "block" &&
+        ac.statements.length === 1 &&
+        isAnythingConstruct(ac.statements[0])
+    ) {
         return true;
     }
 
     return false;
 }
 
-export function areSemanticallyEquivalent(construct: CPPConstruct | undefined, other: CPPConstruct | undefined, equivalenceContext: SemanticContext) : boolean{
-    return !!(construct === other // also handles case of both undefined
-        || isAnythingConstruct(construct)
-        || isAnythingConstruct(other)
-        || construct && other && construct.isSemanticallyEquivalent(other, equivalenceContext)
-        || construct && other && other.isSemanticallyEquivalent(construct, equivalenceContext));
+export function areSemanticallyEquivalent(
+    construct: CPPConstruct | undefined,
+    other: CPPConstruct | undefined,
+    equivalenceContext: SemanticContext
+): boolean {
+    return !!(
+        construct === other || // also handles case of both undefined
+        isAnythingConstruct(construct) ||
+        isAnythingConstruct(other) ||
+        (construct &&
+            other &&
+            construct.isSemanticallyEquivalent(other, equivalenceContext)) ||
+        (construct &&
+            other &&
+            other.isSemanticallyEquivalent(construct, equivalenceContext))
+    );
 }
 
-export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramContext, ASTType extends ASTNode = ASTNode> {
+export abstract class CPPConstruct<
+    ContextType extends ProgramContext = ProgramContext,
+    ASTType extends ASTNode = ASTNode
+> {
     public abstract readonly construct_type: string;
     public readonly t_analytic!: AnalyticConstruct;
     private static NEXT_ID = 0;
@@ -281,11 +421,20 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
 
         if (ast) {
             this.ast = ast;
-    
-            assert(ast.source, "AST source is undefined. A track() call is likely missing in the grammar.");
-    
+
+            assert(
+                ast.source,
+                "AST source is undefined. A track() call is likely missing in the grammar."
+            );
+
             if (this.context.translationUnit) {
-                asMutable(this).sourceReference = this.context.translationUnit.getSourceReference(ast.source.line, ast.source.column, ast.source.start, ast.source.end);
+                asMutable(this).sourceReference =
+                    this.context.translationUnit.getSourceReference(
+                        ast.source.line,
+                        ast.source.column,
+                        ast.source.start,
+                        ast.source.end
+                    );
             }
         }
 
@@ -296,7 +445,6 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
         // if (context.libraryUnsupported) {
         //     this.isLibraryUnsupported = true;
         // }
-
 
         // TODO: figure out library stuff
         // If the parent is an usupported library construct, so are its children (including this one)
@@ -338,17 +486,25 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
     //     return this.libraryId;
     // }
 
-    public explain(sim: Simulation, rtConstruct: RuntimeConstruct): Explanation {
+    public explain(
+        sim: Simulation,
+        rtConstruct: RuntimeConstruct
+    ): Explanation {
         return { message: "[No explanation available.]" };
     }
 
-    public describe(sim: Simulation, rtConstruct: RuntimeConstruct): ConstructDescription {
+    public describe(
+        sim: Simulation,
+        rtConstruct: RuntimeConstruct
+    ): ConstructDescription {
         return { message: "[No description available.]" };
     }
 
     public addNote(note: Note) {
         this.notes.addNote(note);
-        if (this.context.translationUnit) { this.context.translationUnit.addNote(note); }
+        if (this.context.translationUnit) {
+            this.context.translationUnit.addNote(note);
+        }
         // if (this.parent && this.i_auxiliaryLevel === this.parent.i_auxiliaryLevel) {
         //     this.parent.addNote(note);
         // }
@@ -357,19 +513,26 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
     public getContainedNotes() {
         let allNotes = new NoteRecorder();
         allNotes.addNotes(this.notes.allNotes);
-        this.children.forEach(child => allNotes.addNotes(child.getContainedNotes().allNotes));
+        this.children.forEach((child) =>
+            allNotes.addNotes(child.getContainedNotes().allNotes)
+        );
         return allNotes;
     }
 
     // getNotes : function() {
     //     return this.i_notes;
     // },
-    public getNearestSourceReference(this: CPPConstruct<TranslationUnitContext>) {
+    public getNearestSourceReference(
+        this: CPPConstruct<TranslationUnitContext>
+    ) {
         let construct: CPPConstruct = this;
         while (!construct.sourceReference && construct.parent) {
             construct = construct.parent;
         }
-        return construct.sourceReference || this.context.translationUnit.getSourceReference(0, 0, 0, 0);
+        return (
+            construct.sourceReference ||
+            this.context.translationUnit.getSourceReference(0, 0, 0, 0)
+        );
     }
 
     // public abstract readonly _t: {
@@ -380,50 +543,65 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
         return !this.getContainedNotes().hasErrors;
     }
 
-    public isSemanticallyEquivalent(other: CPPConstruct, equivalenceContext: SemanticContext) : boolean {
-        return this.isSemanticallyEquivalent_impl(<AnalyticConstruct>other, equivalenceContext);
-    };
-
-    public abstract isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext) : boolean;
-
-    public areChildrenSemanticallyEquivalent(other: CPPConstruct, equivalenceContext: SemanticContext) : boolean{
-        return areAllSemanticallyEquivalent(this.children, other.children, equivalenceContext);
+    public isSemanticallyEquivalent(
+        other: CPPConstruct,
+        equivalenceContext: SemanticContext
+    ): boolean {
+        return this.isSemanticallyEquivalent_impl(
+            <AnalyticConstruct>other,
+            equivalenceContext
+        );
     }
 
-    public entitiesUsed() : CPPEntity[] {
-        let ents : CPPEntity[] = [];
-        this.children.forEach(c => c.entitiesUsed().forEach(e => ents.push(e)));
+    public abstract isSemanticallyEquivalent_impl(
+        other: AnalyticConstruct,
+        equivalenceContext: SemanticContext
+    ): boolean;
+
+    public areChildrenSemanticallyEquivalent(
+        other: CPPConstruct,
+        equivalenceContext: SemanticContext
+    ): boolean {
+        return areAllSemanticallyEquivalent(
+            this.children,
+            other.children,
+            equivalenceContext
+        );
+    }
+
+    public entitiesUsed(): CPPEntity[] {
+        let ents: CPPEntity[] = [];
+        this.children.forEach((c) =>
+            c.entitiesUsed().forEach((e) => ents.push(e))
+        );
         return ents;
     }
 }
 
-
 export interface SuccessfullyCompiled {
-
     // _t_isCompiled is here to prevent (otherwise) structurally equivalent non-compiled constructs
     // from being assignable to a compiled expression type
     // TODO: maybe better to use a symbol here?
     readonly _t_isCompiled: never;
 }
 
+export interface CompiledConstruct extends CPPConstruct, SuccessfullyCompiled {}
 
-export interface CompiledConstruct extends CPPConstruct, SuccessfullyCompiled {
+export type TranslationUnitConstruct<ASTType extends ASTNode = ASTNode> =
+    CPPConstruct<TranslationUnitContext, ASTType>;
 
-}
+export type StackType =
+    | "statement"
+    | "expression"
+    | "function"
+    | "initializer"
+    | "call"
+    | "ctor-initializer"
+    | "cleanup";
 
-
-
-export type TranslationUnitConstruct<ASTType extends ASTNode = ASTNode> = CPPConstruct<TranslationUnitContext, ASTType>;
-
-
-
-
-
-
-export type StackType = "statement" | "expression" | "function" | "initializer" | "call" | "ctor-initializer" | "cleanup";
-
-export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledConstruct> {
-
+export abstract class RuntimeConstruct<
+    C extends CompiledConstruct = CompiledConstruct
+> {
     public readonly observable = new Observable(this);
 
     public readonly sim: Simulation;
@@ -458,24 +636,34 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
     // TODO: refactor pauses. maybe move them to the implementation
     private pauses: { [index: string]: any } = {}; // TODO: remove any type
 
-    public constructor(model: C, stackType: StackType, parentOrSim: RuntimeConstruct | Simulation) {
+    public constructor(
+        model: C,
+        stackType: StackType,
+        parentOrSim: RuntimeConstruct | Simulation
+    ) {
         this.model = model;
         this.stackType = stackType;
 
         if (parentOrSim instanceof RuntimeConstruct) {
-            assert(this.parent !== this, "Code instance may not be its own parent");
+            assert(
+                this.parent !== this,
+                "Code instance may not be its own parent"
+            );
 
             this.sim = parentOrSim.sim;
-            assert(parentOrSim.sim === this.sim, "Runtime construct may not belong to a different simulation than its parent.")
+            assert(
+                parentOrSim.sim === this.sim,
+                "Runtime construct may not belong to a different simulation than its parent."
+            );
 
             this.parent = parentOrSim;
             this.parent.addChild(this);
 
             if (parentOrSim.containingRuntimeFunction) {
-                this.containingRuntimeFunction = parentOrSim.containingRuntimeFunction;
+                this.containingRuntimeFunction =
+                    parentOrSim.containingRuntimeFunction;
             }
-        }
-        else {
+        } else {
             this.sim = parentOrSim;
         }
 
@@ -530,12 +718,10 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
         if (this.cleanupStarted) {
             if (this.cleanupConstruct && !this.cleanupConstruct.isDone) {
                 this.sim.push(this.cleanupConstruct);
-            }
-            else {
+            } else {
                 this.sim.pop();
             }
-        }
-        else {
+        } else {
             return this.upNextImpl();
         }
     }
@@ -562,7 +748,6 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
     }
 
     public startCleanup() {
-
         (<Mutable<this>>this).cleanupStarted = true;
 
         // If we're on top of the stack, go ahead and start the cleanup
@@ -572,8 +757,7 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
         if (this === this.sim.top()) {
             if (this.cleanupConstruct) {
                 this.sim.push(this.cleanupConstruct);
-            }
-            else {
+            } else {
                 this.sim.pop();
             }
         }
@@ -622,12 +806,10 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
     }
 }
 
-
-
-
-
-export abstract class BasicCPPConstruct<ContextType extends TranslationUnitContext, ASTType extends ASTNode> extends CPPConstruct<ContextType, ASTType> {
-
+export abstract class BasicCPPConstruct<
+    ContextType extends TranslationUnitContext,
+    ASTType extends ASTNode
+> extends CPPConstruct<ContextType, ASTType> {
     public parent?: CPPConstruct;
 
     public constructor(context: ContextType, ast: ASTType | undefined) {
@@ -639,35 +821,45 @@ export abstract class BasicCPPConstruct<ContextType extends TranslationUnitConte
     }
 }
 
-export class InvalidConstruct extends BasicCPPConstruct<TranslationUnitContext, ASTNode> {
+export class InvalidConstruct extends BasicCPPConstruct<
+    TranslationUnitContext,
+    ASTNode
+> {
     public readonly construct_type = "invalid_construct";
 
     public readonly note: Note;
     public readonly type: undefined;
 
-    public constructor(context: TranslationUnitContext, ast: ASTNode | undefined, errorFn: (construct: CPPConstruct) => Note, children?: readonly CPPConstruct[]) {
+    public constructor(
+        context: TranslationUnitContext,
+        ast: ASTNode | undefined,
+        errorFn: (construct: CPPConstruct) => Note,
+        children?: readonly CPPConstruct[]
+    ) {
         super(context, ast);
-        this.addNote(this.note = errorFn(this));
-        children?.forEach(child => this.attach(child));
+        this.addNote((this.note = errorFn(this)));
+        children?.forEach((child) => this.attach(child));
     }
 
-    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext) : boolean {
-        return other.construct_type === this.construct_type
-            && other.note.id === this.note.id
-            && this.areChildrenSemanticallyEquivalent(other, equivalenceContext);
+    public isSemanticallyEquivalent_impl(
+        other: AnalyticConstruct,
+        equivalenceContext: SemanticContext
+    ): boolean {
+        return (
+            other.construct_type === this.construct_type &&
+            other.note.id === this.note.id &&
+            this.areChildrenSemanticallyEquivalent(other, equivalenceContext)
+        );
     }
 }
 
-
-
 export class ContextualLocals {
-
     public readonly localVariables: readonly LocalVariableEntity[] = [];
     public readonly localObjects: readonly LocalObjectEntity[] = [];
     public readonly localReferences: readonly LocalReferenceEntity[] = [];
-    
+
     public readonly localVariablesByEntityId: {
-        [index: number]: LocalVariableEntity
+        [index: number]: LocalVariableEntity;
     } = {};
 
     public registerLocalVariable(local: LocalVariableEntity) {
@@ -676,40 +868,11 @@ export class ContextualLocals {
         asMutable(this.localVariables).push(local);
         if (local.variableKind === "object") {
             asMutable(this.localObjects).push(local);
-        }
-        else {
+        } else {
             asMutable(this.localReferences).push(local);
         }
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 // TODO: FakeConstruct and FakeDeclaration are never used
 // var FakeConstruct = Class.extend({
@@ -726,7 +889,6 @@ export class ContextualLocals {
 //         // this.i_setContext(context);
 //     },
 
-
 //     getSourceReference : function() {
 //         return null;
 //     }
@@ -741,9 +903,6 @@ export class ContextualLocals {
 //         this.type = type;
 //     }
 // });
-
-
-
 
 // TODO: this is just the same as RuntimeConstruct right now
 // export type ExecutableRuntimeConstruct = RuntimeConstruct; // RuntimeFunction | RuntimeInstruction;
@@ -761,19 +920,7 @@ export class ContextualLocals {
 //     }
 // }
 
-// export interface 
-
-
-
-
-
-
-
-
-
-
-
-
+// export interface
 
 // /**
 //  * Represents either a dot or arrow operator at runtime.
@@ -805,17 +952,16 @@ export class ContextualLocals {
 //     }
 // });
 
-
-
-
 export class GlobalObjectAllocator extends CPPConstruct {
     public readonly construct_type = "GlobalObjectAllocator";
-
 
     public readonly parent?: undefined;
     public readonly globalObjects: readonly GlobalVariableDefinition[];
 
-    public constructor(context: ProgramContext, globalObjects: readonly GlobalVariableDefinition[]) {
+    public constructor(
+        context: ProgramContext,
+        globalObjects: readonly GlobalVariableDefinition[]
+    ) {
         super(context, undefined); // Has no AST
         this.globalObjects = globalObjects;
     }
@@ -824,7 +970,10 @@ export class GlobalObjectAllocator extends CPPConstruct {
         throw new Error("Method not implemented.");
     }
 
-    public createRuntimeConstruct(this: CompiledGlobalObjectAllocator, sim: Simulation) {
+    public createRuntimeConstruct(
+        this: CompiledGlobalObjectAllocator,
+        sim: Simulation
+    ) {
         return new RuntimeGlobalObjectAllocator(this, sim);
     }
 
@@ -832,19 +981,28 @@ export class GlobalObjectAllocator extends CPPConstruct {
     //     return {isTail: true};
     // }
 
-    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return other.construct_type === this.construct_type
-            && areAllSemanticallyEquivalent(this.globalObjects, other.globalObjects, equivalenceContext);
+    public isSemanticallyEquivalent_impl(
+        other: AnalyticConstruct,
+        equivalenceContext: SemanticContext
+    ): boolean {
+        return (
+            other.construct_type === this.construct_type &&
+            areAllSemanticallyEquivalent(
+                this.globalObjects,
+                other.globalObjects,
+                equivalenceContext
+            )
+        );
     }
-    
 }
 
-export interface CompiledGlobalObjectAllocator extends GlobalObjectAllocator, SuccessfullyCompiled {
+export interface CompiledGlobalObjectAllocator
+    extends GlobalObjectAllocator,
+        SuccessfullyCompiled {
     readonly globalObjects: readonly CompiledGlobalVariableDefinition[];
 }
 
 export class RuntimeGlobalObjectAllocator extends RuntimeConstruct<CompiledGlobalObjectAllocator> {
-
     private index = 0;
 
     public constructor(model: CompiledGlobalObjectAllocator, sim: Simulation) {
@@ -852,17 +1010,17 @@ export class RuntimeGlobalObjectAllocator extends RuntimeConstruct<CompiledGloba
     }
 
     protected upNextImpl() {
-
         // let dtors = this.model.dtors;
         if (this.index < this.model.globalObjects.length) {
             let objDef = this.model.globalObjects[this.index];
             this.sim.memory.allocateStatic(objDef);
             if (objDef.initializer) {
-                this.sim.push(objDef.initializer.createRuntimeInitializer(this));
+                this.sim.push(
+                    objDef.initializer.createRuntimeInitializer(this)
+                );
             }
             ++this.index;
-        }
-        else {
+        } else {
             this.startCleanup();
         }
     }
@@ -871,5 +1029,3 @@ export class RuntimeGlobalObjectAllocator extends RuntimeConstruct<CompiledGloba
         return false;
     }
 }
-
-

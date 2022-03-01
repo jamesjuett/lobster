@@ -1,4 +1,3 @@
-
 export function createSimpleExerciseOutlet(id: string) {
     return $(`
         <div class="lobster-ex-checkpoints panel panel-default" style="margin-top: 0.5em;">
@@ -116,5 +115,3 @@ export function createSimpleExerciseOutlet(id: string) {
 
     `);
 }
-
-

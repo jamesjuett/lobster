@@ -1,4 +1,3 @@
-
 export function createRunestoneExerciseOutlet(id: string) {
     return $(`
         <ul style="position: relative;" class="lobster-simulation-outlet-tabs nav nav-tabs">

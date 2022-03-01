@@ -2,25 +2,21 @@ import { AnythingConstructASTNode, ASTNode } from "./ASTNode";
 import { LocalDeclarationASTNode } from "./ast_declarations";
 import { ExpressionASTNode } from "./ast_expressions";
 
-
-
 export type StatementASTNode =
-LabeledStatementASTNode |
-BlockASTNode |
-IfStatementASTNode |
-IterationStatementASTNode |
-JumpStatementASTNode |
-DeclarationStatementASTNode |
-ExpressionStatementASTNode |
-NullStatementASTNode |
-AnythingConstructASTNode;
-
+    | LabeledStatementASTNode
+    | BlockASTNode
+    | IfStatementASTNode
+    | IterationStatementASTNode
+    | JumpStatementASTNode
+    | DeclarationStatementASTNode
+    | ExpressionStatementASTNode
+    | NullStatementASTNode
+    | AnythingConstructASTNode;
 
 export interface ExpressionStatementASTNode extends ASTNode {
     readonly construct_type: "expression_statement";
     readonly expression: ExpressionASTNode;
 }
-
 
 export interface NullStatementASTNode extends ASTNode {
     readonly construct_type: "null_statement";
@@ -31,7 +27,10 @@ export interface DeclarationStatementASTNode extends ASTNode {
     readonly declaration: LocalDeclarationASTNode;
 }
 
-export type JumpStatementASTNode = BreakStatementASTNode | ContinueStatementASTNode | ReturnStatementASTNode;
+export type JumpStatementASTNode =
+    | BreakStatementASTNode
+    | ContinueStatementASTNode
+    | ReturnStatementASTNode;
 
 export interface BreakStatementASTNode extends ASTNode {
     readonly construct_type: "break_statement";
@@ -58,7 +57,10 @@ export interface IfStatementASTNode extends ASTNode {
     readonly otherwise?: StatementASTNode;
 }
 
-export type IterationStatementASTNode = WhileStatementASTNode | DoWhileStatementASTNode | ForStatementASTNode;
+export type IterationStatementASTNode =
+    | WhileStatementASTNode
+    | DoWhileStatementASTNode
+    | ForStatementASTNode;
 
 export interface WhileStatementASTNode extends ASTNode {
     readonly construct_type: "while_statement";
@@ -75,7 +77,10 @@ export interface DoWhileStatementASTNode extends ASTNode {
 export interface ForStatementASTNode extends ASTNode {
     readonly construct_type: "for_statement";
     readonly condition: ExpressionASTNode;
-    readonly initial: ExpressionStatementASTNode | NullStatementASTNode | DeclarationStatementASTNode;
+    readonly initial:
+        | ExpressionStatementASTNode
+        | NullStatementASTNode
+        | DeclarationStatementASTNode;
     readonly post?: ExpressionASTNode;
     readonly body: StatementASTNode;
 }

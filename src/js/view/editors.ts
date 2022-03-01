@@ -1,14 +1,23 @@
 import { Program, SourceFile, SourceReference } from "../core/Program";
-import CodeMirror from 'codemirror';
-import 'codemirror/lib/codemirror.css';
-import '../../css/lobster.css';
-import 'codemirror/mode/clike/clike.js';
-import 'codemirror/addon/display/fullscreen.js';
-import 'codemirror/addon/comment/comment.js'
-import 'codemirror/keymap/sublime.js'
+import CodeMirror from "codemirror";
+import "codemirror/lib/codemirror.css";
+import "../../css/lobster.css";
+import "codemirror/mode/clike/clike.js";
+import "codemirror/addon/display/fullscreen.js";
+import "codemirror/addon/comment/comment.js";
+import "codemirror/keymap/sublime.js";
 // import '../../styles/components/_codemirror.css';
 import { assert, Mutable, asMutable } from "../util/util";
-import { Observable, messageResponse, Message, addListener, MessageResponses, listenTo, removeListener, stopListeningTo } from "../util/observe";
+import {
+    Observable,
+    messageResponse,
+    Message,
+    addListener,
+    MessageResponses,
+    listenTo,
+    removeListener,
+    stopListeningTo,
+} from "../util/observe";
 import { Note, SyntaxNote, NoteKind } from "../core/errors";
 import { Project } from "../core/Project";
 
@@ -19,7 +28,6 @@ import { Project } from "../core/Project";
  * editor based on the source reference of the annotation.
  */
 export class ProjectEditor {
-
     private static instances: ProjectEditor[] = [];
 
     // public observable = new Observable<ProjectEditorMessages>(this);
@@ -36,10 +44,10 @@ export class ProjectEditor {
     public readonly isOpen: boolean = false;
 
     private filesElem: JQuery;
-    private fileButtonsMap: {[index: string]: JQuery} = {};
-    private fileEditorsMap: {[index: string]: FileEditor | undefined} = {};
+    private fileButtonsMap: { [index: string]: JQuery } = {};
+    private fileEditorsMap: { [index: string]: FileEditor | undefined } = {};
 
-    private currentFileEditor?: string; 
+    private currentFileEditor?: string;
 
     public codeMirror: CodeMirror.Editor;
     private codeMirrorElem: JQuery;
@@ -47,9 +55,12 @@ export class ProjectEditor {
     public readonly project!: Project; // set by setProject call
 
     public constructor(element: JQuery, project: Project) {
-
-        let codeMirrorElement = this.codeMirrorElem = element.find(".codeMirrorEditor");
-        assert(codeMirrorElement.length > 0, "ProjectEditor element must contain an element with the 'codeMirrorEditor' class.");
+        let codeMirrorElement = (this.codeMirrorElem =
+            element.find(".codeMirrorEditor"));
+        assert(
+            codeMirrorElement.length > 0,
+            "ProjectEditor element must contain an element with the 'codeMirrorEditor' class."
+        );
         this.codeMirror = CodeMirror(codeMirrorElement[0], {
             mode: CODEMIRROR_MODE,
             theme: "lobster",
@@ -57,23 +68,34 @@ export class ProjectEditor {
             tabSize: 2,
             keyMap: "sublime",
             extraKeys: {
-                "Ctrl-S" : () => {
+                "Ctrl-S": () => {
                     this.project.requestSave();
                 },
-                "Ctrl-/" : (editor) => editor.execCommand('toggleComment')
+                "Ctrl-/": (editor) => editor.execCommand("toggleComment"),
             },
-            gutters: ["CodeMirror-linenumbers", "breakpoints", "errors"]
+            gutters: ["CodeMirror-linenumbers", "breakpoints", "errors"],
         });
         this.codeMirror.on("gutterClick", (cm, n) => {
             let info = cm.lineInfo(n);
-            cm.setGutterMarker(n, "breakpoints", info.gutterMarkers ? null : $(`<div style="color: #a33">●</div>`)[0]);
-        })
+            cm.setGutterMarker(
+                n,
+                "breakpoints",
+                info.gutterMarkers
+                    ? null
+                    : $(`<div style="color: #a33">●</div>`)[0]
+            );
+        });
         // this.codeMirror.setSize(null, "auto");
 
         this.filesElem = element.find(".project-files");
-        assert(this.filesElem.length > 0, "CompilationOutlet must contain an element with the 'translation-units-list' class.");
+        assert(
+            this.filesElem.length > 0,
+            "CompilationOutlet must contain an element with the 'translation-units-list' class."
+        );
 
-        let addFileButton = $('<a data-toggle="modal" data-target="#lobster-project-add-file-modal"><i class="bi bi-file-earmark-plus"></i></a>');
+        let addFileButton = $(
+            '<a data-toggle="modal" data-target="#lobster-project-add-file-modal"><i class="bi bi-file-earmark-plus"></i></a>'
+        );
         let liContainer = $("<li></li>");
         liContainer.append(addFileButton);
         this.filesElem.append(liContainer);
@@ -84,16 +106,15 @@ export class ProjectEditor {
     }
 
     public setProject(project: Project) {
-
         if (this.project) {
-            this.project.sourceFiles.forEach(f => this.onFileRemoved(f));
+            this.project.sourceFiles.forEach((f) => this.onFileRemoved(f));
             stopListeningTo(this, project);
         }
 
         (<Mutable<this>>this).project = project;
         listenTo(this, project);
 
-        project.sourceFiles.forEach(f => this.onFileAdded(f));
+        project.sourceFiles.forEach((f) => this.onFileAdded(f));
     }
 
     // private loadProject(projectName: string) {
@@ -117,8 +138,6 @@ export class ProjectEditor {
     //     });
 
     // }
-
-
 
     // @messageResponse("projectCleared")
     // private projectCleared() {
@@ -163,15 +182,14 @@ export class ProjectEditor {
 
     @messageResponse("fileAdded", "unwrap")
     private onFileAdded(file: SourceFile) {
-
         // Create a FileEditor object to manage editing the file
         let fileEd = new FileEditor(file);
         this.fileEditorsMap[file.name] = fileEd;
         addListener(fileEd, this);
 
         // Create tab to select this file for viewing/editing
-        let item = $('<li></li>');
-        let link = $('<a>' + file.name + '</a>');
+        let item = $("<li></li>");
+        let link = $("<a>" + file.name + "</a>");
         link.on("click", () => this.selectFile(file.name));
         item.append(link);
         this.fileButtonsMap[file.name] = item;
@@ -182,17 +200,15 @@ export class ProjectEditor {
             item.addClass("active");
             this.selectFile(file.name);
         }
-
     }
 
     @messageResponse("fileRemoved")
     private onFileRemoved(file: SourceFile) {
-
         let fileEd = this.fileEditorsMap[file.name];
-        if(!fileEd) {
+        if (!fileEd) {
             return;
         }
-        
+
         // remove the li containing the link
         this.fileButtonsMap[file.name].remove();
         delete this.fileButtonsMap[file.name];
@@ -207,13 +223,12 @@ export class ProjectEditor {
 
     @messageResponse("compilationFinished")
     public onCompilationFinished() {
-
         Object.keys(this.fileEditorsMap).forEach((ed: string) => {
             this.fileEditorsMap[ed]!.clearMarks();
             this.fileEditorsMap[ed]!.clearGutterErrors();
         });
 
-        this.project.program.notes.allNotes.forEach(note => {
+        this.project.program.notes.allNotes.forEach((note) => {
             let sourceRef = note.primarySourceReference;
             if (sourceRef) {
                 let editor = this.fileEditorsMap[sourceRef.sourceFile.name];
@@ -232,18 +247,19 @@ export class ProjectEditor {
 
     @messageResponse("noteAdded", "unwrap")
     public onNoteAdded(note: Note) {
-
         let sourceRef = note.primarySourceReference;
         if (sourceRef) {
             let editor = this.fileEditorsMap[sourceRef.sourceFile.name];
             editor?.addMark(sourceRef, note.kind);
             editor?.addGutterError(sourceRef.line, note.message);
         }
-
     }
 
     public selectFile(filename: string) {
-        assert(this.fileEditorsMap[filename], `File ${filename} does not exist in this project.`);
+        assert(
+            this.fileEditorsMap[filename],
+            `File ${filename} does not exist in this project.`
+        );
         this.codeMirrorElem.show();
         this.codeMirror.swapDoc(this.fileEditorsMap[filename]!.doc);
         this.currentFileEditor = filename;
@@ -256,8 +272,7 @@ export class ProjectEditor {
         this.currentFileEditor = firstFilename;
         if (firstFilename) {
             this.selectFile(firstFilename);
-        }
-        else {
+        } else {
             this.codeMirrorElem.hide();
         }
     }
@@ -291,35 +306,30 @@ export class ProjectEditor {
         this.project.setFileContents(updatedFile);
     }
 
+    //     @messageResponse()
+    //     private parsed(msg: Message) {
 
-//     @messageResponse()
-//     private parsed(msg: Message) {
+    //         // TODO NEW: This actually needs to be selected based on a reverse mapping of line numbers for includes
+    //         var tu = msg.source;
+    //         var editor = this.i_fileEditors[tu.getName()];
 
-//         // TODO NEW: This actually needs to be selected based on a reverse mapping of line numbers for includes
-//         var tu = msg.source;
-//         var editor = this.i_fileEditors[tu.getName()];
-
-//         if (editor.syntaxErrorLineHandle) {
-//             editor.i_doc.removeLineClass(editor.syntaxErrorLineHandle, "background", "syntaxError");
-//         }
-//         if (msg.data){
-//             var err = msg.data;
-// //            this.marks.push(this.i_doc.markText({line: err.line-1, ch: err.column-1}, {line:err.line-1, ch:err.column},
-// //                {className: "syntaxError"}));
-//             editor.syntaxErrorLineHandle = editor.i_doc.addLineClass(err.line-1, "background", "syntaxError");
-//             // editor.clearAnnotations();
-//         }
-//     },
+    //         if (editor.syntaxErrorLineHandle) {
+    //             editor.i_doc.removeLineClass(editor.syntaxErrorLineHandle, "background", "syntaxError");
+    //         }
+    //         if (msg.data){
+    //             var err = msg.data;
+    // //            this.marks.push(this.i_doc.markText({line: err.line-1, ch: err.column-1}, {line:err.line-1, ch:err.column},
+    // //                {className: "syntaxError"}));
+    //             editor.syntaxErrorLineHandle = editor.i_doc.addLineClass(err.line-1, "background", "syntaxError");
+    //             // editor.clearAnnotations();
+    //         }
+    //     },
 
     // setSource : function(src){
     //     this.i_sourceCode = src;
     // },
-
 }
 // $(window).bind("beforeunload", ProjectEditor.onBeforeUnload);
-
-
-
 
 function createCompilationOutletHTML() {
     return `
@@ -347,12 +357,10 @@ function createCompilationOutletHTML() {
     </div>`;
 }
 
-
 /**
  * Allows a user to view and manage the compilation scheme for a program.
  */
 export class CompilationOutlet {
-
     public _act!: MessageResponses;
 
     public readonly project: Project;
@@ -368,8 +376,10 @@ export class CompilationOutlet {
 
         this.translationUnitsListElem = element.find(".translation-units-list");
 
-        this.compilationNotesOutlet = new CompilationNotesOutlet(element.find(".compilation-notes-list"));
-        
+        this.compilationNotesOutlet = new CompilationNotesOutlet(
+            element.find(".compilation-notes-list")
+        );
+
         this.project = this.setProject(project);
     }
 
@@ -395,13 +405,16 @@ export class CompilationOutlet {
         this.translationUnitsListElem.empty();
 
         // Create buttons for each file to toggle whether it's a translation unit or not
-        this.project.sourceFiles.forEach(file => {
+        this.project.sourceFiles.forEach((file) => {
+            let button = $('<button class="btn">' + file.name + "</button>")
+                .addClass(
+                    this.project.isTranslationUnit(file.name)
+                        ? "btn-info"
+                        : "text-muted"
+                )
+                .click(() => this.project.toggleTranslationUnit(file.name));
 
-            let button = $('<button class="btn">' + file.name + '</button>')
-            .addClass(this.project.isTranslationUnit(file.name) ? "btn-info" : "text-muted")
-            .click(() => this.project.toggleTranslationUnit(file.name));
-
-            this.translationUnitsListElem.append($('<li></li>').append(button));
+            this.translationUnitsListElem.append($("<li></li>").append(button));
         });
     }
 
@@ -411,25 +424,24 @@ export class CompilationOutlet {
     }
 }
 
-const NoteCSSClasses : {[K in NoteKind]: string} = {
+const NoteCSSClasses: { [K in NoteKind]: string } = {
     error: "lobster-note-error",
     warning: "lobster-note-warning",
     style: "lobster-note-style",
-    other: "lobster-note-other"
+    other: "lobster-note-other",
 };
 
-const NoteDescriptions : {[K in NoteKind]: string} = {
+const NoteDescriptions: { [K in NoteKind]: string } = {
     error: "Error",
     warning: "Warning",
     style: "Style",
-    other: "Other"
+    other: "Other",
 };
 
 /**
  * Shows all of the compilation errors/warnings/etc. for the current project.
  */
 export class CompilationNotesOutlet {
-
     public observable = new Observable(this);
     public _act!: MessageResponses;
 
@@ -440,7 +452,6 @@ export class CompilationNotesOutlet {
     }
 
     public updateNotes(program: Program) {
-
         this.element.empty();
 
         if (program.notes.allNotes.length === 0) {
@@ -448,13 +459,16 @@ export class CompilationNotesOutlet {
             return;
         }
 
-        program.notes.allNotes.forEach(note => {
-
-            let item = $('<li class="list-group-item"></li>').append(this.createBadgeForNote(note)).append(" ");
+        program.notes.allNotes.forEach((note) => {
+            let item = $('<li class="list-group-item"></li>')
+                .append(this.createBadgeForNote(note))
+                .append(" ");
 
             let ref = note.primarySourceReference;
             if (ref) {
-                let sourceReferenceElem = $('<span class="lobster-source-reference"></span>');
+                let sourceReferenceElem = $(
+                    '<span class="lobster-source-reference"></span>'
+                );
                 new SourceReferenceOutlet(sourceReferenceElem, ref);
                 item.append(sourceReferenceElem).append(" ");
             }
@@ -471,8 +485,7 @@ export class CompilationNotesOutlet {
         // hacky special case
         if (note instanceof SyntaxNote) {
             elem.html("Syntax Error");
-        }
-        else {
+        } else {
             elem.html(NoteDescriptions[note.kind]);
         }
 
@@ -488,7 +501,6 @@ export class CompilationNotesOutlet {
 }
 
 export class CompilationStatusOutlet {
-
     public _act!: MessageResponses;
 
     public readonly project: Project;
@@ -509,21 +521,25 @@ export class CompilationStatusOutlet {
         this.element = element;
 
         this.compileButtonText = "Compile";
-        this.compileButton = $('<button class="btn btn-warning-muted"><span class="glyphicon glyphicon-wrench"></span> Compile</button>')
-            .click(() => {
-                this.compileButtonText = "Compiling";
-                this.compileButton.html('<span class = "glyphicon glyphicon-refresh spin"></span> ' + this.compileButtonText);
+        this.compileButton = $(
+            '<button class="btn btn-warning-muted"><span class="glyphicon glyphicon-wrench"></span> Compile</button>'
+        ).click(() => {
+            this.compileButtonText = "Compiling";
+            this.compileButton.html(
+                '<span class = "glyphicon glyphicon-refresh spin"></span> ' +
+                    this.compileButtonText
+            );
 
-                // check offsetHeight to force a redraw operation
-                // then wrap fullCompile in a timeout which happens after redraw
-                // var redraw = this.compileButton.offsetHeight;
-                // this.compileButton.offsetHeight = redraw;
-                // ^^^TODO apparently the above isn't necessary?
-                window.setTimeout(() => {
-                    this.project.recompile();
-                },1);
-            })
-            /*.hover(
+            // check offsetHeight to force a redraw operation
+            // then wrap fullCompile in a timeout which happens after redraw
+            // var redraw = this.compileButton.offsetHeight;
+            // this.compileButton.offsetHeight = redraw;
+            // ^^^TODO apparently the above isn't necessary?
+            window.setTimeout(() => {
+                this.project.recompile();
+            }, 1);
+        });
+        /*.hover(
                 function(){
                     oldStatus = this.compileButton.html();
                     this.compileButton.css("width", this.compileButton.width() + "px");
@@ -533,35 +549,40 @@ export class CompilationStatusOutlet {
                     this.compileButton.html(oldStatus);
                     this.compileButton.css("width", "auto");
                 }
-            )*/;
-
+            )*/
 
         this.element.append(this.compileButton);
 
         this.element.append(" ");
 
-        this.notesElem = $('<span></span>').appendTo(this.element).hide();
-        this.errorsButton = $('<button class="btn btn-danger-muted" style="padding: 6px 6px;"></button>')
-            .append(this.numErrorsElem = $('<span></span>'))
+        this.notesElem = $("<span></span>").appendTo(this.element).hide();
+        this.errorsButton = $(
+            '<button class="btn btn-danger-muted" style="padding: 6px 6px;"></button>'
+        )
+            .append((this.numErrorsElem = $("<span></span>")))
             .append(" ")
             .append('<span class="glyphicon glyphicon-remove"></span>')
             .appendTo(this.notesElem);
         this.notesElem.append(" ");
-        this.warningsButton = $('<button class="btn btn-warning-muted" style="padding: 6px 6px;"></button>')
-            .append(this.numWarningsElem = $('<span></span>'))
+        this.warningsButton = $(
+            '<button class="btn btn-warning-muted" style="padding: 6px 6px;"></button>'
+        )
+            .append((this.numWarningsElem = $("<span></span>")))
             .append(" ")
             .append('<span class="glyphicon glyphicon-alert"></span>')
             .appendTo(this.notesElem);
         this.notesElem.append(" ");
-        this.styleButton = $('<button class="btn btn-style-muted" style="padding: 6px 6px;"></button>')
-            .append(this.numStyleElem = $('<span></span>'))
+        this.styleButton = $(
+            '<button class="btn btn-style-muted" style="padding: 6px 6px;"></button>'
+        )
+            .append((this.numStyleElem = $("<span></span>")))
             .append(" ")
             .append('<i class="bi bi-lightbulb"></i>')
             .appendTo(this.notesElem);
 
         this.project = this.setProject(project);
     }
-    
+
     public setProject(project: Project) {
         if (project !== this.project) {
             stopListeningTo(this, this.project);
@@ -577,18 +598,27 @@ export class CompilationStatusOutlet {
     @messageResponse("compilationFinished")
     private onCompilationFinished() {
         this.notesElem.show();
-        this.numErrorsElem.html("" + this.project.program.notes.numNotes(NoteKind.ERROR));
-        this.numWarningsElem.html("" + this.project.program.notes.numNotes(NoteKind.WARNING));
-        this.numStyleElem.html("" + this.project.program.notes.numNotes(NoteKind.STYLE));
+        this.numErrorsElem.html(
+            "" + this.project.program.notes.numNotes(NoteKind.ERROR)
+        );
+        this.numWarningsElem.html(
+            "" + this.project.program.notes.numNotes(NoteKind.WARNING)
+        );
+        this.numStyleElem.html(
+            "" + this.project.program.notes.numNotes(NoteKind.STYLE)
+        );
 
         this.compileButton.removeClass("btn-warning-muted");
 
         if (this.project.program.isCompiled()) {
-            this.compileButton.html('<span class="glyphicon glyphicon-ok"></span> Compiled');
+            this.compileButton.html(
+                '<span class="glyphicon glyphicon-ok"></span> Compiled'
+            );
             this.compileButton.addClass("btn-success-muted");
-        }
-        else {
-            this.compileButton.html('<span class="glyphicon glyphicon-remove"></span> Errors Detected');
+        } else {
+            this.compileButton.html(
+                '<span class="glyphicon glyphicon-remove"></span> Errors Detected'
+            );
             this.compileButton.addClass("btn-danger-muted");
         }
     }
@@ -597,12 +627,13 @@ export class CompilationStatusOutlet {
     private onCompilationOutOfDate() {
         this.compileButton.removeClass("btn-success-muted");
         this.compileButton.addClass("btn-warning-muted");
-        this.compileButton.html('<span class="glyphicon glyphicon-wrench"></span> Compile');
+        this.compileButton.html(
+            '<span class="glyphicon glyphicon-wrench"></span> Compile'
+        );
     }
 }
 
 class SourceReferenceOutlet {
-
     public observable = new Observable(this);
 
     private readonly element: JQuery;
@@ -611,7 +642,13 @@ class SourceReferenceOutlet {
     public constructor(element: JQuery, sourceRef: SourceReference) {
         this.element = element;
         this.sourceRef = sourceRef;
-        var link = $('<a><code>' + sourceRef.sourceFile.name + ':' + sourceRef.line + '</code></a>');
+        var link = $(
+            "<a><code>" +
+                sourceRef.sourceFile.name +
+                ":" +
+                sourceRef.line +
+                "</code></a>"
+        );
 
         link.click(() => {
             this.observable.send("gotoSourceReference", sourceRef);
@@ -621,7 +658,6 @@ class SourceReferenceOutlet {
     }
 }
 
-
 const IDLE_MS_BEFORE_UPDATE = 500;
 const CODEMIRROR_MODE = "text/x-c++src";
 // const FILE_EDITOR_DEFAULT_SOURCE : SourceFile = {
@@ -630,7 +666,6 @@ const CODEMIRROR_MODE = "text/x-c++src";
 // }
 
 export class FileEditor {
-
     private static instances: FileEditor[] = [];
 
     public observable: Observable = new Observable(this);
@@ -639,12 +674,12 @@ export class FileEditor {
     public readonly doc: CodeMirror.Doc;
 
     // private readonly annotations: Annotation[] = [];
-    private readonly gutterErrors: {elem: JQuery, num: number}[] = [];
+    private readonly gutterErrors: { elem: JQuery; num: number }[] = [];
     private syntaxErrorLineHandle?: CodeMirror.LineHandle;
 
     private ignoreContentsSet: boolean = false;
 
-     /**
+    /**
      *
      * @param {SourceFile} sourceFile The initial contents of this editor.
      */
@@ -652,7 +687,9 @@ export class FileEditor {
         this.file = file;
         this.doc = CodeMirror.Doc(file.text, CODEMIRROR_MODE);
 
-        CodeMirror.on(this.doc, "change", () => { this.onEdit(); });
+        CodeMirror.on(this.doc, "change", () => {
+            this.onEdit();
+        });
 
         // FileEditor.instances.push(this);
     }
@@ -674,22 +711,24 @@ export class FileEditor {
     // },
 
     private onEdit() {
-        (<Mutable<this>>this).file = new SourceFile(this.file.name, this.doc.getValue());
+        (<Mutable<this>>this).file = new SourceFile(
+            this.file.name,
+            this.doc.getValue()
+        );
 
         // Newer versions of CodeMirror have inconsistent syntax coloring for the * operator
         // when used as part of a declarator vs. other operators like &, [], and (). So here
         // we manually fix the * spans.
-        $(".cm-type").filter(function() {
-            return $(this).html().trim() === "*";
-        }).removeClass("cm-type").addClass("cm-operator");
+        $(".cm-type")
+            .filter(function () {
+                return $(this).html().trim() === "*";
+            })
+            .removeClass("cm-type")
+            .addClass("cm-operator");
 
-        
         this.ignoreContentsSet = true;
         this.observable.send("textChanged", this.file);
         this.ignoreContentsSet = false;
-        
-
-
 
         // if(this.i_onEditTimeout){
         //     clearTimeout(this.i_onEditTimeout);
@@ -700,28 +739,35 @@ export class FileEditor {
         // }, IDLE_MS_BEFORE_UPDATE);
     }
 
-    public addMark(sourceRef: SourceReference, cssClass: string){
-        let from = {line: sourceRef.line-1, ch: sourceRef.column - 1};
-        let to = {line: sourceRef.line-1, ch: sourceRef.column - 1 + sourceRef.end - sourceRef.start};
+    public addMark(sourceRef: SourceReference, cssClass: string) {
+        let from = { line: sourceRef.line - 1, ch: sourceRef.column - 1 };
+        let to = {
+            line: sourceRef.line - 1,
+            ch: sourceRef.column - 1 + sourceRef.end - sourceRef.start,
+        };
         // var from = this.doc.posFromIndex(sourceRef.start);
         // var to = this.doc.posFromIndex(sourceRef.end);
-        return this.doc.markText(from, to, {startStyle: "begin", endStyle: "end", className: "codeMark " + cssClass});
+        return this.doc.markText(from, to, {
+            startStyle: "begin",
+            endStyle: "end",
+            className: "codeMark " + cssClass,
+        });
     }
 
     public clearMarks() {
-        this.doc.getAllMarks().forEach(mark => mark.clear());
+        this.doc.getAllMarks().forEach((mark) => mark.clear());
     }
 
     public addGutterError(line: number, text: string) {
         --line;
         let marker = this.gutterErrors[line];
-        if (!marker){
+        if (!marker) {
             marker = this.gutterErrors[line] = {
-                elem:$('<div class="gutterError">!<div></div></div>'),
-                num: 0
+                elem: $('<div class="gutterError">!<div></div></div>'),
+                num: 0,
             };
         }
-        let elem = $('<div class="errorNote">- '+text+'</div>');
+        let elem = $('<div class="errorNote">- ' + text + "</div>");
         marker.elem.children("div").append(elem);
         ++marker.num;
         let ed = this.doc.getEditor();
@@ -736,8 +782,8 @@ export class FileEditor {
         let marker = this.gutterErrors[line];
         if (marker) {
             let ed = this.doc.getEditor();
-            if (marker.num === 1 && ed){
-                ed.setGutterMarker(line, "errors",null);
+            if (marker.num === 1 && ed) {
+                ed.setGutterMarker(line, "errors", null);
             }
         }
     }
@@ -762,7 +808,11 @@ export class FileEditor {
         if (this.syntaxErrorLineHandle) {
             let ed = this.doc.getEditor();
             if (ed) {
-                ed.removeLineClass(this.syntaxErrorLineHandle, "background", "syntaxError");
+                ed.removeLineClass(
+                    this.syntaxErrorLineHandle,
+                    "background",
+                    "syntaxError"
+                );
             }
         }
     }
@@ -771,7 +821,11 @@ export class FileEditor {
         this.clearSyntaxError();
         let ed = this.doc.getEditor();
         if (ed) {
-            this.syntaxErrorLineHandle = ed.addLineClass(line-1, "background", "syntaxError");
+            this.syntaxErrorLineHandle = ed.addLineClass(
+                line - 1,
+                "background",
+                "syntaxError"
+            );
         }
     }
 
@@ -788,11 +842,15 @@ export class FileEditor {
     // }
 
     public gotoSourceReference(sourceRef: SourceReference) {
-        console.log("got the message " + sourceRef.sourceFile.name + ":" + sourceRef.line);
+        console.log(
+            "got the message " +
+                sourceRef.sourceFile.name +
+                ":" +
+                sourceRef.line
+        );
         // this.send("requestFocus", function() {});
-        this.doc.setCursor(sourceRef.line, sourceRef.column, {scroll:true});
+        this.doc.setCursor(sourceRef.line, sourceRef.column, { scroll: true });
         // self.doc.scrollIntoView(, 10);
         // });
     }
-
 }

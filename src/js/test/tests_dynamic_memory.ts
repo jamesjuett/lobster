@@ -1,10 +1,16 @@
 import { checkLocalAtomicVariableValues } from "../analysis/runtime";
-import { SingleTranslationUnitTest, NoErrorsNoWarningsVerifier, NoBadRuntimeEventsVerifier, EndOfMainStateVerifier, OutputVerifier } from "./verifiers";
+import {
+    SingleTranslationUnitTest,
+    NoErrorsNoWarningsVerifier,
+    NoBadRuntimeEventsVerifier,
+    EndOfMainStateVerifier,
+    OutputVerifier,
+} from "./verifiers";
 
 export function createDynamicMemoryTests() {
-  new SingleTranslationUnitTest(
-    "Basic New/Delete Test",
-    `#include <iostream>
+    new SingleTranslationUnitTest(
+        "Basic New/Delete Test",
+        `#include <iostream>
 using namespace std;
 
 int main() {
@@ -12,15 +18,12 @@ int main() {
   assert(*p == 3);
   delete p;
 }`,
-    [
-      new NoErrorsNoWarningsVerifier(),
-      new NoBadRuntimeEventsVerifier(true)
-    ]
-  );
+        [new NoErrorsNoWarningsVerifier(), new NoBadRuntimeEventsVerifier(true)]
+    );
 
-  new SingleTranslationUnitTest(
-    "Basic New/Delete Test",
-    `#include <iostream>
+    new SingleTranslationUnitTest(
+        "Basic New/Delete Test",
+        `#include <iostream>
 
 using namespace std;
 
@@ -45,10 +48,10 @@ int main() {
   delete[] arr;
   cout << "4" << endl;
 } `,
-    [
-      new NoErrorsNoWarningsVerifier(),
-      new NoBadRuntimeEventsVerifier(true),
-      new OutputVerifier(`hi
+        [
+            new NoErrorsNoWarningsVerifier(),
+            new NoBadRuntimeEventsVerifier(true),
+            new OutputVerifier(`hi
 1
 2
 hi
@@ -64,8 +67,7 @@ bye
 bye
 4
 bye
-`)
-    ]
-  );
-
+`),
+        ]
+    );
 }

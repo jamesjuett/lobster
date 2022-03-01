@@ -425,4 +425,4 @@
     "    if (!root) {\n        return 0;\n    }\n    if (root->datum == compare && !root->left && !root->right) {\n        return 1;\n    }\n    return countEqual(root->left, compare) + countEqual(root->right, compare) + countEqual(root->datum, compare);",
     "if (root == 0) {\n\treturn 0;\n}\nreturn (root->datum == compare ? 1 : 0)\n\t+ countEqual(root->left, compare)\n\t+ countEqual(root->right, compare);",
     "if (!root) {return 0;}\n\nif (!(node->datum < compare) && !(compare < node->datum))\n{\n    return (1 + countEqual(root -> left, compare) + countEqual(root -> right, compare));\n}\nreturn countEqual(root -> left, compare) + countEqual(root -> right, compare);\n"
-  ]
+]

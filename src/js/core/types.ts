@@ -9,20 +9,11 @@ import { RuntimeExpression } from "./expressionBase";
 import { SimulationEvent } from "./Simulation";
 import { qualifiedNamesEq, QualifiedName } from "./lexical";
 
-
-
-
 var vowels = ["a", "e", "i", "o", "u"];
 
 function isVowel(c: string) {
     return vowels.indexOf(c) != -1;
-    
-};
-
-
-
-
-
+}
 
 // let USER_TYPE_NAMES = {};
 // export function resetUserTypeNames() {
@@ -35,30 +26,41 @@ function isVowel(c: string) {
 //     size_t : true
 // };
 
-export function isType<T extends Type>(ctor: Constructor<T>): (type: Type) => type is InstanceType<typeof ctor>;
-export function isType<T extends Type>(type: Type, ctor: Constructor<T>): type is InstanceType<typeof ctor>;
-export function isType<T extends Type>(typeOrCtor: Type | Constructor<T>, ctor?: Constructor<T>) {
+export function isType<T extends Type>(
+    ctor: Constructor<T>
+): (type: Type) => type is InstanceType<typeof ctor>;
+export function isType<T extends Type>(
+    type: Type,
+    ctor: Constructor<T>
+): type is InstanceType<typeof ctor>;
+export function isType<T extends Type>(
+    typeOrCtor: Type | Constructor<T>,
+    ctor?: Constructor<T>
+) {
     if (typeOrCtor instanceof TypeBase) {
         return typeOrCtor.isType(ctor!);
+    } else {
+        return (type: Type) => type.isType(typeOrCtor);
     }
-    else {
-        return (type: Type) => type.isType(typeOrCtor)
-    }
-};
+}
 
 export function sameType(type1: Type | undefined, type2: Type | undefined) {
     // console.log(`comparing ${type1} and ${type2}`);
     // console.log(!!(type1 === type2 || type1 && type2 && type1.sameType(type2)));
-    return !!(type1 === type2 || type1 && type2 && type1.sameType(type2));
-};
+    return !!(type1 === type2 || (type1 && type2 && type1.sameType(type2)));
+}
 
 export function similarType(type1: Type | undefined, type2: Type | undefined) {
-    return !!(type1 === type2 || type1 && type2 && type1.similarType(type2));
-};
+    return !!(type1 === type2 || (type1 && type2 && type1.similarType(type2)));
+}
 
 export function subType(type1: Type, type2: Type) {
-    return type1.isPotentiallyCompleteClassType() && type2.isPotentiallyCompleteClassType() && type1.isDerivedFrom(type2);
-};
+    return (
+        type1.isPotentiallyCompleteClassType() &&
+        type2.isPotentiallyCompleteClassType() &&
+        type1.isDerivedFrom(type2)
+    );
+}
 
 export var covariantType = function (derived: Type, base: Type) {
     if (sameType(derived, base)) {
@@ -70,17 +72,18 @@ export var covariantType = function (derived: Type, base: Type) {
     if (derived instanceof PointerType && base instanceof PointerType) {
         dc = derived.ptrTo;
         bc = base.ptrTo;
-    }
-    else if (derived instanceof ReferenceType && base instanceof ReferenceType) {
+    } else if (
+        derived instanceof ReferenceType &&
+        base instanceof ReferenceType
+    ) {
         dc = derived.refTo;
         bc = base.refTo;
-    }
-    else {
+    } else {
         return false; // not both pointers or both references
     }
 
     // Must be pointers or references to class type
-    if (!(dc.isClassType()) || !(bc.isClassType())) {
+    if (!dc.isClassType() || !bc.isClassType()) {
         return false;
     }
 
@@ -90,12 +93,15 @@ export var covariantType = function (derived: Type, base: Type) {
     }
 
     // Pointers/References must have the same cv-qualification
-    if (derived.isConst != base.isConst || derived.isVolatile != base.isVolatile) {
+    if (
+        derived.isConst != base.isConst ||
+        derived.isVolatile != base.isVolatile
+    ) {
         return false;
     }
 
     // dc must have same or less cv-qualification as bc
-    if (dc.isConst && !bc.isConst || dc.isVolatile && !bc.isVolatile) {
+    if ((dc.isConst && !bc.isConst) || (dc.isVolatile && !bc.isVolatile)) {
         return false;
     }
 
@@ -105,18 +111,21 @@ export var covariantType = function (derived: Type, base: Type) {
 
 export function referenceCompatible(from: ExpressionType, to: ReferenceType) {
     return from && to && from.isReferenceCompatible(to);
-};
+}
 
 export function referenceRelated(from: ExpressionType, to: ReferenceType) {
     return from && to && from.isReferenceRelated(to);
-};
+}
 
 export function isCvConvertible(fromType: Type | null, toType: Type | null) {
-
-    if (fromType === null || toType === null) { return false; }
+    if (fromType === null || toType === null) {
+        return false;
+    }
 
     // t1 and t2 must be similar
-    if (!similarType(fromType, toType)) { return false; }
+    if (!similarType(fromType, toType)) {
+        return false;
+    }
 
     // Discard 0th level of cv-qualification signatures, we don't care about them.
     // (It's essentially a value semantics thing, we're making a copy so top level const doesn't matter.)
@@ -127,11 +136,11 @@ export function isCvConvertible(fromType: Type | null, toType: Type | null) {
     // also if we ever find a difference, t2 needs const everywhere leading
     // up to it (but not including) (and not including discarded 0th level).
     let t2AllConst = true;
-    while (fromType && toType) { //similar so they should run out at same time
+    while (fromType && toType) {
+        //similar so they should run out at same time
         if (fromType.isConst && !toType.isConst) {
             return false;
-        }
-        else if (!fromType.isConst && toType.isConst && !t2AllConst) {
+        } else if (!fromType.isConst && toType.isConst && !t2AllConst) {
             return false;
         }
 
@@ -143,7 +152,7 @@ export function isCvConvertible(fromType: Type | null, toType: Type | null) {
 
     // If no violations, t1 is convertable to t2
     return true;
-};
+}
 
 abstract class TypeBase {
     public static readonly _name = "Type";
@@ -153,7 +162,6 @@ abstract class TypeBase {
      * e.g. Array types have precedence 2, whereas Pointer types have precedence 1.
      */
     public abstract readonly precedence: number;
-
 
     // regular member properties
     public readonly isConst: boolean;
@@ -166,7 +174,10 @@ abstract class TypeBase {
     }
 
     public getCVString() {
-        return (this.isConst ? "const " : "") + (this.isVolatile ? "volatile " : "");
+        return (
+            (this.isConst ? "const " : "") +
+            (this.isVolatile ? "volatile " : "")
+        );
     }
 
     public toString() {
@@ -176,7 +187,9 @@ abstract class TypeBase {
     /**
      * Returns true if this type object is an instance of the given Type class
      */
-    public isType<T extends Type>(ctor: Constructor<T>): this is InstanceType<typeof ctor> {
+    public isType<T extends Type>(
+        ctor: Constructor<T>
+    ): this is InstanceType<typeof ctor> {
         return this instanceof ctor;
     }
 
@@ -189,10 +202,12 @@ abstract class TypeBase {
     }
 
     public isIntegralType(): this is IntegralType {
-        return this instanceof Char ||
-                this instanceof Int ||
-                this instanceof Size_t ||
-                this instanceof Bool;
+        return (
+            this instanceof Char ||
+            this instanceof Int ||
+            this instanceof Size_t ||
+            this instanceof Bool
+        );
     }
 
     public isFloatingPointType(): this is FloatingPointType {
@@ -214,12 +229,16 @@ abstract class TypeBase {
     public isObjectPointerType(): this is ObjectPointerType {
         return this instanceof ObjectPointerType;
     }
-    
-    public isPointerToType<T extends PotentiallyCompleteObjectType>(ctor: Constructor<T>): this is PointerType<InstanceType<typeof ctor>> {
+
+    public isPointerToType<T extends PotentiallyCompleteObjectType>(
+        ctor: Constructor<T>
+    ): this is PointerType<InstanceType<typeof ctor>> {
         return this.isPointerType() && this.ptrTo instanceof ctor;
     }
-    
-    public isArrayPointerToType<T extends ArrayElemType>(ctor: Constructor<T>): this is ArrayPointerType<InstanceType<typeof ctor>> {
+
+    public isArrayPointerToType<T extends ArrayElemType>(
+        ctor: Constructor<T>
+    ): this is ArrayPointerType<InstanceType<typeof ctor>> {
         return this.isArrayPointerType() && this.ptrTo instanceof ctor;
     }
 
@@ -252,11 +271,16 @@ abstract class TypeBase {
     }
 
     public isPotentiallyCompleteArrayType(): this is PotentiallyCompleteArrayType {
-        return this instanceof BoundedArrayType || this instanceof ArrayOfUnknownBoundType;
+        return (
+            this instanceof BoundedArrayType ||
+            this instanceof ArrayOfUnknownBoundType
+        );
     }
 
     public isArrayElemType(): this is ArrayElemType {
-        return this instanceof AtomicType || this.isPotentiallyCompleteClassType();
+        return (
+            this instanceof AtomicType || this.isPotentiallyCompleteClassType()
+        );
     }
 
     public isFunctionType(): this is FunctionType {
@@ -267,8 +291,12 @@ abstract class TypeBase {
         return this instanceof VoidType;
     }
 
-    public isPotentiallyCompleteObjectType() : this is PotentiallyCompleteObjectType {
-        return this.isAtomicType() || this.isPotentiallyCompleteArrayType() || this.isPotentiallyCompleteClassType();
+    public isPotentiallyCompleteObjectType(): this is PotentiallyCompleteObjectType {
+        return (
+            this.isAtomicType() ||
+            this.isPotentiallyCompleteArrayType() ||
+            this.isPotentiallyCompleteClassType()
+        );
     }
 
     public isIncompleteObjectType(): this is IncompleteObjectType {
@@ -276,23 +304,45 @@ abstract class TypeBase {
     }
 
     public isCompleteObjectType(): this is CompleteObjectType {
-        return this.isAtomicType() || this.isBoundedArrayType() || this.isCompleteClassType();
+        return (
+            this.isAtomicType() ||
+            this.isBoundedArrayType() ||
+            this.isCompleteClassType()
+        );
     }
 
     public isPotentialReturnType(): this is PotentialReturnType {
-        return this.isAtomicType() || this.isPotentiallyCompleteClassType() || this.isReferenceType() || this.isVoidType();
+        return (
+            this.isAtomicType() ||
+            this.isPotentiallyCompleteClassType() ||
+            this.isReferenceType() ||
+            this.isVoidType()
+        );
     }
 
     public isCompleteReturnType(): this is CompleteReturnType {
-        return this.isAtomicType() || this.isCompleteClassType() || this.isReferenceType() || this.isVoidType();
+        return (
+            this.isAtomicType() ||
+            this.isCompleteClassType() ||
+            this.isReferenceType() ||
+            this.isVoidType()
+        );
     }
 
     public isPotentialParameterType(): this is PotentialParameterType {
-        return this.isAtomicType() || this.isPotentiallyCompleteClassType() || this.isReferenceType();
+        return (
+            this.isAtomicType() ||
+            this.isPotentiallyCompleteClassType() ||
+            this.isReferenceType()
+        );
     }
 
     public isCompleteParameterType(): this is CompleteParameterType {
-        return this.isAtomicType() || this.isCompleteClassType() || this.isReferenceType();
+        return (
+            this.isAtomicType() ||
+            this.isCompleteClassType() ||
+            this.isReferenceType()
+        );
     }
 
     /**
@@ -307,14 +357,18 @@ abstract class TypeBase {
     public abstract similarType<T extends Type>(other: T): this is T;
     public abstract similarType(other: Type): boolean;
 
-
     /**
      * Returns true if this type is reference-related (see C++ standard) to the type other.
      * @param other
      */
-    public isReferenceRelated(this: ExpressionType, other: ReferenceType): boolean {
-        return sameType(this.cvUnqualified(), other.refTo.cvUnqualified()) ||
-            subType(this.cvUnqualified(), other.refTo.cvUnqualified());
+    public isReferenceRelated(
+        this: ExpressionType,
+        other: ReferenceType
+    ): boolean {
+        return (
+            sameType(this.cvUnqualified(), other.refTo.cvUnqualified()) ||
+            subType(this.cvUnqualified(), other.refTo.cvUnqualified())
+        );
     }
 
     /**
@@ -323,7 +377,11 @@ abstract class TypeBase {
      * @returns {boolean}
      */
     public isReferenceCompatible(this: ExpressionType, other: ReferenceType) {
-        return this.isReferenceRelated(other) && (other.refTo.isConst || !this.isConst) && (other.refTo.isVolatile || !this.isVolatile);
+        return (
+            this.isReferenceRelated(other) &&
+            (other.refTo.isConst || !this.isConst) &&
+            (other.refTo.isVolatile || !this.isVolatile)
+        );
     }
 
     /**
@@ -332,7 +390,11 @@ abstract class TypeBase {
      * @param varname The name of the variable. May be the empty string.
      * @param decorated If true, html tags will be added.
      */
-    public abstract typeString(excludeBase: boolean, varname: string, decorated?: boolean): string;
+    public abstract typeString(
+        excludeBase: boolean,
+        varname: string,
+        decorated?: boolean
+    ): string;
 
     /**
      * Returns a C++ styled string representation of this type, with the base type excluded as
@@ -389,7 +451,10 @@ abstract class TypeBase {
     /**
      * Returns a copy of this type with the specified cv-qualifications.
      */
-    public cvQualified(isConst: boolean = false, isVolatile: boolean = false): this {
+    public cvQualified(
+        isConst: boolean = false,
+        isVolatile: boolean = false
+    ): this {
         return <this>this._cvQualifiedImpl(isConst, isVolatile);
     }
 
@@ -402,15 +467,20 @@ abstract class TypeBase {
      * narrowing in a conditional type for one of the member types of the Type type union.
      * But I have not put in the time to track it down and submit an issue to the TS github.
      */
-    public abstract _cvQualifiedImpl(isConst: boolean, isVolatile: boolean): TypeBase;
-
-};
-
+    public abstract _cvQualifiedImpl(
+        isConst: boolean,
+        isVolatile: boolean
+    ): TypeBase;
+}
 
 /**
  * Helper function for functions that create string representations of types.
  */
-function parenthesize(thisType: TypeBase, outside: TypeBase, str: string) : string {
+function parenthesize(
+    thisType: TypeBase,
+    outside: TypeBase,
+    str: string
+): string {
     return thisType.precedence < outside.precedence ? "(" + str + ")" : str;
 }
 
@@ -434,11 +504,17 @@ export function isPointerType(type: Type): type is PointerType {
     return type.isPointerType();
 }
 
-export function isPointerToType<T extends PotentiallyCompleteObjectType>(ctor: Constructor<T>): (type: Type) => type is PointerType<T> {
-    return <(type: Type) => type is PointerType<T>>((type: Type) => type.isPointerToType(ctor));
+export function isPointerToType<T extends PotentiallyCompleteObjectType>(
+    ctor: Constructor<T>
+): (type: Type) => type is PointerType<T> {
+    return <(type: Type) => type is PointerType<T>>(
+        ((type: Type) => type.isPointerToType(ctor))
+    );
 }
 
-export function isPointerToCompleteObjectType(type: Type): type is PointerToCompleteType {
+export function isPointerToCompleteObjectType(
+    type: Type
+): type is PointerToCompleteType {
     return type.isPointerToCompleteObjectType();
 }
 
@@ -446,8 +522,12 @@ export function isArrayPointerType(type: Type): type is ArrayPointerType {
     return type.isArrayPointerType();
 }
 
-export function isArrayPointerToType<T extends ArrayElemType>(ctor: Constructor<T>): (type: Type) => type is ArrayPointerType<T> {
-    return <(type: Type) => type is ArrayPointerType<T>>((type: Type) => type.isArrayPointerToType(ctor));
+export function isArrayPointerToType<T extends ArrayElemType>(
+    ctor: Constructor<T>
+): (type: Type) => type is ArrayPointerType<T> {
+    return <(type: Type) => type is ArrayPointerType<T>>(
+        ((type: Type) => type.isArrayPointerToType(ctor))
+    );
 }
 
 export function isObjectPointerType(type: Type): type is ObjectPointerType {
@@ -458,11 +538,15 @@ export function isReferenceType(type: Type): type is ReferenceType {
     return type.isReferenceType();
 }
 
-export function isReferenceToCompleteType(type: Type): type is ReferenceToCompleteType {
+export function isReferenceToCompleteType(
+    type: Type
+): type is ReferenceToCompleteType {
     return type.isReferenceToCompleteType();
 }
 
-export function isPotentiallyCompleteClassType(type: Type): type is PotentiallyCompleteClassType {
+export function isPotentiallyCompleteClassType(
+    type: Type
+): type is PotentiallyCompleteClassType {
     return type.isPotentiallyCompleteClassType();
 }
 
@@ -474,16 +558,24 @@ export function isBoundedArrayType(type: Type): type is BoundedArrayType {
     return type.isBoundedArrayType();
 }
 
-export function isBoundedArrayOfType<T extends ArrayElemType>(typePredicate: (type: Type)=> type is T): (type: Type) => type is BoundedArrayType<T> {
-    return <(type: Type) => type is BoundedArrayType<T>>
-            ((type:Type) => !!(type.isBoundedArrayType() && typePredicate(type.elemType)));
+export function isBoundedArrayOfType<T extends ArrayElemType>(
+    typePredicate: (type: Type) => type is T
+): (type: Type) => type is BoundedArrayType<T> {
+    return <(type: Type) => type is BoundedArrayType<T>>(
+        ((type: Type) =>
+            !!(type.isBoundedArrayType() && typePredicate(type.elemType)))
+    );
 }
 
-export function isArrayOfUnknownBoundType(type: Type): type is ArrayOfUnknownBoundType {
+export function isArrayOfUnknownBoundType(
+    type: Type
+): type is ArrayOfUnknownBoundType {
     return type.isArrayOfUnknownBoundType();
 }
 
-export function isPotentiallyCompleteArrayType(type: Type): type is PotentiallyCompleteArrayType {
+export function isPotentiallyCompleteArrayType(
+    type: Type
+): type is PotentiallyCompleteArrayType {
     return type.isPotentiallyCompleteArrayType();
 }
 
@@ -499,11 +591,15 @@ export function isVoidType(type: Type): type is VoidType {
     return type.isVoidType();
 }
 
-export function isPotentiallyCompleteObjectType(type: Type): type is PotentiallyCompleteObjectType {
+export function isPotentiallyCompleteObjectType(
+    type: Type
+): type is PotentiallyCompleteObjectType {
     return type.isPotentiallyCompleteObjectType();
 }
 
-export function isIncompleteObjectType(type: Type): type is IncompleteObjectType {
+export function isIncompleteObjectType(
+    type: Type
+): type is IncompleteObjectType {
     return type.isIncompleteObjectType();
 }
 
@@ -519,14 +615,17 @@ export function isCompleteReturnType(type: Type): type is CompleteReturnType {
     return type.isCompleteReturnType();
 }
 
-export function isPotentialParameterType(type: Type): type is PotentialParameterType {
+export function isPotentialParameterType(
+    type: Type
+): type is PotentialParameterType {
     return type.isPotentialParameterType();
 }
 
-export function isCompleteParameterType(type: Type): type is CompleteParameterType {
+export function isCompleteParameterType(
+    type: Type
+): type is CompleteParameterType {
     return type.isCompleteParameterType();
 }
-
 
 // export function isType<T extends Type>(ctor: Constructor<T>) : this is InstanceType<typeof ctor> {
 //     return this instanceof ctor;
@@ -536,7 +635,6 @@ export function isCompleteParameterType(type: Type): type is CompleteParameterTy
 //  * Used when a compilation error causes an unknown type.
 //  */
 // export class Unknown extends Type {
-
 
 //     public sameType(other: Type) : boolean {
 //         return false;
@@ -566,44 +664,77 @@ export function isCompleteParameterType(type: Type): type is CompleteParameterTy
 
 // export let UNKNOWN_TYPE = new Unknown();
 
-export type Type = VoidType | CompleteObjectType | IncompleteClassType | FunctionType | ReferenceType | ArrayOfUnknownBoundType;
+export type Type =
+    | VoidType
+    | CompleteObjectType
+    | IncompleteClassType
+    | FunctionType
+    | ReferenceType
+    | ArrayOfUnknownBoundType;
 
 export type ExpressionType = Exclude<Type, ReferenceType>;
 
-export type PotentiallyCompleteObjectType = AtomicType | PotentiallyCompleteArrayType | PotentiallyCompleteClassType;
-export type IncompleteObjectType = ArrayOfUnknownBoundType | IncompleteClassType;
-export type CompleteObjectType = AtomicType | BoundedArrayType | CompleteClassType;
+export type PotentiallyCompleteObjectType =
+    | AtomicType
+    | PotentiallyCompleteArrayType
+    | PotentiallyCompleteClassType;
+export type IncompleteObjectType =
+    | ArrayOfUnknownBoundType
+    | IncompleteClassType;
+export type CompleteObjectType =
+    | AtomicType
+    | BoundedArrayType
+    | CompleteClassType;
 
-export type PotentialReturnType = AtomicType | PotentiallyCompleteClassType | ReferenceType | VoidType;
-export type CompleteReturnType = AtomicType | CompleteClassType | ReferenceType | VoidType;
+export type PotentialReturnType =
+    | AtomicType
+    | PotentiallyCompleteClassType
+    | ReferenceType
+    | VoidType;
+export type CompleteReturnType =
+    | AtomicType
+    | CompleteClassType
+    | ReferenceType
+    | VoidType;
 
 // A parameter type may not be an array, since they convert to pointer parameters.
-export type PotentialParameterType = AtomicType | PotentiallyCompleteClassType | ReferenceType;
-export type CompleteParameterType = AtomicType | CompleteClassType | ReferenceType;
-
+export type PotentialParameterType =
+    | AtomicType
+    | PotentiallyCompleteClassType
+    | ReferenceType;
+export type CompleteParameterType =
+    | AtomicType
+    | CompleteClassType
+    | ReferenceType;
 
 export class VoidType extends TypeBase {
-
     public readonly type_kind = "void";
 
     public static readonly VOID = new VoidType();
 
-
     public readonly precedence = 0;
 
-    public isComplete() { return true; }
+    public isComplete() {
+        return true;
+    }
 
     public sameType(other: Type): boolean {
-        return other instanceof VoidType
-            && other.isConst === this.isConst
-            && other.isVolatile === this.isVolatile;
+        return (
+            other instanceof VoidType &&
+            other.isConst === this.isConst &&
+            other.isVolatile === this.isVolatile
+        );
     }
 
     public similarType(other: Type): boolean {
         return other instanceof VoidType;
     }
 
-    public typeString(excludeBase: boolean, varname: string, decorated: boolean) {
+    public typeString(
+        excludeBase: boolean,
+        varname: string,
+        decorated: boolean
+    ) {
         // return "void";
         if (excludeBase) {
             return varname ? varname : "";
@@ -624,9 +755,7 @@ export class VoidType extends TypeBase {
     public _cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new VoidType(isConst, isVolatile);
     }
-
 }
-
 
 // export class MissingType extends TypeBase {
 
@@ -669,21 +798,23 @@ export interface ObjectTypeInterface {
     isCopyConstructible(requireConstSource: boolean): boolean;
     isCopyAssignable(requireConstSource: boolean): boolean;
     isDestructible(): boolean;
-    
+
     // public abstract isComplete(context?: TranslationUnitContext) : this is CompleteObjectType;
 }
 
 export type Completed<T extends PotentiallyCompleteObjectType> =
-    T extends CompleteObjectType ? T :
-    T extends ArrayOfUnknownBoundType<infer E> ? BoundedArrayType<E> :
-    T extends IncompleteClassType ? CompleteClassType :
-    never
+    T extends CompleteObjectType
+        ? T
+        : T extends ArrayOfUnknownBoundType<infer E>
+        ? BoundedArrayType<E>
+        : T extends IncompleteClassType
+        ? CompleteClassType
+        : never;
 
 /**
  * Represents a type for an object that has a value.
  */
 abstract class ValueType extends TypeBase implements ObjectTypeInterface {
-
     public abstract size: number;
     public abstract isDefaultConstructible(userDefinedOnly?: boolean): boolean;
     public abstract isCopyConstructible(requireConstSource: boolean): boolean;
@@ -745,10 +876,7 @@ abstract class ValueType extends TypeBase implements ObjectTypeInterface {
     public valueToOstreamString(value: RawValueType) {
         return this.valueToString(value);
     }
-
 }
-
-
 
 export abstract class AtomicType extends ValueType {
     public readonly type_kind = "AtomicType";
@@ -772,7 +900,6 @@ export abstract class AtomicType extends ValueType {
 }
 
 export abstract class SimpleType extends AtomicType {
-
     /**
      * Subclasses must implement a concrete type property that should be a
      * string indicating the kind of type e.g. "int", "double", "bool", etc.
@@ -782,24 +909,33 @@ export abstract class SimpleType extends AtomicType {
     public readonly precedence = 0;
 
     public sameType(other: Type): boolean {
-        return other instanceof SimpleType
-            && other.simpleType === this.simpleType
-            && other.isConst === this.isConst
-            && other.isVolatile === this.isVolatile;
+        return (
+            other instanceof SimpleType &&
+            other.simpleType === this.simpleType &&
+            other.isConst === this.isConst &&
+            other.isVolatile === this.isVolatile
+        );
     }
 
     public similarType(other: Type): boolean {
-        return other instanceof SimpleType
-            && other.simpleType === this.simpleType;
+        return (
+            other instanceof SimpleType && other.simpleType === this.simpleType
+        );
     }
 
-    public typeString(excludeBase: boolean, varname: string, decorated: boolean): string {
+    public typeString(
+        excludeBase: boolean,
+        varname: string,
+        decorated: boolean
+    ): string {
         if (excludeBase) {
             return varname ? varname : "";
-        }
-        else {
+        } else {
             let typeStr = this.getCVString() + this.simpleType;
-            return (decorated ? htmlDecoratedType(typeStr) : typeStr) + (varname ? " " + varname : "");
+            return (
+                (decorated ? htmlDecoratedType(typeStr) : typeStr) +
+                (varname ? " " + varname : "")
+            );
         }
     }
 
@@ -807,7 +943,9 @@ export abstract class SimpleType extends AtomicType {
         // no recursive calls to this.simpleType.englishString() here
         // because this.simpleType is just a string representing the type
         var word = this.getCVString() + this.simpleType;
-        return (plural ? word + "s" : (isVowel(word.charAt(0)) ? "an " : "a ") + word);
+        return plural
+            ? word + "s"
+            : (isVowel(word.charAt(0)) ? "an " : "a ") + word;
     }
 
     public valueToString(value: RawValueType) {
@@ -819,43 +957,41 @@ export abstract class SimpleType extends AtomicType {
     }
 }
 
-
-export type ParsingResult<T extends ArithmeticType> = SuccessParsingResult<T> | ErrorParsingResult;
+export type ParsingResult<T extends ArithmeticType> =
+    | SuccessParsingResult<T>
+    | ErrorParsingResult;
 
 export type SuccessParsingResult<T extends ArithmeticType> = {
     kind: "success";
     result: Value<T>;
-}
+};
 
 export type ErrorParsingResult = {
     kind: "error";
 };
 
-function createSuccessParsingResult<T extends ArithmeticType>(result: Value<T>) : SuccessParsingResult<T> {
+function createSuccessParsingResult<T extends ArithmeticType>(
+    result: Value<T>
+): SuccessParsingResult<T> {
     return {
         kind: "success",
-        result: result
+        result: result,
     };
 }
 
-function createErrorParsingResult() : ErrorParsingResult {
-    return {kind: "error"};
+function createErrorParsingResult(): ErrorParsingResult {
+    return { kind: "error" };
 }
 
 export abstract class ArithmeticType extends SimpleType {
-
-    public abstract parse(s: string) : ParsingResult<this>;
-
+    public abstract parse(s: string): ParsingResult<this>;
 }
 
 export type AnalyticArithmeticType = IntegralType | AnalyticFloatingPointType;
 
-abstract class IntegralTypeBase extends ArithmeticType {
-
-}
+abstract class IntegralTypeBase extends ArithmeticType {}
 
 export type IntegralType = Char | Int | Size_t | Bool;
-
 
 export class Char extends IntegralTypeBase {
     public static readonly CHAR = new Char();
@@ -874,7 +1010,7 @@ export class Char extends IntegralTypeBase {
             return c.charCodeAt(0);
         });
         chars.push(0); // null character
-        return chars.map(c => new Value(c, Char.CHAR));
+        return chars.map((c) => new Value(c, Char.CHAR));
     }
 
     public valueToString(value: RawValueType) {
@@ -889,11 +1025,12 @@ export class Char extends IntegralTypeBase {
         return new Char(isConst, isVolatile);
     }
 
-    public parse(s: string) : ParsingResult<this> {
+    public parse(s: string): ParsingResult<this> {
         if (s.length > 0) {
-            return createSuccessParsingResult(new Value(s.charCodeAt(0), this, true));
-        }
-        else {
+            return createSuccessParsingResult(
+                new Value(s.charCodeAt(0), this, true)
+            );
+        } else {
             return createErrorParsingResult();
         }
     }
@@ -910,16 +1047,15 @@ export class Int extends IntegralTypeBase {
         return new Int(isConst, isVolatile);
     }
 
-    public parse(s: string) : ParsingResult<this> {
+    public parse(s: string): ParsingResult<this> {
         let p = parseInt(s);
         if (!Number.isNaN(p)) {
             return createSuccessParsingResult(new Value(p, this, true));
-        }
-        else {
+        } else {
             return createErrorParsingResult();
         }
     }
-};
+}
 
 export class Size_t extends IntegralTypeBase {
     public readonly simpleType = "size_t";
@@ -929,12 +1065,11 @@ export class Size_t extends IntegralTypeBase {
         return new Size_t(isConst, isVolatile);
     }
 
-    public parse(s: string) : ParsingResult<this> {
+    public parse(s: string): ParsingResult<this> {
         let p = parseInt(s);
         if (!Number.isNaN(p)) {
             return createSuccessParsingResult(new Value(p, this, true));
-        }
-        else {
+        } else {
             return createErrorParsingResult();
         }
     }
@@ -950,12 +1085,13 @@ export class Bool extends IntegralTypeBase {
         return new Bool(isConst, isVolatile);
     }
 
-    public parse(s: string) : ParsingResult<this> {
+    public parse(s: string): ParsingResult<this> {
         let p = parseInt(s);
         if (!Number.isNaN(p)) {
-            return createSuccessParsingResult(new Value(p === 0 ? 0 : 1, this, true));
-        }
-        else {
+            return createSuccessParsingResult(
+                new Value(p === 0 ? 0 : 1, this, true)
+            );
+        } else {
             return createErrorParsingResult();
         }
     }
@@ -963,10 +1099,7 @@ export class Bool extends IntegralTypeBase {
 
 // TODO: add support for Enums
 
-
-
 export abstract class FloatingPointType extends ArithmeticType {
-
     public valueToString(value: RawValueType) {
         // use <number> assertion based on the assumption this will only be used with proper raw values that are numbers
         var str = "" + <number>value;
@@ -981,7 +1114,6 @@ export abstract class FloatingPointType extends ArithmeticType {
 export type AnalyticFloatingPointType = Float | Double;
 
 export class Float extends FloatingPointType {
-
     public static readonly FLOAT = new Float();
 
     public readonly simpleType = "float";
@@ -991,19 +1123,17 @@ export class Float extends FloatingPointType {
         return new Float(isConst, isVolatile);
     }
 
-    public parse(s: string) : ParsingResult<this> {
+    public parse(s: string): ParsingResult<this> {
         let p = parseFloat(s);
         if (!Number.isNaN(p)) {
             return createSuccessParsingResult(new Value(p, this, true));
-        }
-        else {
+        } else {
             return createErrorParsingResult();
         }
     }
 }
 
 export class Double extends FloatingPointType {
-
     public static readonly DOUBLE = new Double();
 
     public readonly simpleType = "double";
@@ -1012,13 +1142,12 @@ export class Double extends FloatingPointType {
     public _cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new Double(isConst, isVolatile);
     }
-    
-    public parse(s: string) : ParsingResult<this> {
+
+    public parse(s: string): ParsingResult<this> {
         let p = parseFloat(s);
         if (!Number.isNaN(p)) {
             return createSuccessParsingResult(new Value(p, this, true));
-        }
-        else {
+        } else {
             return createErrorParsingResult();
         }
     }
@@ -1042,17 +1171,15 @@ export class Double extends FloatingPointType {
 //     }
 // });
 
-
-
-
 //TODO: create separate function pointer type???
 
 export function toHexadecimalString(addr: number) {
-    return "0x"+addr.toString(16);
+    return "0x" + addr.toString(16);
 }
 
-export class PointerType<PtrTo extends PotentiallyCompleteObjectType = PotentiallyCompleteObjectType> extends AtomicType {
-
+export class PointerType<
+    PtrTo extends PotentiallyCompleteObjectType = PotentiallyCompleteObjectType
+> extends AtomicType {
     public readonly size = 8;
     public readonly precedence = 1;
 
@@ -1076,23 +1203,40 @@ export class PointerType<PtrTo extends PotentiallyCompleteObjectType = Potential
     }
 
     public sameType(other: Type): boolean {
-        return other instanceof PointerType
-            && this.ptrTo.sameType(other.ptrTo)
-            && other.isConst === this.isConst
-            && other.isVolatile === this.isVolatile;
+        return (
+            other instanceof PointerType &&
+            this.ptrTo.sameType(other.ptrTo) &&
+            other.isConst === this.isConst &&
+            other.isVolatile === this.isVolatile
+        );
     }
 
     public similarType(other: Type): boolean {
-        return other instanceof PointerType
-            && this.ptrTo.similarType(other.ptrTo);
+        return (
+            other instanceof PointerType && this.ptrTo.similarType(other.ptrTo)
+        );
     }
 
-    public typeString(excludeBase: boolean, varname: string, decorated: boolean) : string {
-        return this.ptrTo.typeString(excludeBase, parenthesize(this, this.ptrTo, this.getCVString() + "*" + varname), decorated);
+    public typeString(
+        excludeBase: boolean,
+        varname: string,
+        decorated: boolean
+    ): string {
+        return this.ptrTo.typeString(
+            excludeBase,
+            parenthesize(this, this.ptrTo, this.getCVString() + "*" + varname),
+            decorated
+        );
     }
 
     public englishString(plural: boolean) {
-        return (plural ? this.getCVString() + "pointers to" : "a " + this.getCVString() + "pointer to") + " " + this.ptrTo.englishString(false);
+        return (
+            (plural
+                ? this.getCVString() + "pointers to"
+                : "a " + this.getCVString() + "pointer to") +
+            " " +
+            this.ptrTo.englishString(false)
+        );
     }
 
     public valueToString(value: RawValueType) {
@@ -1128,11 +1272,16 @@ export class PointerType<PtrTo extends PotentiallyCompleteObjectType = Potential
 
 export type PointerToCompleteType = PointerType<CompleteObjectType>;
 
-export class ArrayPointerType<T extends ArrayElemType = ArrayElemType> extends PointerType<T> {
-
+export class ArrayPointerType<
+    T extends ArrayElemType = ArrayElemType
+> extends PointerType<T> {
     public readonly arrayObject: CPPObject<BoundedArrayType<T>>;
 
-    public constructor(arrayObject: CPPObject<BoundedArrayType<T>>, isConst?: boolean, isVolatile?: boolean) {
+    public constructor(
+        arrayObject: CPPObject<BoundedArrayType<T>>,
+        isConst?: boolean,
+        isVolatile?: boolean
+    ) {
         super(arrayObject.type.elemType, isConst, isVolatile);
         this.arrayObject = arrayObject;
     }
@@ -1150,7 +1299,10 @@ export class ArrayPointerType<T extends ArrayElemType = ArrayElemType> extends P
             return false;
         }
         var arrayObject = this.arrayObject;
-        return arrayObject.address <= value && value <= arrayObject.address + arrayObject.type.size;
+        return (
+            arrayObject.address <= value &&
+            value <= arrayObject.address + arrayObject.type.size
+        );
     }
 
     public isValueDereferenceable(value: RawValueType) {
@@ -1158,7 +1310,10 @@ export class ArrayPointerType<T extends ArrayElemType = ArrayElemType> extends P
     }
 
     public toIndex(addr: number) {
-        return Math.trunc((addr - this.arrayObject.address) / this.arrayObject.type.elemType.size);
+        return Math.trunc(
+            (addr - this.arrayObject.address) /
+                this.arrayObject.type.elemType.size
+        );
     }
 
     public _cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
@@ -1166,11 +1321,16 @@ export class ArrayPointerType<T extends ArrayElemType = ArrayElemType> extends P
     }
 }
 
-export class ObjectPointerType<T extends CompleteObjectType = CompleteObjectType> extends PointerType<T> {
-
+export class ObjectPointerType<
+    T extends CompleteObjectType = CompleteObjectType
+> extends PointerType<T> {
     public readonly pointedObject: CPPObject<T>;
 
-    public constructor(obj: CPPObject<T>, isConst?: boolean, isVolatile?: boolean) {
+    public constructor(
+        obj: CPPObject<T>,
+        isConst?: boolean,
+        isVolatile?: boolean
+    ) {
         super(obj.type, isConst, isVolatile);
         this.pointedObject = obj;
     }
@@ -1180,7 +1340,9 @@ export class ObjectPointerType<T extends CompleteObjectType = CompleteObjectType
     }
 
     public isValueValid(value: RawValueType) {
-        return this.pointedObject.isAlive && this.pointedObject.address === value;
+        return (
+            this.pointedObject.isAlive && this.pointedObject.address === value
+        );
     }
 
     public _cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
@@ -1188,9 +1350,9 @@ export class ObjectPointerType<T extends CompleteObjectType = CompleteObjectType
     }
 }
 
-
-export class ReferenceType<RefTo extends PotentiallyCompleteObjectType = PotentiallyCompleteObjectType> extends TypeBase {
-
+export class ReferenceType<
+    RefTo extends PotentiallyCompleteObjectType = PotentiallyCompleteObjectType
+> extends TypeBase {
     public readonly precedence = 1;
 
     public readonly refTo: RefTo;
@@ -1201,27 +1363,47 @@ export class ReferenceType<RefTo extends PotentiallyCompleteObjectType = Potenti
         this.refTo = refTo;
     }
 
-    public isComplete() { return true; }
+    public isComplete() {
+        return true;
+    }
 
     public getCompoundNext() {
         return this.refTo;
     }
 
     public sameType(other: Type): boolean {
-        return other instanceof ReferenceType && this.refTo.sameType(other.refTo);
+        return (
+            other instanceof ReferenceType && this.refTo.sameType(other.refTo)
+        );
     }
 
     //Note: I don't think similar types even make sense with references. See standard 4.4
     public similarType(other: Type): boolean {
-        return other instanceof ReferenceType && this.refTo.similarType(other.refTo);
+        return (
+            other instanceof ReferenceType &&
+            this.refTo.similarType(other.refTo)
+        );
     }
 
-    public typeString(excludeBase: boolean, varname: string, decorated: boolean) : string {
-        return this.refTo.typeString(excludeBase, parenthesize(this, this.refTo, this.getCVString() + "&" + varname), decorated);
+    public typeString(
+        excludeBase: boolean,
+        varname: string,
+        decorated: boolean
+    ): string {
+        return this.refTo.typeString(
+            excludeBase,
+            parenthesize(this, this.refTo, this.getCVString() + "&" + varname),
+            decorated
+        );
     }
 
     public englishString(plural: boolean) {
-        return this.getCVString() + (plural ? "references to" : "a reference to") + " " + this.refTo.englishString(false);
+        return (
+            this.getCVString() +
+            (plural ? "references to" : "a reference to") +
+            " " +
+            this.refTo.englishString(false)
+        );
     }
 
     public valueToString(value: RawValueType) {
@@ -1231,38 +1413,44 @@ export class ReferenceType<RefTo extends PotentiallyCompleteObjectType = Potenti
     public _cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
         return new ReferenceType(this.refTo); // does nothing, reference can't be cv qualified
     }
-
 }
 
 export type ReferenceToCompleteType = ReferenceType<CompleteObjectType>;
 
 export type ReferredType<T extends ReferenceType> = T["refTo"];
 
-export type PeelReference<T extends Type> = T extends ReferenceType ? T["refTo"] : T;
+export type PeelReference<T extends Type> = T extends ReferenceType
+    ? T["refTo"]
+    : T;
 
-export type ExcludeRefType<T extends Type> = T extends ReferenceType ? never : T;
+export type ExcludeRefType<T extends Type> = T extends ReferenceType
+    ? never
+    : T;
 
 export function peelReference<T extends Type>(type: T): PeelReference<T>;
-export function peelReference<T extends Type>(type: T | undefined): PeelReference<T> | undefined;
+export function peelReference<T extends Type>(
+    type: T | undefined
+): PeelReference<T> | undefined;
 export function peelReference<T extends Type>(type: T): PeelReference<T> {
     if (!type) {
         return type;
     }
     if (type instanceof ReferenceType) {
         return <PeelReference<T>>type.refTo;
-    }
-    else {
+    } else {
         return <PeelReference<T>>type; // will either be an object type or void type
     }
-};
+}
 
 export type ArrayElemType = AtomicType | CompleteClassType;
 
 // Represents the type of an array. This is not an ObjectType because an array does
 // not have a value that can be read/written. The Elem_type type parameter must be
 // an AtomicType or ClassType. (Note that this rules out arrays of arrays, which are currently not supported.)
-export class BoundedArrayType<Elem_type extends ArrayElemType = ArrayElemType> extends TypeBase implements ObjectTypeInterface {
-
+export class BoundedArrayType<Elem_type extends ArrayElemType = ArrayElemType>
+    extends TypeBase
+    implements ObjectTypeInterface
+{
     public readonly size: number;
 
     public readonly precedence = 2;
@@ -1271,7 +1459,6 @@ export class BoundedArrayType<Elem_type extends ArrayElemType = ArrayElemType> e
     public readonly numElems: number;
 
     public constructor(elemType: Elem_type, length: number) {
-
         // TODO: sanity check the semantics here, but I don't think it makes sense for an array itself to be volatile
         super(false, false);
 
@@ -1280,9 +1467,9 @@ export class BoundedArrayType<Elem_type extends ArrayElemType = ArrayElemType> e
         this.size = elemType.size * length;
     }
 
-
-    public isComplete(context?: TranslationUnitContext) : this is BoundedArrayType<Elem_type> {
-
+    public isComplete(
+        context?: TranslationUnitContext
+    ): this is BoundedArrayType<Elem_type> {
         return true; // Hardcoded true for now since arrays of incomplete element type are not supported in Lobster
 
         // Completeness may change if elemType completeness changes
@@ -1295,19 +1482,40 @@ export class BoundedArrayType<Elem_type extends ArrayElemType = ArrayElemType> e
     }
 
     public sameType(other: Type): boolean {
-        return other instanceof BoundedArrayType && this.elemType.sameType(other.elemType) && this.numElems === other.numElems;
+        return (
+            other instanceof BoundedArrayType &&
+            this.elemType.sameType(other.elemType) &&
+            this.numElems === other.numElems
+        );
     }
 
     public similarType(other: Type): boolean {
-        return other instanceof BoundedArrayType && this.elemType.similarType(other.elemType) && this.numElems === other.numElems;
+        return (
+            other instanceof BoundedArrayType &&
+            this.elemType.similarType(other.elemType) &&
+            this.numElems === other.numElems
+        );
     }
 
-    public typeString(excludeBase: boolean, varname: string, decorated: boolean) {
-        return this.elemType.typeString(excludeBase, varname + "[" + this.numElems + "]", decorated);
+    public typeString(
+        excludeBase: boolean,
+        varname: string,
+        decorated: boolean
+    ) {
+        return this.elemType.typeString(
+            excludeBase,
+            varname + "[" + this.numElems + "]",
+            decorated
+        );
     }
 
     public englishString(plural: boolean) {
-        return (plural ? "arrays of " : "an array of ") + this.numElems + " " + this.elemType.englishString(this.numElems > 1);
+        return (
+            (plural ? "arrays of " : "an array of ") +
+            this.numElems +
+            " " +
+            this.elemType.englishString(this.numElems > 1)
+        );
     }
 
     public _cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
@@ -1337,40 +1545,43 @@ export class BoundedArrayType<Elem_type extends ArrayElemType = ArrayElemType> e
     //     //     (elem: RawValueType) => { return this.elemType.valueToBytes(elem); }
     //     // ));
     // }
-    
+
     public isDefaultConstructible(userDefinedOnly = false) {
         return this.elemType.isDefaultConstructible(userDefinedOnly);
     }
-    
+
     public isCopyConstructible(requireConstSource: boolean) {
         return this.elemType.isCopyConstructible(requireConstSource);
     }
-    
+
     public isCopyAssignable(requireConstSource: boolean) {
         return this.elemType.isCopyAssignable(requireConstSource);
     }
-    
+
     public isDestructible() {
         return this.elemType.isDestructible();
     }
 }
 
-
-export class ArrayOfUnknownBoundType<Elem_type extends ArrayElemType = ArrayElemType> extends TypeBase {
-
+export class ArrayOfUnknownBoundType<
+    Elem_type extends ArrayElemType = ArrayElemType
+> extends TypeBase {
     public readonly precedence = 2;
 
     public readonly elemType: Elem_type;
 
     public readonly sizeExpressionAST?: ExpressionASTNode;
 
-    public constructor(elemType: Elem_type, sizeExpressionAST?: ExpressionASTNode) {
+    public constructor(
+        elemType: Elem_type,
+        sizeExpressionAST?: ExpressionASTNode
+    ) {
         super(false, false);
         this.elemType = elemType;
         this.sizeExpressionAST = sizeExpressionAST;
     }
 
-    public isComplete() : this is BoundedArrayType<Elem_type> {
+    public isComplete(): this is BoundedArrayType<Elem_type> {
         return false;
     }
 
@@ -1379,33 +1590,51 @@ export class ArrayOfUnknownBoundType<Elem_type extends ArrayElemType = ArrayElem
     }
 
     public sameType(other: Type): boolean {
-        return other instanceof ArrayOfUnknownBoundType && this.elemType.sameType(other.elemType);
+        return (
+            other instanceof ArrayOfUnknownBoundType &&
+            this.elemType.sameType(other.elemType)
+        );
     }
 
     public similarType(other: Type): boolean {
-        return other instanceof ArrayOfUnknownBoundType && this.elemType.similarType(other.elemType);
+        return (
+            other instanceof ArrayOfUnknownBoundType &&
+            this.elemType.similarType(other.elemType)
+        );
     }
 
-    public typeString(excludeBase: boolean, varname: string, decorated: boolean) {
+    public typeString(
+        excludeBase: boolean,
+        varname: string,
+        decorated: boolean
+    ) {
         return this.elemType.typeString(excludeBase, varname + "[]", decorated);
     }
 
     public englishString(plural: boolean) {
-        return (plural ? "arrays of unknown bound of " : "an array of unknown bound of ") + this.elemType.englishString(true);
+        return (
+            (plural
+                ? "arrays of unknown bound of "
+                : "an array of unknown bound of ") +
+            this.elemType.englishString(true)
+        );
     }
 
     public _cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
-        return new ArrayOfUnknownBoundType(this.elemType, this.sizeExpressionAST);
+        return new ArrayOfUnknownBoundType(
+            this.elemType,
+            this.sizeExpressionAST
+        );
     }
 
     public adjustToPointerType() {
         return new PointerType(this.elemType, false, false);
     }
-    
 }
 
-export type PotentiallyCompleteArrayType<E extends ArrayElemType = ArrayElemType>
-    = BoundedArrayType<E> | ArrayOfUnknownBoundType<E>;
+export type PotentiallyCompleteArrayType<
+    E extends ArrayElemType = ArrayElemType
+> = BoundedArrayType<E> | ArrayOfUnknownBoundType<E>;
 
 // TODO: Add a type for an incomplete class
 
@@ -1423,9 +1652,10 @@ interface ClassShared {
     classDefinition?: ClassDefinition;
 }
 
-
-class ClassTypeBase extends TypeBase implements Omit<ObjectTypeInterface, "size"> {
-
+class ClassTypeBase
+    extends TypeBase
+    implements Omit<ObjectTypeInterface, "size">
+{
     public readonly precedence: number = 0;
     public readonly className: string;
     public readonly qualifiedName: QualifiedName;
@@ -1434,18 +1664,25 @@ class ClassTypeBase extends TypeBase implements Omit<ObjectTypeInterface, "size"
     private readonly shared: ClassShared;
 
     public readonly templateParameters: readonly AtomicType[] = [];
-    
+
     /** DO NOT USE. Exists only to ensure CompleteClassType is not structurally assignable to CompleteClassType */
     public readonly t_isComplete!: boolean;
 
-    public constructor(classId: number, className: string, qualifiedName: QualifiedName, shared: ClassShared, isConst: boolean = false, isVolatile: boolean = false) {
+    public constructor(
+        classId: number,
+        className: string,
+        qualifiedName: QualifiedName,
+        shared: ClassShared,
+        isConst: boolean = false,
+        isVolatile: boolean = false
+    ) {
         super(isConst, isVolatile);
         this.classId = classId;
         this.className = className;
         this.qualifiedName = qualifiedName;
         this.shared = shared;
     }
-    
+
     public get classDefinition() {
         return this.shared.classDefinition;
     }
@@ -1456,8 +1693,7 @@ class ClassTypeBase extends TypeBase implements Omit<ObjectTypeInterface, "size"
         // so we just say the min size of class type objects is 4 bytes
         if (this.shared.classDefinition) {
             return Math.max(this.shared.classDefinition.objectSize, 4);
-        }
-        else {
+        } else {
             return undefined;
         }
     }
@@ -1470,7 +1706,9 @@ class ClassTypeBase extends TypeBase implements Omit<ObjectTypeInterface, "size"
         this.shared.classDefinition = def;
     }
 
-    public isComplete(context?: TranslationUnitContext) : this is CompleteClassType {
+    public isComplete(
+        context?: TranslationUnitContext
+    ): this is CompleteClassType {
         // TODO: also consider whether the context is one in which the class
         // is temporarily considered complete, e.g. a member function definition
         // ^ Actually, depending on how lobster sequences the compilation, this
@@ -1479,20 +1717,21 @@ class ClassTypeBase extends TypeBase implements Omit<ObjectTypeInterface, "size"
         return !!this.shared.classDefinition;
     }
 
-    public sameType(other: Type) : boolean {
-        return this.similarType(other)
-            && other.isConst === this.isConst
-            && other.isVolatile === this.isVolatile;
+    public sameType(other: Type): boolean {
+        return (
+            this.similarType(other) &&
+            other.isConst === this.isConst &&
+            other.isVolatile === this.isVolatile
+        );
     }
 
-    public similarType(other: Type) : boolean {
-        return other instanceof ClassTypeBase
-            && sameClassType(this, other);
+    public similarType(other: Type): boolean {
+        return other instanceof ClassTypeBase && sameClassType(this, other);
     }
 
-    public isDerivedFrom(other: Type) : boolean {
+    public isDerivedFrom(other: Type): boolean {
         var b = this.classDefinition?.baseType;
-        while(b) {
+        while (b) {
             if (similarType(other, b)) {
                 return true;
             }
@@ -1501,57 +1740,102 @@ class ClassTypeBase extends TypeBase implements Omit<ObjectTypeInterface, "size"
         return false;
     }
 
-    public typeString(excludeBase: boolean, varname: string, decorated?: boolean) {
+    public typeString(
+        excludeBase: boolean,
+        varname: string,
+        decorated?: boolean
+    ) {
         if (excludeBase) {
             return varname ? varname : "";
-        }
-        else{
-            return this.getCVString() + (decorated ? htmlDecoratedType(this.className) : this.className) + (varname ? " " + varname : "");
+        } else {
+            return (
+                this.getCVString() +
+                (decorated
+                    ? htmlDecoratedType(this.className)
+                    : this.className) +
+                (varname ? " " + varname : "")
+            );
         }
     }
 
     public englishString(plural: boolean) {
-        return this.getCVString() + (plural ? this.className+"s" : (isVowel(this.className.charAt(0)) ? "an " : "a ") + this.className);
+        return (
+            this.getCVString() +
+            (plural
+                ? this.className + "s"
+                : (isVowel(this.className.charAt(0)) ? "an " : "a ") +
+                  this.className)
+        );
     }
-    
-//     englishString : function(plural){
 
-//     },
-//     valueToString : function(value){
-//         return JSON.stringify(value, null, 2);
-//     },
+    //     englishString : function(plural){
+
+    //     },
+    //     valueToString : function(value){
+    //         return JSON.stringify(value, null, 2);
+    //     },
 
     public _cvQualifiedImpl(isConst: boolean, isVolatile: boolean) {
-        return new ClassTypeBase(this.classId, this.className, this.qualifiedName, this.shared, isConst, isVolatile);
+        return new ClassTypeBase(
+            this.classId,
+            this.className,
+            this.qualifiedName,
+            this.shared,
+            isConst,
+            isVolatile
+        );
     }
-    
-    public isDefaultConstructible(this: CompleteClassType, userDefinedOnly = false) {
+
+    public isDefaultConstructible(
+        this: CompleteClassType,
+        userDefinedOnly = false
+    ) {
         let defaultCtor = this.classDefinition.defaultConstructor;
         return !!defaultCtor && (!userDefinedOnly || defaultCtor.isUserDefined);
     }
-    
-    public isCopyConstructible(this: CompleteClassType, requireConstSource: boolean) {
-        return !!this.classDefinition.constCopyConstructor
-                || !requireConstSource && !!this.classDefinition.nonConstCopyConstructor;
+
+    public isCopyConstructible(
+        this: CompleteClassType,
+        requireConstSource: boolean
+    ) {
+        return (
+            !!this.classDefinition.constCopyConstructor ||
+            (!requireConstSource &&
+                !!this.classDefinition.nonConstCopyConstructor)
+        );
     }
-    
-    public isCopyAssignable(this: CompleteClassType, requireConstSource: boolean) {
-        return !!this.classDefinition.lookupAssignmentOperator(requireConstSource, this.isConst);
+
+    public isCopyAssignable(
+        this: CompleteClassType,
+        requireConstSource: boolean
+    ) {
+        return !!this.classDefinition.lookupAssignmentOperator(
+            requireConstSource,
+            this.isConst
+        );
     }
-    
+
     public isDestructible(this: CompleteClassType) {
         return !!this.classDefinition.destructor;
     }
 
     public isAggregate(this: CompleteClassType) {
-
         // Aggregates may not have private member variables
-        if (this.classDefinition.memberVariableEntities.some(memEnt => memEnt.firstDeclaration.context.accessLevel === "private")) {
+        if (
+            this.classDefinition.memberVariableEntities.some(
+                (memEnt) =>
+                    memEnt.firstDeclaration.context.accessLevel === "private"
+            )
+        ) {
             return false;
         }
 
         // Aggregates may not have user-provided constructors
-        if (this.classDefinition.constructorDeclarations.some(ctorDecl => !ctorDecl.context.implicit)) {
+        if (
+            this.classDefinition.constructorDeclarations.some(
+                (ctorDecl) => !ctorDecl.context.implicit
+            )
+        ) {
             return false;
         }
 
@@ -1566,14 +1850,18 @@ class ClassTypeBase extends TypeBase implements Omit<ObjectTypeInterface, "size"
 
 /** Two class types are the same if they originated from the same ClassEntity (e.g.
  *  the same class declaration from the same .h include file, or
- *  two class declarations with the same name in the same scope) or if they have 
+ *  two class declarations with the same name in the same scope) or if they have
  *  been associated with the same definition during linking.
  */
 function sameClassType(thisClass: ClassTypeBase, otherClass: ClassTypeBase) {
     // Note the any casts are to grant "friend" access to private members of ClassTypeBase
-    return (thisClass as any).classId === (otherClass as any).classId
-        || qualifiedNamesEq(thisClass.qualifiedName, otherClass.qualifiedName)
-        || (!!(thisClass as any).shared.classDefinition && (thisClass as any).shared.classDefinition === (otherClass as any).shared.classDefinition);
+    return (
+        (thisClass as any).classId === (otherClass as any).classId ||
+        qualifiedNamesEq(thisClass.qualifiedName, otherClass.qualifiedName) ||
+        (!!(thisClass as any).shared.classDefinition &&
+            (thisClass as any).shared.classDefinition ===
+                (otherClass as any).shared.classDefinition)
+    );
 }
 
 export interface IncompleteClassType extends ClassTypeBase {
@@ -1582,10 +1870,9 @@ export interface IncompleteClassType extends ClassTypeBase {
 }
 
 export interface CompleteClassType extends ClassTypeBase, ObjectTypeInterface {
-    
     /** DO NOT USE. Exists only to ensure CompleteClassType is not structurally assignable to CompleteClassType */
     readonly t_isComplete: true;
-    
+
     readonly classDefinition: ClassDefinition;
     readonly size: number;
     readonly classScope: ClassScope;
@@ -1596,12 +1883,19 @@ export interface CompleteClassType extends ClassTypeBase, ObjectTypeInterface {
     isDestructible(): boolean;
 }
 
-export type PotentiallyCompleteClassType = IncompleteClassType | CompleteClassType;
+export type PotentiallyCompleteClassType =
+    | IncompleteClassType
+    | CompleteClassType;
 
 let nextClassId = 0;
 
-export function createClassType(className: string, qualifiedName: QualifiedName) : IncompleteClassType {
-    return <IncompleteClassType>new ClassTypeBase(nextClassId++, className, qualifiedName, {});
+export function createClassType(
+    className: string,
+    qualifiedName: QualifiedName
+): IncompleteClassType {
+    return <IncompleteClassType>(
+        new ClassTypeBase(nextClassId++, className, qualifiedName, {})
+    );
 }
 
 // export class ClassType extends ObjectTypeBase {
@@ -1812,17 +2106,14 @@ export function createClassType(className: string, qualifiedName: QualifiedName)
 //         return false;
 //     }
 
-
-
 // }
 // export {ClassType as Class};
 
-
-
 // REQUIRES: returnType must be a type
 //           argTypes must be an array of types
-export class FunctionType<ReturnType extends PotentialReturnType = PotentialReturnType> extends TypeBase {
-
+export class FunctionType<
+    ReturnType extends PotentialReturnType = PotentialReturnType
+> extends TypeBase {
     public readonly type_kind = "function";
 
     public readonly precedence = 2;
@@ -1834,7 +2125,11 @@ export class FunctionType<ReturnType extends PotentialReturnType = PotentialRetu
     public readonly paramStrType: string;
     public readonly paramStrEnglish: string;
 
-    public constructor(returnType: ReturnType, paramTypes: readonly PotentialParameterType[], receiverType?: PotentiallyCompleteClassType) {
+    public constructor(
+        returnType: ReturnType,
+        paramTypes: readonly PotentialParameterType[],
+        receiverType?: PotentiallyCompleteClassType
+    ) {
         super(false, false);
 
         this.receiverType = receiverType;
@@ -1844,15 +2139,24 @@ export class FunctionType<ReturnType extends PotentialReturnType = PotentialRetu
         // TODO: why are PointerType and ReferenceType included here?
         // shouldn't const be ignored on returns of const pointers due to value semantics (but not pointers-to-const)
         // and for references you can't have a const reference anyway so it's not meaningful
-        if (!(returnType.isPotentiallyCompleteClassType() || returnType.isPointerType() || returnType.isReferenceType())) {
+        if (
+            !(
+                returnType.isPotentiallyCompleteClassType() ||
+                returnType.isPointerType() ||
+                returnType.isReferenceType()
+            )
+        ) {
             this.returnType = <ReturnType>returnType.cvUnqualified();
-        }
-        else {
+        } else {
             this.returnType = returnType;
         }
 
         // Top-level const on parameter types is ignored for non-class types
-        this.paramTypes = paramTypes.map((ptype) => ptype.isPotentiallyCompleteClassType() ? ptype : ptype.cvUnqualified());
+        this.paramTypes = paramTypes.map((ptype) =>
+            ptype.isPotentiallyCompleteClassType()
+                ? ptype
+                : ptype.cvUnqualified()
+        );
 
         this.paramStrType = "(";
         for (var i = 0; i < paramTypes.length; ++i) {
@@ -1862,15 +2166,25 @@ export class FunctionType<ReturnType extends PotentialReturnType = PotentialRetu
 
         this.paramStrEnglish = "(";
         for (var i = 0; i < paramTypes.length; ++i) {
-            this.paramStrEnglish += (i == 0 ? "" : ", ") + paramTypes[i].englishString(false);
+            this.paramStrEnglish +=
+                (i == 0 ? "" : ", ") + paramTypes[i].englishString(false);
         }
         this.paramStrEnglish += ")";
     }
 
-    public isComplete() { return true; }
+    public isComplete() {
+        return true;
+    }
 
-    public _cvQualifiedImpl(isConst: boolean, isVolatile: boolean) : FunctionType {
-        return new FunctionType(this.returnType, this.paramTypes, this.receiverType);
+    public _cvQualifiedImpl(
+        isConst: boolean,
+        isVolatile: boolean
+    ): FunctionType {
+        return new FunctionType(
+            this.returnType,
+            this.paramTypes,
+            this.receiverType
+        );
     }
 
     public sameType(other: Type) {
@@ -1899,7 +2213,8 @@ export class FunctionType<ReturnType extends PotentialReturnType = PotentialRetu
     }
 
     public sameParamTypes(other: FunctionType | readonly Type[]) {
-        let otherParamTypes = other instanceof FunctionType ? other.paramTypes : other;
+        let otherParamTypes =
+            other instanceof FunctionType ? other.paramTypes : other;
         if (this.paramTypes.length !== otherParamTypes.length) {
             return false;
         }
@@ -1929,32 +2244,56 @@ export class FunctionType<ReturnType extends PotentialReturnType = PotentialRetu
     }
 
     public isPotentialOverriderOf(other: FunctionType) {
-        return this.sameParamTypes(other)
-            && this.receiverType?.isConst === other.receiverType?.isConst
-            && this.receiverType?.isVolatile == other.receiverType?.isVolatile;
+        return (
+            this.sameParamTypes(other) &&
+            this.receiverType?.isConst === other.receiverType?.isConst &&
+            this.receiverType?.isVolatile == other.receiverType?.isVolatile
+        );
     }
 
-    public typeString(excludeBase: boolean, varname: string, decorated: boolean = false) {
-        return this.returnType.typeString(excludeBase, varname + this.paramStrType, decorated);
+    public typeString(
+        excludeBase: boolean,
+        varname: string,
+        decorated: boolean = false
+    ) {
+        return this.returnType.typeString(
+            excludeBase,
+            varname + this.paramStrType,
+            decorated
+        );
     }
 
     public englishString(plural: boolean) {
-        return (plural ? "functions that take " : "a function that takes ") + this.paramStrEnglish + " " +
-            (plural ? "and return " : "and returns ") + this.returnType.englishString(false);
+        return (
+            (plural ? "functions that take " : "a function that takes ") +
+            this.paramStrEnglish +
+            " " +
+            (plural ? "and return " : "and returns ") +
+            this.returnType.englishString(false)
+        );
     }
-
 }
 
-const builtInTypeNames = new Set(["char", "int", "size_t", "bool", "float", "double", "void"]);
-export function isBuiltInTypeName(name: string): name is "char" | "int" | "size_t" | "bool" | "float" | "double" | "void" {
+const builtInTypeNames = new Set([
+    "char",
+    "int",
+    "size_t",
+    "bool",
+    "float",
+    "double",
+    "void",
+]);
+export function isBuiltInTypeName(
+    name: string
+): name is "char" | "int" | "size_t" | "bool" | "float" | "double" | "void" {
     return builtInTypeNames.has(name);
 }
 export const builtInTypes = {
-    "char": Char,
-    "int": Int,
-    "size_t": Int,
-    "bool": Bool,
-    "float": Float,
-    "double": Double,
-    "void": VoidType
+    char: Char,
+    int: Int,
+    size_t: Int,
+    bool: Bool,
+    float: Float,
+    double: Double,
+    void: VoidType,
 };

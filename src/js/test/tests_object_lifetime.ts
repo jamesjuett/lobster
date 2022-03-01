@@ -1,9 +1,15 @@
-import { SingleTranslationUnitTest, NoErrorsNoWarningsVerifier, NoBadRuntimeEventsVerifier, EndOfMainStateVerifier, OutputVerifier } from "./verifiers";
+import {
+    SingleTranslationUnitTest,
+    NoErrorsNoWarningsVerifier,
+    NoBadRuntimeEventsVerifier,
+    EndOfMainStateVerifier,
+    OutputVerifier,
+} from "./verifiers";
 
 export function createObjectLifetimeTests() {
-  new SingleTranslationUnitTest(
-    "Local array ctors/dtors",
-    `#include <iostream>
+    new SingleTranslationUnitTest(
+        "Local array ctors/dtors",
+        `#include <iostream>
 using namespace std;
 
 int ID = 0;
@@ -26,10 +32,10 @@ private:
 int main() {
   Mole arr[4];
 }`,
-    [
-      new NoErrorsNoWarningsVerifier(),
-      new NoBadRuntimeEventsVerifier(true),
-      new OutputVerifier(`Mole ctor: 0
+        [
+            new NoErrorsNoWarningsVerifier(),
+            new NoBadRuntimeEventsVerifier(true),
+            new OutputVerifier(`Mole ctor: 0
 Mole ctor: 1
 Mole ctor: 2
 Mole ctor: 3
@@ -37,13 +43,13 @@ Mole dtor: 3
 Mole dtor: 2
 Mole dtor: 1
 Mole dtor: 0
-`)
-    ]
-  );
+`),
+        ]
+    );
 
-  new SingleTranslationUnitTest(
-    "Static and Automatic Lifetimes",
-    `#include <iostream>
+    new SingleTranslationUnitTest(
+        "Static and Automatic Lifetimes",
+        `#include <iostream>
 #include <string>
 using namespace std;
 
@@ -83,10 +89,10 @@ int main() {
     ptrToB1->talk();
   }
 }`,
-    [
-      new NoErrorsNoWarningsVerifier(),
-      new NoBadRuntimeEventsVerifier(true),
-      new OutputVerifier(`Bird ctor: 0
+        [
+            new NoErrorsNoWarningsVerifier(),
+            new NoBadRuntimeEventsVerifier(true),
+            new OutputVerifier(`Bird ctor: 0
 Bird ctor: 1
 Bird ctor: 2
 tweet
@@ -101,13 +107,13 @@ tweet
 tweet
 Bird dtor: 1
 Bird dtor: 0
-`)
-    ]
-  );
+`),
+        ]
+    );
 
-  new SingleTranslationUnitTest(
-    "Classes, Bases, and Members (simple)",
-    `#include <string>
+    new SingleTranslationUnitTest(
+        "Classes, Bases, and Members (simple)",
+        `#include <string>
 #include <iostream>
 using namespace std;
 
@@ -152,10 +158,10 @@ public:
 int main() {
   Test test(1);
 }`,
-    [
-      new NoErrorsNoWarningsVerifier(),
-      new NoBadRuntimeEventsVerifier(true),
-      new OutputVerifier(`Base ctor 1
+        [
+            new NoErrorsNoWarningsVerifier(),
+            new NoBadRuntimeEventsVerifier(true),
+            new OutputVerifier(`Base ctor 1
 Mem1 ctor 1
 MemBase ctor 1
 Mem2 ctor 1
@@ -165,13 +171,13 @@ Mem2 dtor 1
 MemBase dtor 1
 Mem1 dtor 1
 Base dtor 1
-`)
-    ]
-  );
+`),
+        ]
+    );
 
-  new SingleTranslationUnitTest(
-    "Classes, Bases, and Members (full)",
-    `#include <string>
+    new SingleTranslationUnitTest(
+        "Classes, Bases, and Members (full)",
+        `#include <string>
 #include <iostream>
 using namespace std;
 
@@ -228,10 +234,10 @@ int main() {
   delete p;
   Test arr[3];
 }`,
-    [
-      new NoErrorsNoWarningsVerifier(),
-      new NoBadRuntimeEventsVerifier(true),
-      new OutputVerifier(`Base ctor 1
+        [
+            new NoErrorsNoWarningsVerifier(),
+            new NoBadRuntimeEventsVerifier(true),
+            new OutputVerifier(`Base ctor 1
 Mem1 ctor 1
 MemBase ctor 1
 Mem2 ctor 1
@@ -312,8 +318,7 @@ Mem2 dtor 1
 MemBase dtor 1
 Mem1 dtor 1
 Base dtor 1
-`)
-    ]
-  );
-
+`),
+        ]
+    );
 }

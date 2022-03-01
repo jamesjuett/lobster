@@ -12,18 +12,18 @@ export type ExerciseData = {
     starter_project_id: number;
     exercise_key: string;
     extra_keys: string[];
-}
+};
 
 export async function getFullExercise(exercise_id: number) {
     const response = await axios({
         url: `api/exercises/${exercise_id}`,
         method: "GET",
         headers: {
-            'Authorization': 'bearer ' + USERS.getBearerToken()
-        }
+            Authorization: "bearer " + USERS.getBearerToken(),
+        },
     });
 
-    return await response.data as ExerciseData;
+    return (await response.data) as ExerciseData;
 }
 
 export async function saveExercise(exercise: ExerciseData) {
@@ -32,10 +32,9 @@ export async function saveExercise(exercise: ExerciseData) {
         method: "PATCH",
         data: exercise,
         headers: {
-            'Authorization': 'bearer ' + USERS.getBearerToken()
-        }
+            Authorization: "bearer " + USERS.getBearerToken(),
+        },
     });
-
 }
 
 // export class ExerciseOutlet {
@@ -57,12 +56,12 @@ export async function saveExercise(exercise: ExerciseData) {
 //             .on("click", () => {
 //                 $("#lobster-edit-exercise-modal").modal("show");
 //             });
-    
+
 //         this.setUpModals();
 //     }
 
 //     private setUpModals() {
-        
+
 //         // Edit Exercise Modal
 //         $("#lobster-edit-project-form").on("submit", (e) => {
 //             e.preventDefault();
@@ -76,5 +75,4 @@ export async function saveExercise(exercise: ExerciseData) {
 //         });
 //     }
 
-    
 // }
