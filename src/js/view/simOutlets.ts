@@ -5,7 +5,7 @@ import { CPPObject, ArraySubobject, BaseSubobject, DynamicObject } from "../core
 import { AtomicType, CompleteObjectType, Char, PointerType, BoundedArrayType, ArrayElemType, Int, CompleteClassType, isCompleteClassType, isPointerType, isBoundedArrayType, ArrayPointerType, ArithmeticType, toHexadecimalString, PointerToCompleteType, isArrayPointerType, isArrayPointerToType } from "../core/types";
 import { Mutable, assert, isInstance, asMutable } from "../util/util";
 import { Simulation, SimulationOutputKind, SimulationEvent } from "../core/Simulation";
-import { RuntimeConstruct } from "../core/CPPConstruct";
+import { RuntimeConstruct } from "../core/constructs";
 import { ProjectEditor, CompilationOutlet, CompilationStatusOutlet } from "./editors";
 import { AsynchronousSimulationRunner, SynchronousSimulationRunner, asyncCloneSimulation, synchronousCloneSimulation } from "../core/simulationRunners";
 import { BoundReferenceEntity, UnboundReferenceEntity, NamedEntity, PassByReferenceParameterEntity, PassByValueParameterEntity, MemberReferenceEntity } from "../core/entities";

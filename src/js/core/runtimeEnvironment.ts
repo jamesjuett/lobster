@@ -4,7 +4,7 @@ import { CPPObject, AutoObject, StringLiteralObject, StaticObject, TemporaryObje
 import { Bool, Char, ObjectPointerType, ArrayPointerType, similarType, subType, PointerType, sameType, AtomicType, IntegralType, Int, ArrayElemType, BoundedArrayType, ReferenceType, PointerToCompleteType, CompleteObjectType } from "./types";
 import last from "lodash/last";
 import { GlobalObjectEntity, LocalObjectEntity, LocalReferenceEntity, TemporaryObjectEntity } from "./entities";
-import { RuntimeConstruct } from "./CPPConstruct";
+import { RuntimeConstruct } from "./constructs";
 import { CompiledGlobalVariableDefinition } from "./declarations";
 import { RuntimeFunction } from "./functions";
 

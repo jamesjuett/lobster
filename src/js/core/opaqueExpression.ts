@@ -1,5 +1,5 @@
-import {ExpressionContext, ConstructDescription } from "./Contexts"
-import { CPPConstruct, SuccessfullyCompiled, RuntimeConstruct } from "./CPPConstruct";
+import {ExpressionContext, ConstructDescription } from "./contexts"
+import { CPPConstruct, SuccessfullyCompiled, RuntimeConstruct } from "./constructs";
 import { ASTNode } from "../ast/ASTNode";
 import { Value } from "./runtimeEnvironment";
 import { Int, ExpressionType, VoidType, CompleteObjectType, ReferenceType } from "./types";

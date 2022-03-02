@@ -1,7 +1,7 @@
 import { Observable } from "../util/observe";
 import { RunnableProgram } from "./Program";
 import { Memory, Value } from "./runtimeEnvironment";
-import { RuntimeConstruct } from "./CPPConstruct";
+import { RuntimeConstruct } from "./constructs";
 import { RuntimeGlobalObjectAllocator } from "./GlobalObjectAllocator";
 import { CPPRandom, Mutable, escapeString, asMutable, assertNever, assert } from "../util/util";
 import { DynamicObject, MainReturnObject } from "./objects";

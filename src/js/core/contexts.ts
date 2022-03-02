@@ -1,6 +1,6 @@
 import { AccessSpecifier } from "../ast/ast_declarations";
 import { asMutable, assert } from "../util/util";
-import { CPPConstruct } from "./CPPConstruct";
+import { CPPConstruct } from "./constructs";
 import { BlockScope, ClassEntity, ClassScope, CompleteClassEntity, FunctionEntity, LocalObjectEntity, LocalReferenceEntity, LocalVariableEntity, Scope } from "./entities";
 import { AnalyticConstruct } from "./predicates";
 import { Program, TranslationUnit } from "./Program";

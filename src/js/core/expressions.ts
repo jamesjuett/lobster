@@ -1,8 +1,8 @@
 import { CPPObject, InvalidObject, TemporaryObject } from "./objects";
 import { Simulation, SimulationEvent } from "./Simulation";
 import { CompleteObjectType, AtomicType, IntegralType, PointerType, ReferenceType, BoundedArrayType, FunctionType, isType, PotentialReturnType, Bool, sameType, VoidType, ArithmeticType, ArrayPointerType, Int, PotentialParameterType, Float, Double, Char, PeelReference, peelReference, ArrayOfUnknownBoundType, referenceCompatible, similarType, subType, ArrayElemType, FloatingPointType, isCvConvertible, CompleteClassType, isAtomicType, isArithmeticType, isIntegralType, isPointerType, isBoundedArrayType, isFunctionType, isCompleteObjectType, isPotentiallyCompleteClassType, isCompleteClassType, isFloatingPointType, PotentiallyCompleteObjectType, ExpressionType, CompleteReturnType, PointerToCompleteType as PointerToCompleteObjectType, IncompleteClassType, PotentiallyCompleteClassType, isPotentiallyCompleteArrayType, isPointerToCompleteObjectType } from "./types";
-import { ExpressionContext, ConstructDescription, createExpressionContextWithReceiverType, isMemberFunctionContext, SemanticContext, areSemanticallyEquivalent, areAllSemanticallyEquivalent } from "./Contexts";
-import { SuccessfullyCompiled, RuntimeConstruct, CPPConstruct } from "./CPPConstruct";
+import { ExpressionContext, ConstructDescription, createExpressionContextWithReceiverType, isMemberFunctionContext, SemanticContext, areSemanticallyEquivalent, areAllSemanticallyEquivalent } from "./contexts";
+import { SuccessfullyCompiled, RuntimeConstruct, CPPConstruct } from "./constructs";
 import { AnythingConstructASTNode, ASTNode } from "../ast/ASTNode";
 import { Note, CPPError, NoteHandler } from "./errors";
 import { FunctionEntity, ObjectEntity, Scope, VariableEntity, MemberVariableEntity, NameLookupOptions, BoundReferenceEntity, runtimeObjectLookup, DeclaredScopeEntry, TemporaryObjectEntity, ArraySubobjectEntity, areEntitiesSemanticallyEquivalent, GlobalVariableEntity, LocalVariableEntity } from "./entities";

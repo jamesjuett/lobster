@@ -9,7 +9,7 @@ import { AnalyticConstruct } from "./predicates";
 import { SourceReference } from "./Program";
 import { Simulation } from "./Simulation";
 import { CompleteClassType } from "./types";
-import { ProgramContext, ConstructExplanation, ConstructDescription, TranslationUnitContext, SemanticContext, areAllSemanticallyEquivalent } from "./Contexts";
+import { ProgramContext, ConstructExplanation, ConstructDescription, TranslationUnitContext, SemanticContext, areAllSemanticallyEquivalent } from "./contexts";
 
 
 

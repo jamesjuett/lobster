@@ -1,8 +1,8 @@
 import { CompiledGlobalVariableDefinition, GlobalVariableDefinition } from "./declarations";
 import { AnalyticConstruct } from "./predicates";
 import { Simulation } from "./Simulation";
-import { ProgramContext, SemanticContext, areAllSemanticallyEquivalent } from "./Contexts";
-import { CPPConstruct, SuccessfullyCompiled, RuntimeConstruct } from "./CPPConstruct";
+import { ProgramContext, SemanticContext, areAllSemanticallyEquivalent } from "./contexts";
+import { CPPConstruct, SuccessfullyCompiled, RuntimeConstruct } from "./constructs";
 
 export class GlobalObjectAllocator extends CPPConstruct {
     public readonly construct_type = "GlobalObjectAllocator";

@@ -3,7 +3,7 @@ import { ProjectEditor, CompilationOutlet, CompilationStatusOutlet } from "./edi
 import { Simulation } from "../core/Simulation";
 import { MessageResponses, listenTo, stopListeningTo, messageResponse, Message } from "../util/observe";
 import { Mutable } from "../util/util";
-import { RuntimeConstruct } from "../core/CPPConstruct";
+import { RuntimeConstruct } from "../core/constructs";
 import { Project } from "../core/Project";
 import { CheckpointsOutlet } from "./checkpointOutlets";
 import { InstantMemoryDiagramOutlet } from "./InstantMemoryDiagramOutlet";

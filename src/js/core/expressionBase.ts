@@ -1,8 +1,8 @@
 import { StringLiteralExpression, AnalyticExpression, CompiledExpressionKinds, AnalyticTypedExpression } from "./expressions";
 import { ExpressionASTNode } from "../ast/ast_expressions";
 
-import { ExpressionContext, ConstructDescription, SemanticContext, areAllSemanticallyEquivalent } from "./Contexts";
-import { RuntimeConstruct, CPPConstruct, SuccessfullyCompiled } from "./CPPConstruct";
+import { ExpressionContext, ConstructDescription, SemanticContext, areAllSemanticallyEquivalent } from "./contexts";
+import { RuntimeConstruct, CPPConstruct, SuccessfullyCompiled } from "./constructs";
 import { CompiledTemporaryDeallocator, PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 
 import { Type, CompleteObjectType, AtomicType, ArithmeticType, IntegralType, FloatingPointType, PointerType, ReferenceType, BoundedArrayType, ArrayOfUnknownBoundType, FunctionType, PotentiallyCompleteClassType, CompleteClassType, isAtomicType, isCompleteObjectType, ExpressionType } from "./types";

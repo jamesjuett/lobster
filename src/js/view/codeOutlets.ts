@@ -1,4 +1,4 @@
-import { CPPConstruct, RuntimeConstruct } from "../core/CPPConstruct";
+import { CPPConstruct, RuntimeConstruct } from "../core/constructs";
 import { RuntimePotentialFullExpression } from "../core/PotentialFullExpression";
 import { CompiledFunctionCall, RuntimeFunctionCall } from "../core/FunctionCall";
 import { SimulationOutlet } from "./simOutlets";

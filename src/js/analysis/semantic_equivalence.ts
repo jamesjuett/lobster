@@ -1,4 +1,4 @@
-import { areSemanticallyEquivalent, SemanticContext } from "../core/Contexts";
+import { areSemanticallyEquivalent, SemanticContext } from "../core/contexts";
 import { Expression } from "../core/expressionBase";
 import { ToBooleanConversion, AnalyticExpression, AssignmentExpression, CompoundAssignmentExpression, RelationalBinaryOperatorExpression, isIntegerLiteralZero, NullPointerConversion, PointerComparisonExpression, PointerToBooleanConversion } from "../core/expressions";
 import { Predicates } from "../core/predicates";

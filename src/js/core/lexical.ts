@@ -1,5 +1,5 @@
 import { NoteHandler, CPPError } from "./errors";
-import { CPPConstruct, TranslationUnitConstruct } from "./CPPConstruct";
+import { CPPConstruct, TranslationUnitConstruct } from "./constructs";
 import { expr } from "jquery";
 import { assert } from "../util/util";
 import { IdentifierASTNode } from "../ast/ast_identifiers";
