@@ -1,16 +1,25 @@
-import { Program, SourceFile, SourceReference } from "../core/Program";
+import { Program, SourceFile, SourceReference } from '../core/Program';
 import CodeMirror from 'codemirror';
 import 'codemirror/lib/codemirror.css';
 import '../../css/lobster.css';
 import 'codemirror/mode/clike/clike.js';
 import 'codemirror/addon/display/fullscreen.js';
-import 'codemirror/addon/comment/comment.js'
-import 'codemirror/keymap/sublime.js'
+import 'codemirror/addon/comment/comment.js';
+import 'codemirror/keymap/sublime.js';
 // import '../../styles/components/_codemirror.css';
-import { assert, Mutable, asMutable } from "../util/util";
-import { Observable, messageResponse, Message, addListener, MessageResponses, listenTo, removeListener, stopListeningTo } from "../util/observe";
-import { Note, SyntaxNote, NoteKind } from "../core/errors";
-import { Project } from "../core/Project";
+import { assert, Mutable, asMutable } from '../util/util';
+import {
+  Observable,
+  messageResponse,
+  Message,
+  addListener,
+  MessageResponses,
+  listenTo,
+  removeListener,
+  stopListeningTo,
+} from '../util/observe';
+import { Note, SyntaxNote, NoteKind } from '../core/errors';
+import { Project } from '../core/Project';
 
 /**
  * This class manages all of the source files associated with a project and the editors
@@ -19,310 +28,305 @@ import { Project } from "../core/Project";
  * editor based on the source reference of the annotation.
  */
 export class ProjectEditor {
+  private static instances: ProjectEditor[] = [];
 
-    private static instances: ProjectEditor[] = [];
+  // public observable = new Observable<ProjectEditorMessages>(this);
+  public _act!: MessageResponses;
 
-    // public observable = new Observable<ProjectEditorMessages>(this);
-    public _act!: MessageResponses;
+  // TODO: transfer to Project class
+  // public static onBeforeUnload() {
+  //     let unsaved = ProjectEditor.instances.find(inst => inst.isOpen && !inst.isSaved);
+  //     if (unsaved) {
+  //         return "The project \"" + unsaved.project.name + "\" has unsaved changes.";
+  //     }
+  // }
 
-    // TODO: transfer to Project class
-    // public static onBeforeUnload() {
-    //     let unsaved = ProjectEditor.instances.find(inst => inst.isOpen && !inst.isSaved);
-    //     if (unsaved) {
-    //         return "The project \"" + unsaved.project.name + "\" has unsaved changes.";
-    //     }
+  public readonly isOpen: boolean = false;
+
+  private filesElem: JQuery;
+  private fileButtonsMap: { [index: string]: JQuery } = {};
+  private fileEditorsMap: { [index: string]: FileEditor | undefined } = {};
+
+  private currentFileEditor?: string;
+
+  public codeMirror: CodeMirror.Editor;
+  private codeMirrorElem: JQuery;
+
+  public readonly project!: Project; // set by setProject call
+
+  public constructor(element: JQuery, project: Project) {
+    let codeMirrorElement = (this.codeMirrorElem = element.find('.codeMirrorEditor'));
+    assert(
+      codeMirrorElement.length > 0,
+      "ProjectEditor element must contain an element with the 'codeMirrorEditor' class."
+    );
+    this.codeMirror = CodeMirror(codeMirrorElement[0], {
+      mode: CODEMIRROR_MODE,
+      theme: 'lobster',
+      lineNumbers: true,
+      tabSize: 2,
+      keyMap: 'sublime',
+      extraKeys: {
+        'Ctrl-S': () => {
+          this.project.requestSave();
+        },
+        'Ctrl-/': editor => editor.execCommand('toggleComment'),
+      },
+      gutters: ['CodeMirror-linenumbers', 'breakpoints', 'errors'],
+    });
+    this.codeMirror.on('gutterClick', (cm, n) => {
+      let info = cm.lineInfo(n);
+      cm.setGutterMarker(
+        n,
+        'breakpoints',
+        info.gutterMarkers ? null : $(`<div style="color: #a33">●</div>`)[0]
+      );
+    });
+    // this.codeMirror.setSize(null, "auto");
+
+    this.filesElem = element.find('.project-files');
+    assert(
+      this.filesElem.length > 0,
+      "CompilationOutlet must contain an element with the 'translation-units-list' class."
+    );
+
+    let addFileButton = $(
+      '<a data-toggle="modal" data-target="#lobster-project-add-file-modal"><i class="bi bi-file-earmark-plus"></i></a>'
+    );
+    let liContainer = $('<li></li>');
+    liContainer.append(addFileButton);
+    this.filesElem.append(liContainer);
+
+    this.setProject(project);
+
+    ProjectEditor.instances.push(this);
+  }
+
+  public setProject(project: Project) {
+    if (this.project) {
+      this.project.sourceFiles.forEach(f => this.onFileRemoved(f));
+      stopListeningTo(this, project);
+    }
+
+    (<Mutable<this>>this).project = project;
+    listenTo(this, project);
+
+    project.sourceFiles.forEach(f => this.onFileAdded(f));
+  }
+
+  // private loadProject(projectName: string) {
+  //     if (!this.isSaved) {
+  //         if (!confirm("WARNING: Your current project has unsaved changes. These will be lost if you load a new project. Are you sure?")) {
+  //             return;
+  //         };
+  //     }
+
+  //     $.ajax({
+  //         type: "GET",
+  //         url: API_URL_LOAD_PROJECT + projectName,
+  //         success: (data) => {
+  //             if (!data) {
+  //                 alert("Project not found! :(");
+  //                 return;
+  //             }
+  //             this.setProject(projectName, data);
+  //         },
+  //         dataType: "json"
+  //     });
+
+  // }
+
+  // @messageResponse("projectCleared")
+  // private projectCleared() {
+  //     let _this = <Mutable<this>>this;
+
+  //     _this.projectName = "";
+  //     _this.sourceFiles = [];
+  //     this.translationUnitNamesMap = {};
+  //     this.recompile();
+
+  //     _this.isSaved = true;
+  //     _this.isOpen = false;
+
+  //     this.fileTabs = {};
+  //     this.filesElem.empty();
+  //     this.fileEditors = {};
+  // }
+
+  // @messageResponse("projectLoaded")
+  // private projectLoaded(project: Project) {
+
+  //     this.clearProject();
+
+  //     let _this = <Mutable<this>>this;
+
+  //     project.sourceFiles.forEach(file => this.createFile(file));
+
+  //     _this.isSaved = true;
+  //     _this.isOpen = true;
+
+  //     // document.title = projectName; // TODO: this is too aggressive because there may be multiple project editors. replace in favor of projectLoaded message
+
+  //     // Set first file to be active
+  //     this.recompile();
+  // }
+
+  @messageResponse('fileContentsSet', 'unwrap')
+  private onFileContentsSet(file: SourceFile) {
+    let fileEd = this.fileEditorsMap[file.name];
+    fileEd?.setContents(file.text);
+  }
+
+  @messageResponse('fileAdded', 'unwrap')
+  private onFileAdded(file: SourceFile) {
+    // Create a FileEditor object to manage editing the file
+    let fileEd = new FileEditor(file);
+    this.fileEditorsMap[file.name] = fileEd;
+    addListener(fileEd, this);
+
+    // Create tab to select this file for viewing/editing
+    let item = $('<li></li>');
+    let link = $('<a>' + file.name + '</a>');
+    link.on('click', () => this.selectFile(file.name));
+    item.append(link);
+    this.fileButtonsMap[file.name] = item;
+    this.filesElem.append(item);
+
+    if (Object.keys(this.fileButtonsMap).length === 1) {
+      // The first file added
+      item.addClass('active');
+      this.selectFile(file.name);
+    }
+  }
+
+  @messageResponse('fileRemoved')
+  private onFileRemoved(file: SourceFile) {
+    let fileEd = this.fileEditorsMap[file.name];
+    if (!fileEd) {
+      return;
+    }
+
+    // remove the li containing the link
+    this.fileButtonsMap[file.name].remove();
+    delete this.fileButtonsMap[file.name];
+    delete this.fileEditorsMap[file.name];
+
+    if (this.currentFileEditor === file.name) {
+      this.selectFirstFile();
+    }
+
+    removeListener(fileEd, this);
+  }
+
+  @messageResponse('compilationFinished')
+  public onCompilationFinished() {
+    Object.keys(this.fileEditorsMap).forEach((ed: string) => {
+      this.fileEditorsMap[ed]!.clearMarks();
+      this.fileEditorsMap[ed]!.clearGutterErrors();
+    });
+
+    this.project.program.notes.allNotes.forEach(note => {
+      let sourceRef = note.primarySourceReference;
+      if (sourceRef) {
+        let editor = this.fileEditorsMap[sourceRef.sourceFile.name];
+        editor?.addMark(sourceRef, note.kind);
+        editor?.addGutterError(sourceRef.line, note.message);
+      }
+    });
+
+    // TODO NEW Return support for widgets elsewhere.
+    // Perhaps reimplement as a generic kind of SemanticNote class
+    // for(var i = 0; i < this.i_semanticProblems.widgets.length; ++i){
+    //     // alert(this.i_semanticProblems.get(i));
+    //     this.send("addAnnotation", this.i_semanticProblems.widgets[i]);
     // }
+  }
 
-    public readonly isOpen: boolean = false;
-
-    private filesElem: JQuery;
-    private fileButtonsMap: {[index: string]: JQuery} = {};
-    private fileEditorsMap: {[index: string]: FileEditor | undefined} = {};
-
-    private currentFileEditor?: string; 
-
-    public codeMirror: CodeMirror.Editor;
-    private codeMirrorElem: JQuery;
-
-    public readonly project!: Project; // set by setProject call
-
-    public constructor(element: JQuery, project: Project) {
-
-        let codeMirrorElement = this.codeMirrorElem = element.find(".codeMirrorEditor");
-        assert(codeMirrorElement.length > 0, "ProjectEditor element must contain an element with the 'codeMirrorEditor' class.");
-        this.codeMirror = CodeMirror(codeMirrorElement[0], {
-            mode: CODEMIRROR_MODE,
-            theme: "lobster",
-            lineNumbers: true,
-            tabSize: 2,
-            keyMap: "sublime",
-            extraKeys: {
-                "Ctrl-S" : () => {
-                    this.project.requestSave();
-                },
-                "Ctrl-/" : (editor) => editor.execCommand('toggleComment')
-            },
-            gutters: ["CodeMirror-linenumbers", "breakpoints", "errors"]
-        });
-        this.codeMirror.on("gutterClick", (cm, n) => {
-            let info = cm.lineInfo(n);
-            cm.setGutterMarker(n, "breakpoints", info.gutterMarkers ? null : $(`<div style="color: #a33">●</div>`)[0]);
-        })
-        // this.codeMirror.setSize(null, "auto");
-
-        this.filesElem = element.find(".project-files");
-        assert(this.filesElem.length > 0, "CompilationOutlet must contain an element with the 'translation-units-list' class.");
-
-        let addFileButton = $('<a data-toggle="modal" data-target="#lobster-project-add-file-modal"><i class="bi bi-file-earmark-plus"></i></a>');
-        let liContainer = $("<li></li>");
-        liContainer.append(addFileButton);
-        this.filesElem.append(liContainer);
-
-        this.setProject(project);
-
-        ProjectEditor.instances.push(this);
+  @messageResponse('noteAdded', 'unwrap')
+  public onNoteAdded(note: Note) {
+    let sourceRef = note.primarySourceReference;
+    if (sourceRef) {
+      let editor = this.fileEditorsMap[sourceRef.sourceFile.name];
+      editor?.addMark(sourceRef, note.kind);
+      editor?.addGutterError(sourceRef.line, note.message);
     }
+  }
 
-    public setProject(project: Project) {
+  public selectFile(filename: string) {
+    assert(this.fileEditorsMap[filename], `File ${filename} does not exist in this project.`);
+    this.codeMirrorElem.show();
+    this.codeMirror.swapDoc(this.fileEditorsMap[filename]!.doc);
+    this.currentFileEditor = filename;
+    this.filesElem.children().removeClass('active');
+    this.fileButtonsMap[filename].addClass('active');
+  }
 
-        if (this.project) {
-            this.project.sourceFiles.forEach(f => this.onFileRemoved(f));
-            stopListeningTo(this, project);
-        }
-
-        (<Mutable<this>>this).project = project;
-        listenTo(this, project);
-
-        project.sourceFiles.forEach(f => this.onFileAdded(f));
+  public selectFirstFile() {
+    let firstFilename = Object.keys(this.fileEditorsMap)[0];
+    this.currentFileEditor = firstFilename;
+    if (firstFilename) {
+      this.selectFile(firstFilename);
+    } else {
+      this.codeMirrorElem.hide();
     }
+  }
 
-    // private loadProject(projectName: string) {
-    //     if (!this.isSaved) {
-    //         if (!confirm("WARNING: Your current project has unsaved changes. These will be lost if you load a new project. Are you sure?")) {
-    //             return;
-    //         };
-    //     }
+  public refreshEditorView() {
+    this.codeMirror.refresh();
 
-    //     $.ajax({
-    //         type: "GET",
-    //         url: API_URL_LOAD_PROJECT + projectName,
-    //         success: (data) => {
-    //             if (!data) {
-    //                 alert("Project not found! :(");
-    //                 return;
-    //             }
-    //             this.setProject(projectName, data);
-    //         },
-    //         dataType: "json"
-    //     });
+    // scroll cursor (indicated by null) into view with vertical margin of 50 pixels
+    this.codeMirror.scrollIntoView(null, 50);
+  }
 
-    // }
-
-
-
-    // @messageResponse("projectCleared")
-    // private projectCleared() {
-    //     let _this = <Mutable<this>>this;
-
-    //     _this.projectName = "";
-    //     _this.sourceFiles = [];
-    //     this.translationUnitNamesMap = {};
-    //     this.recompile();
-
-    //     _this.isSaved = true;
-    //     _this.isOpen = false;
-
-    //     this.fileTabs = {};
-    //     this.filesElem.empty();
-    //     this.fileEditors = {};
-    // }
-
-    // @messageResponse("projectLoaded")
-    // private projectLoaded(project: Project) {
-
-    //     this.clearProject();
-
-    //     let _this = <Mutable<this>>this;
-
-    //     project.sourceFiles.forEach(file => this.createFile(file));
-
-    //     _this.isSaved = true;
-    //     _this.isOpen = true;
-
-    //     // document.title = projectName; // TODO: this is too aggressive because there may be multiple project editors. replace in favor of projectLoaded message
-
-    //     // Set first file to be active
-    //     this.recompile();
-    // }
-
-    @messageResponse("fileContentsSet", "unwrap")
-    private onFileContentsSet(file: SourceFile) {
-        let fileEd = this.fileEditorsMap[file.name];
-        fileEd?.setContents(file.text);
+  public gotoSourceReference(sourceRef: SourceReference) {
+    let name = sourceRef.sourceFile.name;
+    let editor = this.fileEditorsMap[name];
+    if (editor) {
+      this.selectFile(name);
+      editor.gotoSourceReference(sourceRef);
     }
+  }
 
-    @messageResponse("fileAdded", "unwrap")
-    private onFileAdded(file: SourceFile) {
+  // @messageResponse()
+  // private requestFocus(msg: Message) {
+  //     this.observable.send("requestFocus");
+  //     if (msg.source instanceof FileEditor) {
+  //         this.fileTabs[msg.source.file.name].tab("show");
+  //     }
+  // }
 
-        // Create a FileEditor object to manage editing the file
-        let fileEd = new FileEditor(file);
-        this.fileEditorsMap[file.name] = fileEd;
-        addListener(fileEd, this);
+  @messageResponse('textChanged', 'unwrap')
+  private textChanged(updatedFile: SourceFile) {
+    this.project.setFileContents(updatedFile);
+  }
 
-        // Create tab to select this file for viewing/editing
-        let item = $('<li></li>');
-        let link = $('<a>' + file.name + '</a>');
-        link.on("click", () => this.selectFile(file.name));
-        item.append(link);
-        this.fileButtonsMap[file.name] = item;
-        this.filesElem.append(item);
+  //     @messageResponse()
+  //     private parsed(msg: Message) {
 
-        if (Object.keys(this.fileButtonsMap).length === 1) {
-            // The first file added
-            item.addClass("active");
-            this.selectFile(file.name);
-        }
+  //         // TODO NEW: This actually needs to be selected based on a reverse mapping of line numbers for includes
+  //         var tu = msg.source;
+  //         var editor = this.i_fileEditors[tu.getName()];
 
-    }
+  //         if (editor.syntaxErrorLineHandle) {
+  //             editor.i_doc.removeLineClass(editor.syntaxErrorLineHandle, "background", "syntaxError");
+  //         }
+  //         if (msg.data){
+  //             var err = msg.data;
+  // //            this.marks.push(this.i_doc.markText({line: err.line-1, ch: err.column-1}, {line:err.line-1, ch:err.column},
+  // //                {className: "syntaxError"}));
+  //             editor.syntaxErrorLineHandle = editor.i_doc.addLineClass(err.line-1, "background", "syntaxError");
+  //             // editor.clearAnnotations();
+  //         }
+  //     },
 
-    @messageResponse("fileRemoved")
-    private onFileRemoved(file: SourceFile) {
-
-        let fileEd = this.fileEditorsMap[file.name];
-        if(!fileEd) {
-            return;
-        }
-        
-        // remove the li containing the link
-        this.fileButtonsMap[file.name].remove();
-        delete this.fileButtonsMap[file.name];
-        delete this.fileEditorsMap[file.name];
-
-        if (this.currentFileEditor === file.name) {
-            this.selectFirstFile();
-        }
-
-        removeListener(fileEd, this);
-    }
-
-    @messageResponse("compilationFinished")
-    public onCompilationFinished() {
-
-        Object.keys(this.fileEditorsMap).forEach((ed: string) => {
-            this.fileEditorsMap[ed]!.clearMarks();
-            this.fileEditorsMap[ed]!.clearGutterErrors();
-        });
-
-        this.project.program.notes.allNotes.forEach(note => {
-            let sourceRef = note.primarySourceReference;
-            if (sourceRef) {
-                let editor = this.fileEditorsMap[sourceRef.sourceFile.name];
-                editor?.addMark(sourceRef, note.kind);
-                editor?.addGutterError(sourceRef.line, note.message);
-            }
-        });
-
-        // TODO NEW Return support for widgets elsewhere.
-        // Perhaps reimplement as a generic kind of SemanticNote class
-        // for(var i = 0; i < this.i_semanticProblems.widgets.length; ++i){
-        //     // alert(this.i_semanticProblems.get(i));
-        //     this.send("addAnnotation", this.i_semanticProblems.widgets[i]);
-        // }
-    }
-
-    @messageResponse("noteAdded", "unwrap")
-    public onNoteAdded(note: Note) {
-
-        let sourceRef = note.primarySourceReference;
-        if (sourceRef) {
-            let editor = this.fileEditorsMap[sourceRef.sourceFile.name];
-            editor?.addMark(sourceRef, note.kind);
-            editor?.addGutterError(sourceRef.line, note.message);
-        }
-
-    }
-
-    public selectFile(filename: string) {
-        assert(this.fileEditorsMap[filename], `File ${filename} does not exist in this project.`);
-        this.codeMirrorElem.show();
-        this.codeMirror.swapDoc(this.fileEditorsMap[filename]!.doc);
-        this.currentFileEditor = filename;
-        this.filesElem.children().removeClass("active");
-        this.fileButtonsMap[filename].addClass("active");
-    }
-
-    public selectFirstFile() {
-        let firstFilename = Object.keys(this.fileEditorsMap)[0];
-        this.currentFileEditor = firstFilename;
-        if (firstFilename) {
-            this.selectFile(firstFilename);
-        }
-        else {
-            this.codeMirrorElem.hide();
-        }
-    }
-
-    public refreshEditorView() {
-        this.codeMirror.refresh();
-
-        // scroll cursor (indicated by null) into view with vertical margin of 50 pixels
-        this.codeMirror.scrollIntoView(null, 50);
-    }
-
-    public gotoSourceReference(sourceRef: SourceReference) {
-        let name = sourceRef.sourceFile.name;
-        let editor = this.fileEditorsMap[name];
-        if (editor) {
-            this.selectFile(name);
-            editor.gotoSourceReference(sourceRef);
-        }
-    }
-
-    // @messageResponse()
-    // private requestFocus(msg: Message) {
-    //     this.observable.send("requestFocus");
-    //     if (msg.source instanceof FileEditor) {
-    //         this.fileTabs[msg.source.file.name].tab("show");
-    //     }
-    // }
-
-    @messageResponse("textChanged", "unwrap")
-    private textChanged(updatedFile: SourceFile) {
-        this.project.setFileContents(updatedFile);
-    }
-
-
-//     @messageResponse()
-//     private parsed(msg: Message) {
-
-//         // TODO NEW: This actually needs to be selected based on a reverse mapping of line numbers for includes
-//         var tu = msg.source;
-//         var editor = this.i_fileEditors[tu.getName()];
-
-//         if (editor.syntaxErrorLineHandle) {
-//             editor.i_doc.removeLineClass(editor.syntaxErrorLineHandle, "background", "syntaxError");
-//         }
-//         if (msg.data){
-//             var err = msg.data;
-// //            this.marks.push(this.i_doc.markText({line: err.line-1, ch: err.column-1}, {line:err.line-1, ch:err.column},
-// //                {className: "syntaxError"}));
-//             editor.syntaxErrorLineHandle = editor.i_doc.addLineClass(err.line-1, "background", "syntaxError");
-//             // editor.clearAnnotations();
-//         }
-//     },
-
-    // setSource : function(src){
-    //     this.i_sourceCode = src;
-    // },
-
+  // setSource : function(src){
+  //     this.i_sourceCode = src;
+  // },
 }
 // $(window).bind("beforeunload", ProjectEditor.onBeforeUnload);
 
-
-
-
 function createCompilationOutletHTML() {
-    return `
+  return `
     <div>
         <b>Compilation Units</b>
         <!-- <p>A program may be composed of many different compilation units (a.k.a translation units), one for each source file
@@ -347,183 +351,182 @@ function createCompilationOutletHTML() {
     </div>`;
 }
 
-
 /**
  * Allows a user to view and manage the compilation scheme for a program.
  */
 export class CompilationOutlet {
+  public _act!: MessageResponses;
 
-    public _act!: MessageResponses;
+  public readonly project: Project;
 
-    public readonly project: Project;
+  private readonly compilationNotesOutlet: CompilationNotesOutlet;
 
-    private readonly compilationNotesOutlet: CompilationNotesOutlet;
+  private readonly element: JQuery;
+  private readonly translationUnitsListElem: JQuery;
 
-    private readonly element: JQuery;
-    private readonly translationUnitsListElem: JQuery;
+  public constructor(element: JQuery, project: Project) {
+    this.element = element;
+    element.append(createCompilationOutletHTML());
 
-    public constructor(element: JQuery, project: Project) {
-        this.element = element;
-        element.append(createCompilationOutletHTML());
+    this.translationUnitsListElem = element.find('.translation-units-list');
 
-        this.translationUnitsListElem = element.find(".translation-units-list");
+    this.compilationNotesOutlet = new CompilationNotesOutlet(
+      element.find('.compilation-notes-list')
+    );
 
-        this.compilationNotesOutlet = new CompilationNotesOutlet(element.find(".compilation-notes-list"));
-        
-        this.project = this.setProject(project);
+    this.project = this.setProject(project);
+  }
+
+  public setProject(project: Project) {
+    if (project !== this.project) {
+      stopListeningTo(this, this.project);
+      (<Mutable<this>>this).project = project;
+      listenTo(this, project);
     }
 
-    public setProject(project: Project) {
-        if (project !== this.project) {
-            stopListeningTo(this, this.project);
-            (<Mutable<this>>this).project = project;
-            listenTo(this, project);
-        }
+    this.updateButtons();
+    this.compilationNotesOutlet.updateNotes(project.program);
 
-        this.updateButtons();
-        this.compilationNotesOutlet.updateNotes(project.program);
+    return project;
+  }
 
-        return project;
-    }
+  @messageResponse('fileAdded')
+  @messageResponse('fileRemoved')
+  @messageResponse('translationUnitAdded')
+  @messageResponse('translationUnitRemoved')
+  @messageResponse('translationUnitStatusSet')
+  private updateButtons() {
+    this.translationUnitsListElem.empty();
 
-    @messageResponse("fileAdded")
-    @messageResponse("fileRemoved")
-    @messageResponse("translationUnitAdded")
-    @messageResponse("translationUnitRemoved")
-    @messageResponse("translationUnitStatusSet")
-    private updateButtons() {
-        this.translationUnitsListElem.empty();
+    // Create buttons for each file to toggle whether it's a translation unit or not
+    this.project.sourceFiles.forEach(file => {
+      let button = $('<button class="btn">' + file.name + '</button>')
+        .addClass(this.project.isTranslationUnit(file.name) ? 'btn-info' : 'text-muted')
+        .click(() => this.project.toggleTranslationUnit(file.name));
 
-        // Create buttons for each file to toggle whether it's a translation unit or not
-        this.project.sourceFiles.forEach(file => {
+      this.translationUnitsListElem.append($('<li></li>').append(button));
+    });
+  }
 
-            let button = $('<button class="btn">' + file.name + '</button>')
-            .addClass(this.project.isTranslationUnit(file.name) ? "btn-info" : "text-muted")
-            .click(() => this.project.toggleTranslationUnit(file.name));
-
-            this.translationUnitsListElem.append($('<li></li>').append(button));
-        });
-    }
-
-    @messageResponse("compilationFinished", "unwrap")
-    private onCompilationFinished(program: Program) {
-        this.compilationNotesOutlet.updateNotes(program);
-    }
+  @messageResponse('compilationFinished', 'unwrap')
+  private onCompilationFinished(program: Program) {
+    this.compilationNotesOutlet.updateNotes(program);
+  }
 }
 
-const NoteCSSClasses : {[K in NoteKind]: string} = {
-    error: "lobster-note-error",
-    warning: "lobster-note-warning",
-    style: "lobster-note-style",
-    other: "lobster-note-other"
+const NoteCSSClasses: { [K in NoteKind]: string } = {
+  error: 'lobster-note-error',
+  warning: 'lobster-note-warning',
+  style: 'lobster-note-style',
+  other: 'lobster-note-other',
 };
 
-const NoteDescriptions : {[K in NoteKind]: string} = {
-    error: "Error",
-    warning: "Warning",
-    style: "Style",
-    other: "Other"
+const NoteDescriptions: { [K in NoteKind]: string } = {
+  error: 'Error',
+  warning: 'Warning',
+  style: 'Style',
+  other: 'Other',
 };
 
 /**
  * Shows all of the compilation errors/warnings/etc. for the current project.
  */
 export class CompilationNotesOutlet {
+  public observable = new Observable(this);
+  public _act!: MessageResponses;
 
-    public observable = new Observable(this);
-    public _act!: MessageResponses;
+  private readonly element: JQuery;
 
-    private readonly element: JQuery;
+  public constructor(element: JQuery) {
+    this.element = element;
+  }
 
-    public constructor(element: JQuery) {
-        this.element = element;
+  public updateNotes(program: Program) {
+    this.element.empty();
+
+    if (program.notes.allNotes.length === 0) {
+      this.element.append('No errors here :)');
+      return;
     }
 
-    public updateNotes(program: Program) {
+    program.notes.allNotes.forEach(note => {
+      let item = $('<li class="list-group-item"></li>')
+        .append(this.createBadgeForNote(note))
+        .append(' ');
 
-        this.element.empty();
+      let ref = note.primarySourceReference;
+      if (ref) {
+        let sourceReferenceElem = $('<span class="lobster-source-reference"></span>');
+        new SourceReferenceOutlet(sourceReferenceElem, ref);
+        item.append(sourceReferenceElem).append(' ');
+      }
 
-        if (program.notes.allNotes.length === 0) {
-            this.element.append("No errors here :)");
-            return;
-        }
+      item.append(note.id + ': ' + note.message);
 
-        program.notes.allNotes.forEach(note => {
+      this.element.append(item);
+    });
+  }
 
-            let item = $('<li class="list-group-item"></li>').append(this.createBadgeForNote(note)).append(" ");
+  private createBadgeForNote(note: Note) {
+    var elem = $('<span class="label"></span>');
 
-            let ref = note.primarySourceReference;
-            if (ref) {
-                let sourceReferenceElem = $('<span class="lobster-source-reference"></span>');
-                new SourceReferenceOutlet(sourceReferenceElem, ref);
-                item.append(sourceReferenceElem).append(" ");
-            }
-
-            item.append(note.id + ": " + note.message);
-
-            this.element.append(item);
-        });
+    // hacky special case
+    if (note instanceof SyntaxNote) {
+      elem.html('Syntax Error');
+    } else {
+      elem.html(NoteDescriptions[note.kind]);
     }
 
-    private createBadgeForNote(note: Note) {
-        var elem = $('<span class="label"></span>');
+    elem.addClass(NoteCSSClasses[note.kind]);
 
-        // hacky special case
-        if (note instanceof SyntaxNote) {
-            elem.html("Syntax Error");
-        }
-        else {
-            elem.html(NoteDescriptions[note.kind]);
-        }
+    return elem;
+  }
 
-        elem.addClass(NoteCSSClasses[note.kind]);
-
-        return elem;
-    }
-
-    @messageResponse("gotoSourceReference")
-    private gotoSourceReference(msg: Message<SourceReference>) {
-        this.observable.send("gotoSourceReference", msg.data);
-    }
+  @messageResponse('gotoSourceReference')
+  private gotoSourceReference(msg: Message<SourceReference>) {
+    this.observable.send('gotoSourceReference', msg.data);
+  }
 }
 
 export class CompilationStatusOutlet {
+  public _act!: MessageResponses;
 
-    public _act!: MessageResponses;
+  public readonly project: Project;
 
-    public readonly project: Project;
+  private readonly element: JQuery;
 
-    private readonly element: JQuery;
+  private readonly notesElem: JQuery;
+  private readonly errorsButton: JQuery;
+  private readonly numErrorsElem: JQuery;
+  private readonly warningsButton: JQuery;
+  private readonly numWarningsElem: JQuery;
+  private readonly styleButton: JQuery;
+  private readonly numStyleElem: JQuery;
+  private readonly compileButton: JQuery;
+  private compileButtonText: string;
 
-    private readonly notesElem: JQuery;
-    private readonly errorsButton: JQuery;
-    private readonly numErrorsElem: JQuery;
-    private readonly warningsButton: JQuery;
-    private readonly numWarningsElem: JQuery;
-    private readonly styleButton: JQuery;
-    private readonly numStyleElem: JQuery;
-    private readonly compileButton: JQuery;
-    private compileButtonText: string;
+  public constructor(element: JQuery, project: Project) {
+    this.element = element;
 
-    public constructor(element: JQuery, project: Project) {
-        this.element = element;
+    this.compileButtonText = 'Compile';
+    this.compileButton = $(
+      '<button class="btn btn-warning-muted"><span class="glyphicon glyphicon-wrench"></span> Compile</button>'
+    ).click(() => {
+      this.compileButtonText = 'Compiling';
+      this.compileButton.html(
+        '<span class = "glyphicon glyphicon-refresh spin"></span> ' + this.compileButtonText
+      );
 
-        this.compileButtonText = "Compile";
-        this.compileButton = $('<button class="btn btn-warning-muted"><span class="glyphicon glyphicon-wrench"></span> Compile</button>')
-            .click(() => {
-                this.compileButtonText = "Compiling";
-                this.compileButton.html('<span class = "glyphicon glyphicon-refresh spin"></span> ' + this.compileButtonText);
-
-                // check offsetHeight to force a redraw operation
-                // then wrap fullCompile in a timeout which happens after redraw
-                // var redraw = this.compileButton.offsetHeight;
-                // this.compileButton.offsetHeight = redraw;
-                // ^^^TODO apparently the above isn't necessary?
-                window.setTimeout(() => {
-                    this.project.recompile();
-                },1);
-            })
-            /*.hover(
+      // check offsetHeight to force a redraw operation
+      // then wrap fullCompile in a timeout which happens after redraw
+      // var redraw = this.compileButton.offsetHeight;
+      // this.compileButton.offsetHeight = redraw;
+      // ^^^TODO apparently the above isn't necessary?
+      window.setTimeout(() => {
+        this.project.recompile();
+      }, 1);
+    });
+    /*.hover(
                 function(){
                     oldStatus = this.compileButton.html();
                     this.compileButton.css("width", this.compileButton.width() + "px");
@@ -533,266 +536,278 @@ export class CompilationStatusOutlet {
                     this.compileButton.html(oldStatus);
                     this.compileButton.css("width", "auto");
                 }
-            )*/;
+            )*/
 
+    this.element.append(this.compileButton);
 
-        this.element.append(this.compileButton);
+    this.element.append(' ');
 
-        this.element.append(" ");
+    this.notesElem = $('<span></span>')
+      .appendTo(this.element)
+      .hide();
+    this.errorsButton = $(
+      '<button class="btn btn-danger-muted" style="padding: 6px 6px;"></button>'
+    )
+      .append((this.numErrorsElem = $('<span></span>')))
+      .append(' ')
+      .append('<span class="glyphicon glyphicon-remove"></span>')
+      .appendTo(this.notesElem);
+    this.notesElem.append(' ');
+    this.warningsButton = $(
+      '<button class="btn btn-warning-muted" style="padding: 6px 6px;"></button>'
+    )
+      .append((this.numWarningsElem = $('<span></span>')))
+      .append(' ')
+      .append('<span class="glyphicon glyphicon-alert"></span>')
+      .appendTo(this.notesElem);
+    this.notesElem.append(' ');
+    this.styleButton = $('<button class="btn btn-style-muted" style="padding: 6px 6px;"></button>')
+      .append((this.numStyleElem = $('<span></span>')))
+      .append(' ')
+      .append('<i class="bi bi-lightbulb"></i>')
+      .appendTo(this.notesElem);
 
-        this.notesElem = $('<span></span>').appendTo(this.element).hide();
-        this.errorsButton = $('<button class="btn btn-danger-muted" style="padding: 6px 6px;"></button>')
-            .append(this.numErrorsElem = $('<span></span>'))
-            .append(" ")
-            .append('<span class="glyphicon glyphicon-remove"></span>')
-            .appendTo(this.notesElem);
-        this.notesElem.append(" ");
-        this.warningsButton = $('<button class="btn btn-warning-muted" style="padding: 6px 6px;"></button>')
-            .append(this.numWarningsElem = $('<span></span>'))
-            .append(" ")
-            .append('<span class="glyphicon glyphicon-alert"></span>')
-            .appendTo(this.notesElem);
-        this.notesElem.append(" ");
-        this.styleButton = $('<button class="btn btn-style-muted" style="padding: 6px 6px;"></button>')
-            .append(this.numStyleElem = $('<span></span>'))
-            .append(" ")
-            .append('<i class="bi bi-lightbulb"></i>')
-            .appendTo(this.notesElem);
+    this.project = this.setProject(project);
+  }
 
-        this.project = this.setProject(project);
-    }
-    
-    public setProject(project: Project) {
-        if (project !== this.project) {
-            stopListeningTo(this, this.project);
-            (<Mutable<this>>this).project = project;
-            listenTo(this, project);
-        }
-
-        this.onCompilationFinished();
-
-        return project;
-    }
-
-    @messageResponse("compilationFinished")
-    private onCompilationFinished() {
-        this.notesElem.show();
-        this.numErrorsElem.html("" + this.project.program.notes.numNotes(NoteKind.ERROR));
-        this.numWarningsElem.html("" + this.project.program.notes.numNotes(NoteKind.WARNING));
-        this.numStyleElem.html("" + this.project.program.notes.numNotes(NoteKind.STYLE));
-
-        this.compileButton.removeClass("btn-warning-muted");
-
-        if (this.project.program.isCompiled()) {
-            this.compileButton.html('<span class="glyphicon glyphicon-ok"></span> Compiled');
-            this.compileButton.addClass("btn-success-muted");
-        }
-        else {
-            this.compileButton.html('<span class="glyphicon glyphicon-remove"></span> Errors Detected');
-            this.compileButton.addClass("btn-danger-muted");
-        }
+  public setProject(project: Project) {
+    if (project !== this.project) {
+      stopListeningTo(this, this.project);
+      (<Mutable<this>>this).project = project;
+      listenTo(this, project);
     }
 
-    @messageResponse("compilationOutOfDate")
-    private onCompilationOutOfDate() {
-        this.compileButton.removeClass("btn-success-muted");
-        this.compileButton.addClass("btn-warning-muted");
-        this.compileButton.html('<span class="glyphicon glyphicon-wrench"></span> Compile');
+    this.onCompilationFinished();
+
+    return project;
+  }
+
+  @messageResponse('compilationFinished')
+  private onCompilationFinished() {
+    this.notesElem.show();
+    this.numErrorsElem.html('' + this.project.program.notes.numNotes(NoteKind.ERROR));
+    this.numWarningsElem.html('' + this.project.program.notes.numNotes(NoteKind.WARNING));
+    this.numStyleElem.html('' + this.project.program.notes.numNotes(NoteKind.STYLE));
+
+    this.compileButton.removeClass('btn-warning-muted');
+
+    if (this.project.program.isCompiled()) {
+      this.compileButton.html('<span class="glyphicon glyphicon-ok"></span> Compiled');
+      this.compileButton.addClass('btn-success-muted');
+    } else {
+      this.compileButton.html('<span class="glyphicon glyphicon-remove"></span> Errors Detected');
+      this.compileButton.addClass('btn-danger-muted');
     }
+  }
+
+  @messageResponse('compilationOutOfDate')
+  private onCompilationOutOfDate() {
+    this.compileButton.removeClass('btn-success-muted');
+    this.compileButton.addClass('btn-warning-muted');
+    this.compileButton.html('<span class="glyphicon glyphicon-wrench"></span> Compile');
+  }
 }
 
 class SourceReferenceOutlet {
+  public observable = new Observable(this);
 
-    public observable = new Observable(this);
+  private readonly element: JQuery;
+  private readonly sourceRef: SourceReference;
 
-    private readonly element: JQuery;
-    private readonly sourceRef: SourceReference;
+  public constructor(element: JQuery, sourceRef: SourceReference) {
+    this.element = element;
+    this.sourceRef = sourceRef;
+    var link = $('<a><code>' + sourceRef.sourceFile.name + ':' + sourceRef.line + '</code></a>');
 
-    public constructor(element: JQuery, sourceRef: SourceReference) {
-        this.element = element;
-        this.sourceRef = sourceRef;
-        var link = $('<a><code>' + sourceRef.sourceFile.name + ':' + sourceRef.line + '</code></a>');
+    link.click(() => {
+      this.observable.send('gotoSourceReference', sourceRef);
+    });
 
-        link.click(() => {
-            this.observable.send("gotoSourceReference", sourceRef);
-        });
-
-        element.append(link);
-    }
+    element.append(link);
+  }
 }
 
-
 const IDLE_MS_BEFORE_UPDATE = 500;
-const CODEMIRROR_MODE = "text/x-c++src";
+const CODEMIRROR_MODE = 'text/x-c++src';
 // const FILE_EDITOR_DEFAULT_SOURCE : SourceFile = {
 //     name:
 //     text: "int main(){\n  \n}",
 // }
 
 export class FileEditor {
+  private static instances: FileEditor[] = [];
 
-    private static instances: FileEditor[] = [];
+  public observable: Observable = new Observable(this);
 
-    public observable: Observable = new Observable(this);
+  public readonly file: SourceFile;
+  public readonly doc: CodeMirror.Doc;
 
-    public readonly file: SourceFile;
-    public readonly doc: CodeMirror.Doc;
+  // private readonly annotations: Annotation[] = [];
+  private readonly gutterErrors: { elem: JQuery; num: number }[] = [];
+  private syntaxErrorLineHandle?: CodeMirror.LineHandle;
 
-    // private readonly annotations: Annotation[] = [];
-    private readonly gutterErrors: {elem: JQuery, num: number}[] = [];
-    private syntaxErrorLineHandle?: CodeMirror.LineHandle;
+  private ignoreContentsSet: boolean = false;
 
-    private ignoreContentsSet: boolean = false;
+  /**
+   *
+   * @param {SourceFile} sourceFile The initial contents of this editor.
+   */
+  public constructor(file: SourceFile) {
+    this.file = file;
+    this.doc = CodeMirror.Doc(file.text, CODEMIRROR_MODE);
 
-     /**
-     *
-     * @param {SourceFile} sourceFile The initial contents of this editor.
-     */
-    public constructor(file: SourceFile) {
-        this.file = file;
-        this.doc = CodeMirror.Doc(file.text, CODEMIRROR_MODE);
+    CodeMirror.on(this.doc, 'change', () => {
+      this.onEdit();
+    });
 
-        CodeMirror.on(this.doc, "change", () => { this.onEdit(); });
+    // FileEditor.instances.push(this);
+  }
 
-        // FileEditor.instances.push(this);
+  public setContents(contents: string) {
+    if (!this.ignoreContentsSet) {
+      this.doc.setValue(contents);
     }
+  }
+  // public setFile() {
 
-    public setContents(contents: string) {
-        if (!this.ignoreContentsSet) {
-            this.doc.setValue(contents);
-        }
-    }
-    // public setFile() {
+  // }
+  // loadCode : function(program){
+  //     this.i_programName = program.name;
+  //     var code = program.code;
+  //     this.i_doc.setValue(code);
+  //     this.setSource(code);
+  //     this.send("userAction", UserActions.LoadCode.instance(code));
+  // },
 
+  private onEdit() {
+    (<Mutable<this>>this).file = new SourceFile(this.file.name, this.doc.getValue());
+
+    // Newer versions of CodeMirror have inconsistent syntax coloring for the * operator
+    // when used as part of a declarator vs. other operators like &, [], and (). So here
+    // we manually fix the * spans.
+    $('.cm-type')
+      .filter(function() {
+        return (
+          $(this)
+            .html()
+            .trim() === '*'
+        );
+      })
+      .removeClass('cm-type')
+      .addClass('cm-operator');
+
+    this.ignoreContentsSet = true;
+    this.observable.send('textChanged', this.file);
+    this.ignoreContentsSet = false;
+
+    // if(this.i_onEditTimeout){
+    //     clearTimeout(this.i_onEditTimeout);
     // }
-    // loadCode : function(program){
-    //     this.i_programName = program.name;
-    //     var code = program.code;
-    //     this.i_doc.setValue(code);
-    //     this.setSource(code);
-    //     this.send("userAction", UserActions.LoadCode.instance(code));
-    // },
+    // var self = this;
+    // this.i_onEditTimeout = setTimeout(function(){
+    //     self.i_sourceFile.setText(self.getText());
+    // }, IDLE_MS_BEFORE_UPDATE);
+  }
 
-    private onEdit() {
-        (<Mutable<this>>this).file = new SourceFile(this.file.name, this.doc.getValue());
+  public addMark(sourceRef: SourceReference, cssClass: string) {
+    let from = { line: sourceRef.line - 1, ch: sourceRef.column - 1 };
+    let to = {
+      line: sourceRef.line - 1,
+      ch: sourceRef.column - 1 + sourceRef.end - sourceRef.start,
+    };
+    // var from = this.doc.posFromIndex(sourceRef.start);
+    // var to = this.doc.posFromIndex(sourceRef.end);
+    return this.doc.markText(from, to, {
+      startStyle: 'begin',
+      endStyle: 'end',
+      className: 'codeMark ' + cssClass,
+    });
+  }
 
-        // Newer versions of CodeMirror have inconsistent syntax coloring for the * operator
-        // when used as part of a declarator vs. other operators like &, [], and (). So here
-        // we manually fix the * spans.
-        $(".cm-type").filter(function() {
-            return $(this).html().trim() === "*";
-        }).removeClass("cm-type").addClass("cm-operator");
+  public clearMarks() {
+    this.doc.getAllMarks().forEach(mark => mark.clear());
+  }
 
-        
-        this.ignoreContentsSet = true;
-        this.observable.send("textChanged", this.file);
-        this.ignoreContentsSet = false;
-        
-
-
-
-        // if(this.i_onEditTimeout){
-        //     clearTimeout(this.i_onEditTimeout);
-        // }
-        // var self = this;
-        // this.i_onEditTimeout = setTimeout(function(){
-        //     self.i_sourceFile.setText(self.getText());
-        // }, IDLE_MS_BEFORE_UPDATE);
+  public addGutterError(line: number, text: string) {
+    --line;
+    let marker = this.gutterErrors[line];
+    if (!marker) {
+      marker = this.gutterErrors[line] = {
+        elem: $('<div class="gutterError">!<div></div></div>'),
+        num: 0,
+      };
     }
-
-    public addMark(sourceRef: SourceReference, cssClass: string){
-        let from = {line: sourceRef.line-1, ch: sourceRef.column - 1};
-        let to = {line: sourceRef.line-1, ch: sourceRef.column - 1 + sourceRef.end - sourceRef.start};
-        // var from = this.doc.posFromIndex(sourceRef.start);
-        // var to = this.doc.posFromIndex(sourceRef.end);
-        return this.doc.markText(from, to, {startStyle: "begin", endStyle: "end", className: "codeMark " + cssClass});
+    let elem = $('<div class="errorNote">- ' + text + '</div>');
+    marker.elem.children('div').append(elem);
+    ++marker.num;
+    let ed = this.doc.getEditor();
+    if (marker.num === 1 && ed) {
+      ed.setGutterMarker(line, 'errors', marker.elem[0]);
     }
+    return elem;
+  }
 
-    public clearMarks() {
-        this.doc.getAllMarks().forEach(mark => mark.clear());
+  public removeGutterError(line: number) {
+    --line;
+    let marker = this.gutterErrors[line];
+    if (marker) {
+      let ed = this.doc.getEditor();
+      if (marker.num === 1 && ed) {
+        ed.setGutterMarker(line, 'errors', null);
+      }
     }
+  }
 
-    public addGutterError(line: number, text: string) {
-        --line;
-        let marker = this.gutterErrors[line];
-        if (!marker){
-            marker = this.gutterErrors[line] = {
-                elem:$('<div class="gutterError">!<div></div></div>'),
-                num: 0
-            };
-        }
-        let elem = $('<div class="errorNote">- '+text+'</div>');
-        marker.elem.children("div").append(elem);
-        ++marker.num;
-        let ed = this.doc.getEditor();
-        if (marker.num === 1 && ed) {
-            ed.setGutterMarker(line, "errors", marker.elem[0]);
-        }
-        return elem;
+  public clearGutterErrors() {
+    let ed = this.doc.getEditor();
+    if (ed) {
+      ed.clearGutter('errors');
     }
+    this.gutterErrors.length = 0;
+  }
 
-    public removeGutterError(line: number) {
-        --line;
-        let marker = this.gutterErrors[line];
-        if (marker) {
-            let ed = this.doc.getEditor();
-            if (marker.num === 1 && ed){
-                ed.setGutterMarker(line, "errors",null);
-            }
-        }
+  public addWidget(sourceRef: SourceReference, elem: JQuery) {
+    let from = this.doc.posFromIndex(sourceRef.start);
+    let ed = this.doc.getEditor();
+    if (ed) {
+      ed.addWidget(from, elem[0], false);
     }
+  }
 
-    public clearGutterErrors() {
-        let ed = this.doc.getEditor();
-        if (ed) {
-            ed.clearGutter("errors");
-        }
-        this.gutterErrors.length = 0;
+  public clearSyntaxError() {
+    if (this.syntaxErrorLineHandle) {
+      let ed = this.doc.getEditor();
+      if (ed) {
+        ed.removeLineClass(this.syntaxErrorLineHandle, 'background', 'syntaxError');
+      }
     }
+  }
 
-    public addWidget(sourceRef: SourceReference, elem: JQuery) {
-        let from = this.doc.posFromIndex(sourceRef.start);
-        let ed = this.doc.getEditor();
-        if (ed) {
-            ed.addWidget(from, elem[0], false);
-        }
+  public setSyntaxError(line: number) {
+    this.clearSyntaxError();
+    let ed = this.doc.getEditor();
+    if (ed) {
+      this.syntaxErrorLineHandle = ed.addLineClass(line - 1, 'background', 'syntaxError');
     }
+  }
 
-    public clearSyntaxError() {
-        if (this.syntaxErrorLineHandle) {
-            let ed = this.doc.getEditor();
-            if (ed) {
-                ed.removeLineClass(this.syntaxErrorLineHandle, "background", "syntaxError");
-            }
-        }
-    }
+  // public addAnnotation(ann: Annotation) {
+  //     ann.onAdd(this);
+  //     this.annotations.push(ann);
+  // }
 
-    public setSyntaxError(line: number) {
-        this.clearSyntaxError();
-        let ed = this.doc.getEditor();
-        if (ed) {
-            this.syntaxErrorLineHandle = ed.addLineClass(line-1, "background", "syntaxError");
-        }
-    }
+  // public clearAnnotations() {
+  //     for(var i = 0; i < this.annotations.length; ++i){
+  //         this.annotations[i].onRemove(this);
+  //     }
+  //     this.annotations.length = 0;
+  // }
 
-    // public addAnnotation(ann: Annotation) {
-    //     ann.onAdd(this);
-    //     this.annotations.push(ann);
-    // }
-
-    // public clearAnnotations() {
-    //     for(var i = 0; i < this.annotations.length; ++i){
-    //         this.annotations[i].onRemove(this);
-    //     }
-    //     this.annotations.length = 0;
-    // }
-
-    public gotoSourceReference(sourceRef: SourceReference) {
-        console.log("got the message " + sourceRef.sourceFile.name + ":" + sourceRef.line);
-        // this.send("requestFocus", function() {});
-        this.doc.setCursor(sourceRef.line, sourceRef.column, {scroll:true});
-        // self.doc.scrollIntoView(, 10);
-        // });
-    }
-
+  public gotoSourceReference(sourceRef: SourceReference) {
+    console.log('got the message ' + sourceRef.sourceFile.name + ':' + sourceRef.line);
+    // this.send("requestFocus", function() {});
+    this.doc.setCursor(sourceRef.line, sourceRef.column, { scroll: true });
+    // self.doc.scrollIntoView(, 10);
+    // });
+  }
 }

@@ -1,41 +1,40 @@
-import axios from "axios";
-import { Project } from "../core/Project";
-import { Observable } from "../util/observe";
-import { assert, Mutable } from "../util/util";
-import { icon_middle, ICON_PLUS } from "./octicons";
-import { ProjectData } from "./projects";
-import { USERS } from "./user";
+import axios from 'axios';
+import { Project } from '../core/Project';
+import { Observable } from '../util/observe';
+import { assert, Mutable } from '../util/util';
+import { icon_middle, ICON_PLUS } from './octicons';
+import { ProjectData } from './projects';
+import { USERS } from './user';
 
 export type ExerciseData = {
-    id: number;
-    name: string;
-    starter_project_id: number;
-    exercise_key: string;
-    extra_keys: string[];
-}
+  id: number;
+  name: string;
+  starter_project_id: number;
+  exercise_key: string;
+  extra_keys: string[];
+};
 
 export async function getFullExercise(exercise_id: number) {
-    const response = await axios({
-        url: `api/exercises/${exercise_id}`,
-        method: "GET",
-        headers: {
-            'Authorization': 'bearer ' + USERS.getBearerToken()
-        }
-    });
+  const response = await axios({
+    url: `api/exercises/${exercise_id}`,
+    method: 'GET',
+    headers: {
+      Authorization: 'bearer ' + USERS.getBearerToken(),
+    },
+  });
 
-    return await response.data as ExerciseData;
+  return (await response.data) as ExerciseData;
 }
 
 export async function saveExercise(exercise: ExerciseData) {
-    return axios({
-        url: `api/exercises/${exercise.id}`,
-        method: "PATCH",
-        data: exercise,
-        headers: {
-            'Authorization': 'bearer ' + USERS.getBearerToken()
-        }
-    });
-
+  return axios({
+    url: `api/exercises/${exercise.id}`,
+    method: 'PATCH',
+    data: exercise,
+    headers: {
+      Authorization: 'bearer ' + USERS.getBearerToken(),
+    },
+  });
 }
 
 // export class ExerciseOutlet {
@@ -57,12 +56,12 @@ export async function saveExercise(exercise: ExerciseData) {
 //             .on("click", () => {
 //                 $("#lobster-edit-exercise-modal").modal("show");
 //             });
-    
+
 //         this.setUpModals();
 //     }
 
 //     private setUpModals() {
-        
+
 //         // Edit Exercise Modal
 //         $("#lobster-edit-project-form").on("submit", (e) => {
 //             e.preventDefault();
@@ -76,5 +75,4 @@ export async function saveExercise(exercise: ExerciseData) {
 //         });
 //     }
 
-    
 // }

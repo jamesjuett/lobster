@@ -1,9 +1,15 @@
-import { checkLocalAtomicVariableValues } from "../analysis/runtime";
-import { SingleTranslationUnitTest, NoErrorsNoWarningsVerifier, NoBadRuntimeEventsVerifier, EndOfMainStateVerifier, OutputVerifier } from "./verifiers";
+import { checkLocalAtomicVariableValues } from '../analysis/runtime';
+import {
+  SingleTranslationUnitTest,
+  NoErrorsNoWarningsVerifier,
+  NoBadRuntimeEventsVerifier,
+  EndOfMainStateVerifier,
+  OutputVerifier,
+} from './verifiers';
 
 export function createDynamicMemoryTests() {
   new SingleTranslationUnitTest(
-    "Basic New/Delete Test",
+    'Basic New/Delete Test',
     `#include <iostream>
 using namespace std;
 
@@ -12,14 +18,11 @@ int main() {
   assert(*p == 3);
   delete p;
 }`,
-    [
-      new NoErrorsNoWarningsVerifier(),
-      new NoBadRuntimeEventsVerifier(true)
-    ]
+    [new NoErrorsNoWarningsVerifier(), new NoBadRuntimeEventsVerifier(true)]
   );
 
   new SingleTranslationUnitTest(
-    "Basic New/Delete Test",
+    'Basic New/Delete Test',
     `#include <iostream>
 
 using namespace std;
@@ -64,8 +67,7 @@ bye
 bye
 4
 bye
-`)
+`),
     ]
   );
-
 }

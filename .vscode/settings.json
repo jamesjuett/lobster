@@ -1,23 +1,23 @@
 {
-    "cSpell.words": [
-      "activeline",
-      "bzrignore",
-      "cmlobster",
-      "codemirror",
-      "gapi",
-      "guttermarker",
-      "helmignore",
-      "hgignore",
-      "jamesjuett",
-      "Juett",
-      "linenumber",
-      "matchingbracket",
-      "monokai",
-      "pegjs",
-      "prettierrc",
-      "stylelint",
-      "stylelintrc",
-      "svgdotjs",
-      "tmproj"
-    ]
+  "cSpell.words": [
+    "activeline",
+    "bzrignore",
+    "cmlobster",
+    "codemirror",
+    "gapi",
+    "guttermarker",
+    "helmignore",
+    "hgignore",
+    "jamesjuett",
+    "Juett",
+    "linenumber",
+    "matchingbracket",
+    "monokai",
+    "pegjs",
+    "prettierrc",
+    "stylelint",
+    "stylelintrc",
+    "svgdotjs",
+    "tmproj"
+  ]
 }

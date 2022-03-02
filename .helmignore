@@ -23,6 +23,7 @@
 *.xml
 *.webmanifest
 .helmignore
+*.*.old
 
 # known compile time folders
 target/

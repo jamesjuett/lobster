@@ -3,11 +3,11 @@ const path = require('path');
 module.exports = {
   // mode: "development",
   entry: {
-    'main': './src/js/main.ts',
+    main: './src/js/main.ts',
     // 'main.min': './src/js/main.ts',
-    'embedded_exercises': './src/js/embedded_exercises.ts',
+    embedded_exercises: './src/js/embedded_exercises.ts',
     // 'exercises.min': './src/js/exercises.ts',
-    'regression': './src/js/test/regression.ts',
+    regression: './src/js/test/regression.ts',
     // 'regression.min': './src/js/test/regression.ts'
   },
   output: {
@@ -15,12 +15,12 @@ module.exports = {
     filename: '[name].js',
     libraryTarget: 'umd',
     library: 'Lobster',
-    umdNamedDefine: true
+    umdNamedDefine: true,
   },
   optimization: {
-    minimize: false
+    minimize: false,
   },
-  devtool: "source-map",
+  devtool: 'source-map',
   // optimization: {
   //   minimizer: [
   //     new TerserPlugin({
@@ -39,16 +39,15 @@ module.exports = {
       {
         test: /\.tsx?$/,
         loader: 'ts-loader',
-        exclude: /node_modules/
+        exclude: /node_modules/,
       },
       {
         test: /\.css$/,
-        use: ['style-loader', 'css-loader']
-      }
-    ]
+        use: ['style-loader', 'css-loader'],
+      },
+    ],
   },
   resolve: {
-    extensions: [ '.tsx', '.ts', '.js' ]
-
-  }
+    extensions: ['.tsx', '.ts', '.js'],
+  },
 };
