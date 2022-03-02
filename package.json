@@ -71,13 +71,6 @@
     "scripts": {
         "build": "webpack --config webpack.config.js",
         "copy-to-backend": "cp -r public/* ../lobster-backend/public",
-        "docker-hub:build": "docker build  -f Dockerfile.hub -t  jamesjuett/lobster-vis ./",
-        "docker-prod:build": "docker-compose -f ./docker/docker-compose.yml build",
-        "docker-prod:dev": "docker-compose -f ./docker/docker-compose.yml up",
-        "docker:build": "docker-compose -f ./docker/docker-compose.dev.yml build",
-        "docker:dev": "docker-compose -f ./docker/docker-compose.dev.yml up",
-        "docker:push": "npm run docker-hub:build && npm run docker:tag && docker push jamesjuett/lobster-vis",
-        "docker:tag": "docker tag lobster-vis jamesjuett/lobster-vis",
         "lint": "npm run lint:js && npm run lint:style && npm run lint:prettier",
         "lint-staged": "lint-staged",
         "lint-staged:js": "eslint --ext .js,.jsx,.ts,.tsx ",
