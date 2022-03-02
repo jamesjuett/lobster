@@ -1,0 +1,11 @@
+lib/
+dist/
+coverage/
+node_modules/
+chrome/js/icon.js
+src/assets/js/icon.js
+releases/
+script/@*
+other/
+*.webmanifest
+*.xml
