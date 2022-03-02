@@ -1,4 +1,5 @@
-import { SuccessfullyCompiled, TranslationUnitContext, RuntimeConstruct, CPPConstruct, ExpressionContext, BlockContext, ClassContext, MemberFunctionContext, MemberBlockContext, BasicCPPConstruct, createImplicitContext, InvalidConstruct, SemanticContext, areAllSemanticallyEquivalent } from "./constructs";
+import { TranslationUnitContext, ExpressionContext, BlockContext, ClassContext, MemberFunctionContext, MemberBlockContext, createImplicitContext, SemanticContext, areAllSemanticallyEquivalent } from "./Contexts";
+import { SuccessfullyCompiled, RuntimeConstruct, CPPConstruct, BasicCPPConstruct, InvalidConstruct } from "./CPPConstruct";
 import { ASTNode } from "../ast/ASTNode";
 import { CompiledTemporaryDeallocator, PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { CompiledFunctionCall, FunctionCall, RuntimeFunctionCall } from "./FunctionCall";

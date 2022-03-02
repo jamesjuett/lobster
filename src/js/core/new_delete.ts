@@ -1,7 +1,8 @@
 import { ArraySubobject, CPPObject, DynamicObject } from "./objects";
 import { SimulationEvent } from "./Simulation";
 import { AtomicType, PointerType, BoundedArrayType, FunctionType, isType, sameType, VoidType, Int, ArrayElemType, CompleteClassType, isBoundedArrayType, isCompleteObjectType, isCompleteClassType, Type, PointerToCompleteType as PointerToCompleteObjectType, isPotentiallyCompleteArrayType, PotentiallyCompleteArrayType, isArrayPointerType } from "./types";
-import { SuccessfullyCompiled, RuntimeConstruct, ExpressionContext, ConstructDescription } from "./constructs";
+import { ExpressionContext, ConstructDescription } from "./Contexts";
+import { SuccessfullyCompiled, RuntimeConstruct } from "./CPPConstruct";
 import { CPPError } from "./errors";
 import { NewObjectEntity, NewArrayEntity, DynamicLengthArrayNextElementEntity } from "./entities";
 import { assertNever, assert, Mutable, asMutable } from "../util/util";

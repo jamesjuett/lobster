@@ -2,7 +2,8 @@ import { areEntitiesSemanticallyEquivalent, FunctionEntity, PassByReferenceParam
 import { Mutable, assert } from "../util/util";
 import { AtomicType, CompleteClassType, CompleteReturnType, FunctionType, ReferenceType, VoidType } from "./types";
 import { CPPObject } from "./objects";
-import { TranslationUnitContext, SuccessfullyCompiled, RuntimeConstruct, areSemanticallyEquivalent, SemanticContext, areAllSemanticallyEquivalent } from "./constructs";
+import { TranslationUnitContext, areSemanticallyEquivalent, SemanticContext, areAllSemanticallyEquivalent } from "./Contexts";
+import { SuccessfullyCompiled, RuntimeConstruct } from "./CPPConstruct";
 import { CPPError } from "./errors";
 import { CompiledDirectInitializer, DirectInitializer, RuntimeDirectInitializer } from "./initializers";
 import { CompiledExpression, Expression, TypedExpression } from "./expressionBase";

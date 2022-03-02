@@ -1,5 +1,5 @@
 import { Constructor, htmlDecoratedType, unescapeString } from "../util/util";
-import { ConstructDescription, TranslationUnitContext } from "./constructs";
+import { ConstructDescription, TranslationUnitContext } from "./Contexts";
 import { byte, RawValueType, Value } from "./runtimeEnvironment";
 import { CPPObject } from "./objects";
 import { ExpressionASTNode } from "../ast/ast_expressions";

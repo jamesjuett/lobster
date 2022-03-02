@@ -2,7 +2,7 @@ import { Type, BoundedArrayType, AtomicType, PointerType, ObjectPointerType, Arr
 import { Observable } from "../util/observe";
 import { assert, Mutable, asMutable } from "../util/util";
 import { Memory, Value, RawValueType } from "./runtimeEnvironment";
-import { RuntimeConstruct } from "./constructs";
+import { RuntimeConstruct } from "./CPPConstruct";
 import { LocalVariableDefinition, GlobalVariableDefinition, CompiledGlobalVariableDefinition, ParameterDefinition, CompiledClassDefinition } from "./declarations";
 import { BoundReferenceEntity } from "./entities";
 

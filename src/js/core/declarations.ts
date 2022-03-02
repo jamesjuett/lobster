@@ -1,24 +1,25 @@
-import { BasicCPPConstruct, CPPConstruct, SuccessfullyCompiled, InvalidConstruct, TranslationUnitContext, FunctionContext, createFunctionContext, isBlockContext, BlockContext, createClassContext, ClassContext, isClassContext, createMemberSpecificationContext, MemberSpecificationContext, isMemberSpecificationContext, createImplicitContext, isMemberFunctionContext, EMPTY_SOURCE, createBlockContext, isMemberBlockContext, createOutOfLineFunctionDefinitionContext, SemanticContext, areSemanticallyEquivalent, areAllSemanticallyEquivalent } from "./constructs";
 import { ASTNode } from "../ast/ASTNode";
-import { CPPError, Note, CompilerNote, NoteHandler } from "./errors";
-import { asMutable, assertFalse, assert, Mutable, Constructor, assertNever, DiscriminateUnion } from "../util/util";
-import { Type, VoidType, ArrayOfUnknownBoundType, FunctionType, CompleteObjectType, ReferenceType, PotentialParameterType, BoundedArrayType, PointerType, builtInTypes, isBuiltInTypeName, PotentialReturnType, PeelReference, AtomicType, ArithmeticType, IntegralType, FloatingPointType, CompleteClassType, PotentiallyCompleteClassType, IncompleteClassType, PotentiallyCompleteObjectType, ReferredType, CompleteParameterType, IncompleteObjectType, CompleteReturnType, isAtomicType, isCompleteClassType, isBoundedArrayType, covariantType, sameType } from "./types";
-import { CPPObject, ArraySubobject } from "./objects";
-import { Expression } from "./expressionBase";
-import { RuntimeFunction } from "./functions";
-import { parseDeclarator, parseFunctionDefinition } from "../parse/cpp_parser_util";
-import { RuntimeFunctionCall } from "./FunctionCall";
-import { StorageSpecifierASTNode, StorageSpecifierKey, TypeSpecifierASTNode, TypeSpecifierKey, NonMemberSimpleDeclarationASTNode, FunctionDefinitionASTNode, ClassDefinitionASTNode, TopLevelDeclarationASTNode, LocalDeclarationASTNode, MemberSimpleDeclarationASTNode, MemberDeclarationASTNode, SimpleDeclarationASTNode, ParameterDeclarationASTNode, ClassKey, AccessSpecifier, BaseSpecifierASTNode } from "../ast/ast_declarations";
+import { AccessSpecifier, BaseSpecifierASTNode, ClassDefinitionASTNode, ClassKey, FunctionDefinitionASTNode, LocalDeclarationASTNode, MemberDeclarationASTNode, MemberSimpleDeclarationASTNode, NonMemberSimpleDeclarationASTNode, ParameterDeclarationASTNode, SimpleDeclarationASTNode, StorageSpecifierASTNode, StorageSpecifierKey, TopLevelDeclarationASTNode, TypeSpecifierASTNode, TypeSpecifierKey } from "../ast/ast_declarations";
 import { DeclaratorASTNode, FunctionPostfixDeclaratorASTNode } from "../ast/ast_declarators";
 import { parseNumericLiteralValueFromAST } from "../ast/ast_expressions";
-import { CPPEntity, FunctionEntity, ClassEntity, VariableEntity, LocalObjectEntity, LocalReferenceEntity, GlobalObjectEntity, MemberVariableEntity, MemberObjectEntity, MemberReferenceEntity, CompleteClassEntity, ObjectEntityType, BaseSubobjectEntity, ReceiverEntity, areEntitiesSemanticallyEquivalent } from "./entities";
+import { CopyInitializerASTNode, DirectInitializerASTNode, ListInitializerASTNode } from "../ast/ast_initializers";
+import { parseFunctionDefinition } from "../parse/cpp_parser_util";
+import { asMutable, assert, assertNever, Mutable } from "../util/util";
+import { areAllSemanticallyEquivalent, areSemanticallyEquivalent, BlockContext, ClassContext, createBlockContext, createClassContext, createFunctionContext, createImplicitContext, createMemberSpecificationContext, createOutOfLineFunctionDefinitionContext, FunctionContext, isBlockContext, isClassContext, isMemberBlockContext, isMemberSpecificationContext, MemberSpecificationContext, SemanticContext, TranslationUnitContext } from "./Contexts";
+import { BasicCPPConstruct, InvalidConstruct, SuccessfullyCompiled } from "./CPPConstruct";
+import { areEntitiesSemanticallyEquivalent, BaseSubobjectEntity, ClassEntity, CompleteClassEntity, CPPEntity, FunctionEntity, GlobalObjectEntity, LocalObjectEntity, LocalReferenceEntity, MemberObjectEntity, MemberReferenceEntity, MemberVariableEntity, ObjectEntityType, ReceiverEntity, VariableEntity } from "./entities";
+import { CPPError, NoteHandler } from "./errors";
+import { Expression } from "./expressionBase";
 import { createExpressionFromAST } from "./expressions";
-import { getUnqualifiedName, QualifiedName, composeQualifiedName, getQualifiedName, isQualifiedName, UnqualifiedName, LexicalIdentifier, astToIdentifier, isUnqualifiedName, checkIdentifier, identifierToString } from "./lexical";
-import { Block, createStatementFromAST, CompiledBlock } from "./statements";
-import { DirectInitializerASTNode, CopyInitializerASTNode, ListInitializerASTNode } from "../ast/ast_initializers";
-import { Initializer, CompiledInitializer, DefaultInitializer, DirectInitializer, ListInitializer, CtorInitializer, CompiledCtorInitializer } from "./initializers";
+import { RuntimeFunctionCall } from "./FunctionCall";
+import { RuntimeFunction } from "./functions";
+import { CompiledCtorInitializer, CompiledInitializer, CtorInitializer, DefaultInitializer, DirectInitializer, Initializer, ListInitializer } from "./initializers";
+import { astToIdentifier, checkIdentifier, composeQualifiedName, getQualifiedName, getUnqualifiedName, identifierToString, isQualifiedName, isUnqualifiedName, LexicalIdentifier, QualifiedName, UnqualifiedName } from "./lexical";
 import { CompiledObjectDeallocator, createMemberDeallocator, ObjectDeallocator } from "./ObjectDeallocator";
+import { CPPObject } from "./objects";
 import { AnalyticConstruct } from "./predicates";
+import { Block, CompiledBlock, createStatementFromAST } from "./statements";
+import { ArrayOfUnknownBoundType, AtomicType, BoundedArrayType, builtInTypes, CompleteClassType, CompleteObjectType, CompleteParameterType, CompleteReturnType, covariantType, FunctionType, IncompleteObjectType, isAtomicType, isBoundedArrayType, isBuiltInTypeName, PointerType, PotentiallyCompleteClassType, PotentialParameterType, ReferenceType, sameType, Type, VoidType } from "./types";
 
 
 export class StorageSpecifier extends BasicCPPConstruct<TranslationUnitContext, ASTNode> {

@@ -1,4 +1,5 @@
-import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, CPPConstruct, BlockContext, FunctionContext, InvalidConstruct, createLoopContext, createBlockContext, SemanticContext, areSemanticallyEquivalent, areAllSemanticallyEquivalent } from "./constructs";
+import { BlockContext, FunctionContext, createLoopContext, createBlockContext, SemanticContext, areSemanticallyEquivalent, areAllSemanticallyEquivalent } from "./Contexts";
+import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, CPPConstruct, InvalidConstruct } from "./CPPConstruct";
 import { CPPError } from "./errors";
 import { createExpressionFromAST, createRuntimeExpression, standardConversion } from "./expressions";
 import { ExpressionASTNode } from "../ast/ast_expressions";

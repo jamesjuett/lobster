@@ -1,7 +1,8 @@
 import { Observable } from "../util/observe";
 import { RunnableProgram } from "./Program";
 import { Memory, Value } from "./runtimeEnvironment";
-import { RuntimeConstruct, RuntimeGlobalObjectAllocator } from "./constructs";
+import { RuntimeConstruct } from "./CPPConstruct";
+import { RuntimeGlobalObjectAllocator } from "./GlobalObjectAllocator";
 import { CPPRandom, Mutable, escapeString, asMutable, assertNever, assert } from "../util/util";
 import { DynamicObject, MainReturnObject } from "./objects";
 import { Int, PointerType, Char, CompleteObjectType, AtomicType, FunctionType, PotentiallyCompleteObjectType, ReferenceType, ReferredType, ArithmeticType, AnalyticArithmeticType, isType, isIntegralType, IntegralType, SuccessParsingResult, ErrorParsingResult } from "./types";

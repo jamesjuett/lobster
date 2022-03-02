@@ -1,7 +1,8 @@
 import { PotentialParameterType, Type, CompleteObjectType, sameType, ReferenceType, BoundedArrayType, Char, ArrayElemType, FunctionType, referenceCompatible, createClassType, PotentiallyCompleteClassType, CompleteClassType, PotentiallyCompleteObjectType, PeelReference, Completed, VoidType, CompleteReturnType, PointerType, ArrayOfUnknownBoundType, PotentiallyCompleteArrayType } from "./types";
 import { assert, Mutable, unescapeString, assertFalse, asMutable, assertNever } from "../util/util";
 import { Observable } from "../util/observe";
-import { RuntimeConstruct, isClassContext, SemanticContext } from "./constructs";
+import { isClassContext, SemanticContext } from "./Contexts";
+import { RuntimeConstruct } from "./CPPConstruct";
 import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
 import { FunctionCall } from "./FunctionCall";
 import { LocalVariableDefinition, ParameterDefinition, GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, ParameterDeclaration, FunctionDeclaration, ClassDefinition, FunctionDefinitionGroup, ClassDeclaration, MemberVariableDeclaration, SimpleDeclaration, CompiledClassDefinition } from "./declarations";

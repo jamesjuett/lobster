@@ -5,7 +5,8 @@ import { UnknownTypeDeclaration, VoidDeclaration, TypedUnknownBoundArrayDeclarat
 import { Type, VoidType, ArrayOfUnknownBoundType, Bool, AtomicType, Int, isAtomicType, ExpressionType } from "./types";
 import { DiscriminateUnion } from "../util/util";
 import { AnalyticStatement } from "./statements";
-import { CPPConstruct, GlobalObjectAllocator } from "./constructs";
+import { CPPConstruct } from "./CPPConstruct";
+import { GlobalObjectAllocator } from "./GlobalObjectAllocator";
 import { FunctionCallExpression } from "./FunctionCallExpression";
 import { DirectInitializer, AtomicDirectInitializer, CtorInitializer } from "./initializers";
 import { containsConstruct, findFirstConstruct } from "../analysis/analysis";

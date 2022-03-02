@@ -1,6 +1,6 @@
 import { StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName } from "../ast/ast_declarations";
 import { Mutable } from "../util/util";
-import { TranslationUnitConstruct, CPPConstruct } from "./constructs";
+import { TranslationUnitConstruct, CPPConstruct } from "./CPPConstruct";
 import { BaseSpecifier, SimpleDeclaration, FunctionDefinition, VariableDefinition, ParameterDefinition, ClassDefinition, StorageSpecifier, VoidDeclaration, IncompleteTypeVariableDefinition, IncompleteTypeMemberVariableDeclaration, FunctionDeclaration, ClassDeclaration } from "./declarations";
 import { LocalObjectEntity, TemporaryObjectEntity, ObjectEntity, DeclaredEntity, CPPEntity, FunctionEntity, ClassEntity, GlobalObjectEntity, NamedEntity, ArraySubobjectEntity } from "./entities";
 import { Expression, TypedExpression } from "./expressionBase";

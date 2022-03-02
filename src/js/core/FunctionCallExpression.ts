@@ -1,4 +1,5 @@
-import { SuccessfullyCompiled, RuntimeConstruct, ExpressionContext, createExpressionContextWithParameterTypes, ConstructDescription, SemanticContext, areSemanticallyEquivalent, areAllSemanticallyEquivalent } from "./constructs";
+import { ExpressionContext, createExpressionContextWithParameterTypes, ConstructDescription, SemanticContext, areSemanticallyEquivalent, areAllSemanticallyEquivalent } from "./Contexts";
+import { SuccessfullyCompiled, RuntimeConstruct } from "./CPPConstruct";
 import { ASTNode } from "../ast/ASTNode";
 import { CompiledTemporaryDeallocator } from "./PotentialFullExpression";
 import { CompiledFunctionCall, FunctionCall, RuntimeFunctionCall, TypedFunctionCall } from "./FunctionCall";

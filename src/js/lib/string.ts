@@ -5,7 +5,7 @@ import { runtimeObjectLookup, VariableEntity, LocalVariableEntity, LocalObjectEn
 import { Value } from "../core/runtimeEnvironment";
 import { SimulationEvent } from "../core/Simulation";
 import { registerOpaqueExpression, RuntimeOpaqueExpression, OpaqueExpressionImpl, lookupTypeInContext, getLocal } from "../core/opaqueExpression";
-import { ExpressionContext } from "../core/constructs";
+import { ExpressionContext } from "../core/Contexts";
 import { assert } from "../util/util";
 import { Expression, RuntimeExpression } from "../core/expressionBase";
 import { nth } from "lodash";

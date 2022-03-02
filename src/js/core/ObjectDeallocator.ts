@@ -1,4 +1,5 @@
-import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, TranslationUnitContext, BlockContext, SemanticContext } from "./constructs";
+import { TranslationUnitContext, BlockContext, SemanticContext } from "./Contexts";
+import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct } from "./CPPConstruct";
 import { ASTNode } from "../ast/ASTNode";
 import { CPPError } from "./errors";
 import { isReferenceToCompleteType, isCompleteClassType, CompleteClassType, isBoundedArrayType, BoundedArrayType } from "./types";

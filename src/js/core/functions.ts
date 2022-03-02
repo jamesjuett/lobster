@@ -1,5 +1,5 @@
 import { FunctionType, VoidType, PeelReference, CompleteObjectType, ReferenceType, AtomicType, CompleteClassType, CompleteReturnType, PotentiallyCompleteObjectType, ReferredType } from "./types";
-import { RuntimeConstruct } from "./constructs";
+import { RuntimeConstruct } from "./CPPConstruct";
 import { CompiledFunctionDefinition } from "./declarations";
 import { MemoryFrame, Value } from "./runtimeEnvironment";
 import { CPPObject } from "./objects";
