@@ -108,13 +108,13 @@ module.exports = {
     'dot-location': ['error', 'property'],
     'dot-notation': ['warn', { allowKeywords: true }],
     eqeqeq: [
-      'warn', // was "error"
+      'warn',
       'always',
       {
         null: 'ignore',
       },
     ],
-    'guard-for-in': 'warn', // was "error"
+    'guard-for-in': 'warn',
     'no-alert': 'off',
     'no-caller': 'error',
     'no-case-declarations': 'warn',
@@ -171,7 +171,7 @@ module.exports = {
     'no-self-compare': 'error',
     'no-sequences': 'error',
     'no-throw-literal': 'warn',
-    'no-unmodified-loop-condition': 'error',
+    'no-unmodified-loop-condition': 'warn',
     'no-unused-expressions': [
       'warn',
       {
@@ -467,7 +467,7 @@ module.exports = {
     'no-unused-vars': 'off',
     'no-useless-constructor': 'off',
     'no-empty-function': 'off',
-    '@typescript-eslint/no-empty-function': 'warn', // was "error"
+    '@typescript-eslint/no-empty-function': 'warn',
     '@typescript-eslint/no-useless-constructor': 'warn',
     'no-undef': 'off',
     'spaced-comment': 'off',
@@ -476,7 +476,7 @@ module.exports = {
     '@typescript-eslint/interface-name-prefix': 'off',
     '@typescript-eslint/member-delimiter-style': 'error',
     '@typescript-eslint/member-naming': 'off',
-    '@typescript-eslint/member-ordering': 'warn', // was "error"
+    '@typescript-eslint/member-ordering': 'warn',
     '@typescript-eslint/no-angle-bracket-type-assertion': 'off',
     '@typescript-eslint/no-array-constructor': 'error',
     '@typescript-eslint/no-empty-interface': 'off',
@@ -486,7 +486,6 @@ module.exports = {
     '@typescript-eslint/no-triple-slash-reference': 'off',
     '@typescript-eslint/no-type-alias': 'off',
     '@typescript-eslint/no-unused-vars': [
-      // was "error"
       'warn',
       {
         vars: 'all',
