@@ -119,7 +119,7 @@ module.exports = {
     'no-caller': 'error',
     'no-case-declarations': 'error',
     'no-div-regex': 'off',
-    'no-else-return': ['error', { allowElseIf: false }],
+    'no-else-return': ['warn', { allowElseIf: false }],
     'no-empty-pattern': 'error',
     'no-eq-null': 'off',
     'no-eval': 'error',
