@@ -226,7 +226,7 @@ module.exports = {
     'no-alert': 'off',
     'no-caller': 'error',
     'no-div-regex': 'off',
-    'no-else-return': ['warn', { allowElseIf: false }],
+    'no-else-return': ['off', { allowElseIf: false }],
     'no-eq-null': 'off',
     'no-eval': 'error',
     'no-extend-native': 'error',
