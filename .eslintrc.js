@@ -468,7 +468,7 @@ module.exports = {
     'no-useless-constructor': 'off',
     'no-empty-function': 'off',
     '@typescript-eslint/no-empty-function': 'warn', // was "error"
-    '@typescript-eslint/no-useless-constructor': 'error',
+    '@typescript-eslint/no-useless-constructor': 'warn',
     'no-undef': 'off',
     'spaced-comment': 'off',
     '@typescript-eslint/adjacent-overload-signatures': 'off',
