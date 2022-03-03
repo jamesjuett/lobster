@@ -130,7 +130,7 @@ module.exports = {
     'no-floating-decimal': 'error',
     'no-global-assign': 'error',
     'no-implicit-coercion': [
-      'error',
+      'warn',
       {
         allow: ['!!'],
       },
