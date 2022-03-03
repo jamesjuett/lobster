@@ -165,7 +165,7 @@ module.exports = {
     'no-proto': 'error',
     'no-restricted-properties': 'off',
     'no-return-assign': ['warn', 'always'],
-    'no-return-await': 'error',
+    'no-return-await': 'warn',
     'no-script-url': 'error',
     'no-self-assign': 'error',
     'no-self-compare': 'error',
