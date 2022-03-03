@@ -1,5 +1,5 @@
 module.exports = {
-  extends: ['prettier'],
+  extends: ['eslint:recommended', 'plugin:@typescript-eslint/recommended', 'prettier'],
   parser: '@typescript-eslint/parser',
   parserOptions: {
     ecmaVersion: 2017,
@@ -29,17 +29,104 @@ module.exports = {
   root: true,
   plugins: ['react', 'react-hooks', '@typescript-eslint', 'eslint-plugin-prettier'],
   rules: {
+    // Start Eslint Recommended Rules
+    // "constructor-super": "error",
     'for-direction': 'error',
-    'getter-return': [
-      'error',
-      {
-        allowImplicit: false,
-      },
-    ],
-    'no-await-in-loop': 'off',
+    // 'getter-return': 'error',
+    'no-async-promise-executor': 'error',
+    // 'no-case-declarations': 'error',
+    'no-class-assign': 'error',
     'no-compare-neg-zero': 'error',
+    // 'no-cond-assign': 'error',
+    'no-const-assign': 'error',
+    // 'no-constant-condition': 'error',
+    // no-control-regex': 'error',
+    'no-debugger': 'error',
+    'no-delete-var': 'error',
+    'no-dupe-args': 'error',
+    // 'no-dupe-class-members': 'error',
+    'no-dupe-else-if': 'error',
+    // 'no-dupe-keys': 'error',
+    'no-duplicate-case': 'error',
+    // 'no-empty': 'error',
+    'no-empty-character-class': 'error',
+    'no-empty-pattern': 'error',
+    'no-ex-assign': 'error',
+    'no-extra-boolean-cast': 'error',
+    'no-extra-semi': 'error',
+    'no-fallthrough': 'error',
+    // 'no-func-assign': 'error',
+    'no-global-assign': 'error',
+    // 'no-import-assign': 'error',
+    // 'no-inner-declarations': 'error',
+    'no-invalid-regexp': 'error',
+    // 'no-irregular-whitespace': 'error',
+    'no-loss-of-precision': 'error',
+    'no-misleading-character-class': 'error',
+    'no-mixed-spaces-and-tabs': 'error',
+    // 'no-new-symbol': 'error',
+    'no-nonoctal-decimal-escape': 'error',
+    // 'no-obj-calls': 'error',
+    'no-octal': 'error',
+    // 'no-prototype-builtins': 'error',
+    // 'no-redeclare': 'error',
+    'no-regex-spaces': 'error',
+    'no-self-assign': 'error',
+    // 'no-setter-return': 'error',
+    'no-shadow-restricted-names': 'error',
+    'no-sparse-arrays': 'error',
+    // 'no-this-before-super': 'error',
+    // 'no-undef': 'error',
+    'no-unexpected-multiline': 'error',
+    // 'no-unreachable': 'error',
+    'no-unsafe-finally': 'error',
+    // 'no-unsafe-negation': 'error',
+    'no-unsafe-optional-chaining': 'error',
+    'no-unused-labels': 'error',
+    // 'no-unused-vars': 'error',
+    'no-useless-backreference': 'error',
+    'no-useless-catch': 'error',
+    // 'no-useless-escape': 'error',
+    'no-with': 'error',
+    'require-yield': 'error',
+    'use-isnan': 'error',
+    // 'valid-typeof': 'error',
+    // End Eslint Recommended Rules
+    //
+    //
+    //
+    // Start Typescript ESLint Recommended Rules
+    // https://github.com/typescript-eslint/typescript-eslint/blob/main/packages/eslint-plugin/src/configs/eslint-recommended.ts
+    // 'constructor-super': 'off', // ts(2335) & ts(2377)
+    // 'getter-return': 'off', // ts(2378)
+    // 'no-const-assign': 'off', // ts(2588)
+    // 'no-dupe-args': 'off', // ts(2300)
+    // 'no-dupe-class-members': 'off', // ts(2393) & ts(2300)
+    // 'no-dupe-keys': 'off', // ts(1117)
+    // 'no-func-assign': 'off', // ts(2539)
+    // 'no-import-assign': 'off', // ts(2539) & ts(2540)
+    // 'no-new-symbol': 'off', // ts(2588)
+    // 'no-obj-calls': 'off', // ts(2349)
+    'no-redeclare': 'off', // ts(2451)
+    'no-setter-return': 'off', // ts(2408)
+    // 'no-this-before-super': 'off', // ts(2376)
+    'no-undef': 'off', // ts(2304)
+    // 'no-unreachable': 'off', // ts(7027)
+    // 'no-unsafe-negation': 'off', // ts(2365) & ts(2360) & ts(2358)
+    // 'no-var': 'error', // ts transpiles let/const to var, so no need for vars any more
+    // 'prefer-const': 'error', // ts provides better types with const
+    // 'prefer-rest-params': 'error', // ts provides better types with rest args over arguments
+    // 'prefer-spread': 'error', // ts transpiles spread to apply, so no need for manual apply
+    // 'valid-typeof': 'off', // ts(2367)
+    // End Typescript ESLint Recommended Rules
+    //
+    //
+    //
+    //
+    //
+    // Start Edits to Eslint Recommended Rules (not touched by Typescript ESlint Recommended)
+    'no-case-declarations': 'warn',
     'no-cond-assign': ['error', 'except-parens'],
-    'no-console': 'off',
     'no-constant-condition': [
       'error',
       {
@@ -47,24 +134,13 @@ module.exports = {
       },
     ],
     'no-control-regex': 'off',
-    'no-debugger': 'error',
-    'no-dupe-args': 'error',
-    'no-dupe-keys': 'error',
-    'no-duplicate-case': 'error',
     'no-empty': [
       'error',
       {
         allowEmptyCatch: true,
       },
     ],
-    'no-empty-character-class': 'error',
-    'no-ex-assign': 'error',
-    'no-extra-boolean-cast': 'error',
-    'no-extra-parens': ['error', 'functions'],
-    'no-extra-semi': 'error',
-    'no-func-assign': 'error',
     'no-inner-declarations': ['warn', 'both'],
-    'no-invalid-regexp': 'error',
     'no-irregular-whitespace': [
       'error',
       {
@@ -74,18 +150,50 @@ module.exports = {
         skipTemplates: true,
       },
     ],
-    'no-obj-calls': 'error',
     'no-prototype-builtins': 'off',
-    'no-regex-spaces': 'error',
-    'no-sparse-arrays': 'error',
-    'no-template-curly-in-string': 'error',
-    'no-unexpected-multiline': 'error',
+    'no-useless-escape': 'off',
+    'no-unused-vars': 'off',
+    // End edits to EsLint Recommended Rules (not touched by TypeScript ESlint Recommended Rules)
+    //
+    //
+    //
+    //
+    //
+    // Start edits to Typescript Eslint Recommended Rules
+    'constructor-super': 'warn',
+    'getter-return': [
+      'warn',
+      {
+        allowImplicit: false,
+      },
+    ],
+    'no-dupe-class-members': 'warn',
+    'no-dupe-keys': 'error', // Revert to ESLint Recommended
+    'no-func-assign': 'error', // Revert to ESLint Recommended
+    'no-import-assign': 'error', // Revert to ESLint Recommended
+    'no-new-symbol': 'warn',
+    'no-obj-calls': 'error', // Revert to ESLint Recommended
+    'no-this-before-super': 'error', // Revert to ESLint Recommend
     'no-unreachable': 'warn',
-    'no-unsafe-finally': 'error',
-    'no-unsafe-negation': 'error',
-    'use-isnan': 'error',
+    'no-unsafe-negation': 'error', // Revert to ESLint Recommended
+    'no-var': 'warn',
+    'prefer-const': 'off',
+    'prefer-rest-params': 'off',
+    'prefer-spread': 'off',
+    'valid-typeof': 'error', // Revert to ESLint Recommended
+    // End Edits to Typescript EsLint Recommended Rules
+    //
+    //
+    //
+    //
+    //
+    // Start Additional ESlint Rules
+    // https://eslint.org/docs/rules/
+    'no-await-in-loop': 'off',
+    'no-console': 'off',
+    'no-extra-parens': ['error', 'functions'],
+    'no-template-curly-in-string': 'error',
     'valid-jsdoc': 'off',
-    'valid-typeof': 'error',
     'accessor-pairs': [
       'error',
       {
@@ -117,18 +225,14 @@ module.exports = {
     'guard-for-in': 'warn',
     'no-alert': 'off',
     'no-caller': 'error',
-    'no-case-declarations': 'warn',
     'no-div-regex': 'off',
     'no-else-return': ['warn', { allowElseIf: false }],
-    'no-empty-pattern': 'error',
     'no-eq-null': 'off',
     'no-eval': 'error',
     'no-extend-native': 'error',
     'no-extra-bind': 'error',
     'no-extra-label': 'error',
-    'no-fallthrough': 'error',
     'no-floating-decimal': 'error',
-    'no-global-assign': 'error',
     'no-implicit-coercion': [
       'warn',
       {
@@ -159,7 +263,6 @@ module.exports = {
     'no-new': 'off',
     'no-new-func': 'error',
     'no-new-wrappers': 'error',
-    'no-octal': 'error',
     'no-octal-escape': 'error',
     'no-param-reassign': 'warn',
     'no-proto': 'error',
@@ -167,7 +270,6 @@ module.exports = {
     'no-return-assign': ['warn', 'always'],
     'no-return-await': 'warn',
     'no-script-url': 'error',
-    'no-self-assign': 'error',
     'no-self-compare': 'error',
     'no-sequences': 'error',
     'no-throw-literal': 'warn',
@@ -180,14 +282,11 @@ module.exports = {
         allowTaggedTemplates: true,
       },
     ],
-    'no-unused-labels': 'error',
     'no-useless-call': 'error',
     'no-useless-concat': 'error',
-    'no-useless-escape': 'off',
     'no-useless-return': 'off',
     'no-void': 'error',
     'no-warning-comments': 'off',
-    'no-with': 'error',
     'prefer-promise-reject-errors': 'error',
     radix: 'warn',
     'require-await': 'off',
@@ -209,11 +308,9 @@ module.exports = {
     strict: ['error', 'never'],
     'init-declarations': 'off',
     'no-catch-shadow': 'off',
-    'no-delete-var': 'error',
     'no-label-var': 'error',
     'no-restricted-globals': 'off',
     'no-shadow': 'off',
-    'no-shadow-restricted-names': 'error',
     'no-undef-init': 'warn',
     'no-undefined': 'warn',
     'callback-return': 'off',
@@ -310,7 +407,6 @@ module.exports = {
     'no-inline-comments': 'off',
     'no-lonely-if': 'off',
     'no-mixed-operators': 'off',
-    'no-mixed-spaces-and-tabs': 'error',
     'no-multi-assign': 'off',
     'no-multiple-empty-lines': [
       'error',
@@ -425,7 +521,6 @@ module.exports = {
         after: true,
       },
     ],
-    'constructor-super': 'error',
     'generator-star-spacing': [
       'error',
       {
@@ -433,45 +528,45 @@ module.exports = {
         after: false,
       },
     ],
-    'no-class-assign': 'error',
     'no-confusing-arrow': [
       'warn',
       {
         allowParens: true,
       },
     ],
-    'no-const-assign': 'error',
-    'no-dupe-class-members': 'warn',
     'no-duplicate-imports': 'error',
-    'no-new-symbol': 'error',
     'no-restricted-imports': 'off',
-    'no-this-before-super': 'error',
     'no-useless-computed-key': 'error',
     'no-useless-rename': 'error',
-    'no-var': 'warn',
     'object-shorthand': 'off',
     'prefer-arrow-callback': 'off',
-    'prefer-const': 'off',
     'prefer-destructuring': 'off',
     'prefer-numeric-literals': 'off',
-    'prefer-rest-params': 'off',
-    'prefer-spread': 'off',
     'prefer-template': 'warn',
-    'require-yield': 'error',
     'rest-spread-spacing': ['error', 'never'],
     'sort-imports': 'off',
     'symbol-description': 'error',
     'template-curly-spacing': ['error', 'never'],
     'yield-star-spacing': ['error', 'after'],
-    'no-unused-vars': 'off',
     'no-useless-constructor': 'off',
     'no-empty-function': 'off',
+    'no-use-before-define': 'off',
+    'arrow-body-style': 'off',
+    // End Additional Eslint Rules
+    //
+    //
+    //
+    //
+    //
+    // Start Additional Typescript Eslint Rules
+    // https://typescript-eslint.io/rules/
+    '@typescript-eslint/ban-types': 'warn',
     '@typescript-eslint/no-empty-function': 'warn',
     '@typescript-eslint/no-useless-constructor': 'warn',
-    'no-undef': 'off',
     'spaced-comment': 'off',
     '@typescript-eslint/adjacent-overload-signatures': 'off',
     '@typescript-eslint/explicit-member-accessibility': 'off',
+    '@typescript-eslint/no-inferrable-types': 'warn',
     '@typescript-eslint/interface-name-prefix': 'off',
     '@typescript-eslint/member-delimiter-style': 'error',
     '@typescript-eslint/member-naming': 'off',
@@ -481,7 +576,9 @@ module.exports = {
     '@typescript-eslint/no-empty-interface': 'off',
     '@typescript-eslint/no-explicit-any': 'off',
     '@typescript-eslint/no-namespace': 'warn',
+    '@typescript-eslint/no-non-null-asserted-optional-chain': 'warn',
     '@typescript-eslint/no-parameter-properties': 'off',
+    '@typescript-eslint/no-this-alias': 'warn',
     '@typescript-eslint/no-triple-slash-reference': 'off',
     '@typescript-eslint/no-type-alias': 'off',
     '@typescript-eslint/no-unused-vars': [
@@ -499,7 +596,13 @@ module.exports = {
     '@typescript-eslint/no-use-before-define': 'off',
     '@typescript-eslint/prefer-namespace-keyword': 'off',
     '@typescript-eslint/type-annotation-spacing': 'error',
-    // React
+    // End Additional Typescript Eslint Rules
+    //
+    //
+    //
+    //
+    //
+    // Start React Rules
     'react/boolean-prop-naming': 'off',
     'react/default-props-match-prop-types': 'off',
     'react/display-name': 'off',
@@ -590,10 +693,14 @@ module.exports = {
     'react-hooks/rules-of-hooks': 'error',
     'react-hooks/exhaustive-deps': 'error',
     'react/sort-comp': 'off',
-    // End React
-    'no-use-before-define': 'off',
-    'arrow-body-style': 'off',
-    'no-redeclare': 'off',
+    // End React React Rules
+    //
+    //
+    //
+    //
+    //
+    // Start Prettier Rules
     'prettier/prettier': 'error',
+    // End Prettier Rules
   },
 };
