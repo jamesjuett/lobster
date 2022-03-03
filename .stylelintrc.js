@@ -15,7 +15,7 @@ module.exports = {
     'unit-no-unknown': [true, { ignoreUnits: ['rpx'] }],
     // webcomponent
     'selector-type-no-unknown': null,
-    'selector-no-vendor-prefix': false,
+    'selector-no-vendor-prefix': [true, {ignoreSelectors: ["::-moz-selection"]}],
     'value-keyword-case': ['lower', { ignoreProperties: ['composes'] }],
   },
   ignoreFiles: ['**/*.js', '**/*.jsx', '**/*.tsx', '**/*.ts'],
