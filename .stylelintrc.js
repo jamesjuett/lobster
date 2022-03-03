@@ -15,6 +15,7 @@ module.exports = {
     'unit-no-unknown': [true, { ignoreUnits: ['rpx'] }],
     // webcomponent
     'selector-type-no-unknown': null,
+    'selector-no-vendor-prefix': false,
     'value-keyword-case': ['lower', { ignoreProperties: ['composes'] }],
   },
   ignoreFiles: ['**/*.js', '**/*.jsx', '**/*.tsx', '**/*.ts'],
