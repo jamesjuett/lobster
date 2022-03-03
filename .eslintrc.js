@@ -170,7 +170,7 @@ module.exports = {
     'no-self-assign': 'error',
     'no-self-compare': 'error',
     'no-sequences': 'error',
-    'no-throw-literal': 'error',
+    'no-throw-literal': 'warn',
     'no-unmodified-loop-condition': 'error',
     'no-unused-expressions': [
       'error',
