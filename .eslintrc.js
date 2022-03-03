@@ -277,8 +277,7 @@ module.exports = {
       },
     ],
     'keyword-spacing': [
-      // was "error"
-      'warn',
+      'off',
       {
         before: true,
         after: true,
