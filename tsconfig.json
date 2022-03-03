@@ -1,8 +1,8 @@
 {
   "include": [
-    ".eslintrc.js",
-    ".stylelintrc.js",
-    ".prettierrc.js",
+    "./.eslintrc.js",
+    "./.stylelintrc.js",
+    "./.prettierrc.js",
     "./src/js/core/*.ts",
     "./src/js/lib/*.ts",
     "./src/js/ast/*.ts",

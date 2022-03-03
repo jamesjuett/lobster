@@ -78,8 +78,8 @@
         "lint:style": "stylelint \"src/**/*.css\"",
         "lint-staged": "lint-staged",
         "lint-staged:js": "eslint --fix --cache --ext .js,.jsx,.ts,.tsx",
-        "lint-staged:style": "stylelint --fix \"src/**/*.css\"",
         "lint-staged:prettier": "prettier --write \"**/*.{js,jsx,tsx,ts,css,md,json}\"",
+        "lint-staged:style": "stylelint --fix \"src/**/*.css\"",
         "test": "TS_NODE_FILES=true mocha -r ts-node/register 'src/test/**/*.spec.ts'"
     },
     "lint-staged": {
