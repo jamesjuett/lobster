@@ -1,10 +1,16 @@
-import { checkLocalAtomicVariableValues } from "../analysis/runtime";
-import { IOState } from "../core/streams";
-import { SingleTranslationUnitTest, NoErrorsNoWarningsVerifier, NoBadRuntimeEventsVerifier, EndOfMainStateVerifier, OutputVerifier } from "./verifiers";
+import { checkLocalAtomicVariableValues } from '../analysis/runtime';
+import { IOState } from '../core/streams';
+import {
+  SingleTranslationUnitTest,
+  NoErrorsNoWarningsVerifier,
+  NoBadRuntimeEventsVerifier,
+  EndOfMainStateVerifier,
+  OutputVerifier,
+} from './verifiers';
 
 export function createCinTests() {
   new SingleTranslationUnitTest(
-    "EECS 183 cin test 1",
+    'EECS 183 cin test 1',
     `#include <iostream>
 using namespace std;
 
@@ -16,21 +22,23 @@ int main() {
 }`,
     [
       new NoErrorsNoWarningsVerifier(),
-      new NoBadRuntimeEventsVerifier(true, "2.5 * 2.0"),
+      new NoBadRuntimeEventsVerifier(true, '2.5 * 2.0'),
       new EndOfMainStateVerifier(sim => {
         let mainFrame = sim.memory.stack.topFrame();
-        return !!mainFrame && checkLocalAtomicVariableValues(mainFrame, {
-          x: 2.5,
-          y: 2.0,
-          ch: "*".charCodeAt(0)
-        });
-      }, "2.5 * 2.0") // input typed to cin
+        return (
+          !!mainFrame &&
+          checkLocalAtomicVariableValues(mainFrame, {
+            x: 2.5,
+            y: 2.0,
+            ch: '*'.charCodeAt(0),
+          })
+        );
+      }, '2.5 * 2.0'), // input typed to cin
     ]
   );
 
-
   new SingleTranslationUnitTest(
-    "EECS 183 cin test 2",
+    'EECS 183 cin test 2',
     `#include <iostream>
 using namespace std;
 
@@ -42,22 +50,24 @@ int main() {
 }`,
     [
       new NoErrorsNoWarningsVerifier(),
-      new NoBadRuntimeEventsVerifier(true, "3.5 + 3.5"),
+      new NoBadRuntimeEventsVerifier(true, '3.5 + 3.5'),
       new EndOfMainStateVerifier(sim => {
         let mainFrame = sim.memory.stack.topFrame();
-        return !!mainFrame && checkLocalAtomicVariableValues(mainFrame, {
-          x: 3.5,
-          y: 3.5,
-          z: 0,
-          ch: "+".charCodeAt(0)
-        });
-      }, "3.5 + 3.5") // input typed to cin
+        return (
+          !!mainFrame &&
+          checkLocalAtomicVariableValues(mainFrame, {
+            x: 3.5,
+            y: 3.5,
+            z: 0,
+            ch: '+'.charCodeAt(0),
+          })
+        );
+      }, '3.5 + 3.5'), // input typed to cin
     ]
   );
 
-
   new SingleTranslationUnitTest(
-    "cin fail/clear test 1",
+    'cin fail/clear test 1',
     `#include <iostream>
 using namespace std;
 
@@ -73,18 +83,19 @@ int main() {
 }`,
     [
       new NoErrorsNoWarningsVerifier(),
-      new NoBadRuntimeEventsVerifier(true, "3 4 a 5 6"),
+      new NoBadRuntimeEventsVerifier(true, '3 4 a 5 6'),
       new OutputVerifier(
-`3 4 0
+        `3 4 0
 a
 3 5 6
-`, "3 4 a 5 6" // input typed to cin
-      )
+`,
+        '3 4 a 5 6' // input typed to cin
+      ),
     ]
   );
-  
+
   new SingleTranslationUnitTest(
-    "cin iostate",
+    'cin iostate',
     `#include <iostream>
 using namespace std;
 
@@ -158,16 +169,13 @@ int main() {
       new NoErrorsNoWarningsVerifier(),
       new NoBadRuntimeEventsVerifier(
         true,
-        "1 a b 2" // input typed to cin
-      )
+        '1 a b 2' // input typed to cin
+      ),
     ]
   );
 
-  
-
-
   new SingleTranslationUnitTest(
-    "cin double parsing",
+    'cin double parsing',
     `#include <iostream>
 #include <string>
 using namespace std;
@@ -245,8 +253,8 @@ int main() {
       new NoErrorsNoWarningsVerifier(),
       new NoBadRuntimeEventsVerifier(
         true,
-        "2.5 2.0 2. 3 2.5blah 2.0whee 2.whoa 2.5.5 0.0005 000.0005 000.0005.234" // input typed to cin
-      )
+        '2.5 2.0 2. 3 2.5blah 2.0whee 2.whoa 2.5.5 0.0005 000.0005 000.0005.234' // input typed to cin
+      ),
     ]
   );
 }

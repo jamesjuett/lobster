@@ -1,8 +1,14 @@
-import { SingleTranslationUnitTest, NoErrorsNoWarningsVerifier, NoBadRuntimeEventsVerifier, EndOfMainStateVerifier, OutputVerifier } from "./verifiers";
+import {
+  SingleTranslationUnitTest,
+  NoErrorsNoWarningsVerifier,
+  NoBadRuntimeEventsVerifier,
+  EndOfMainStateVerifier,
+  OutputVerifier,
+} from './verifiers';
 
 export function createObjectLifetimeTests() {
   new SingleTranslationUnitTest(
-    "Local array ctors/dtors",
+    'Local array ctors/dtors',
     `#include <iostream>
 using namespace std;
 
@@ -37,12 +43,12 @@ Mole dtor: 3
 Mole dtor: 2
 Mole dtor: 1
 Mole dtor: 0
-`)
+`),
     ]
   );
 
   new SingleTranslationUnitTest(
-    "Static and Automatic Lifetimes",
+    'Static and Automatic Lifetimes',
     `#include <iostream>
 #include <string>
 using namespace std;
@@ -101,12 +107,12 @@ tweet
 tweet
 Bird dtor: 1
 Bird dtor: 0
-`)
+`),
     ]
   );
 
   new SingleTranslationUnitTest(
-    "Classes, Bases, and Members (simple)",
+    'Classes, Bases, and Members (simple)',
     `#include <string>
 #include <iostream>
 using namespace std;
@@ -165,12 +171,12 @@ Mem2 dtor 1
 MemBase dtor 1
 Mem1 dtor 1
 Base dtor 1
-`)
+`),
     ]
   );
 
   new SingleTranslationUnitTest(
-    "Classes, Bases, and Members (full)",
+    'Classes, Bases, and Members (full)',
     `#include <string>
 #include <iostream>
 using namespace std;
@@ -312,8 +318,7 @@ Mem2 dtor 1
 MemBase dtor 1
 Mem1 dtor 1
 Base dtor 1
-`)
+`),
     ]
   );
-
 }

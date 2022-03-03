@@ -1,17 +1,20 @@
-import { SimulationOutlet } from "./simOutlets";
-import { ProjectEditor, CompilationOutlet, CompilationStatusOutlet } from "./editors";
-import { Simulation } from "../core/Simulation";
-import { MessageResponses, listenTo, stopListeningTo, messageResponse, Message } from "../util/observe";
-import { Mutable } from "../util/util";
-import { RuntimeConstruct } from "../core/constructs";
-import { Project } from "../core/Project";
-import { CheckpointsOutlet } from "./checkpointOutlets";
-import { InstantMemoryDiagramOutlet } from "./InstantMemoryDiagramOutlet";
-
-
+import { SimulationOutlet } from './simOutlets';
+import { ProjectEditor, CompilationOutlet, CompilationStatusOutlet } from './editors';
+import { Simulation } from '../core/Simulation';
+import {
+  MessageResponses,
+  listenTo,
+  stopListeningTo,
+  messageResponse,
+  Message,
+} from '../util/observe';
+import { Mutable } from '../util/util';
+import { RuntimeConstruct } from '../core/constructs';
+import { Project } from '../core/Project';
+import { CheckpointsOutlet } from './checkpointOutlets';
+import { InstantMemoryDiagramOutlet } from './InstantMemoryDiagramOutlet';
 
 export class SimpleExerciseLobsterOutlet {
-
   public projectEditor: ProjectEditor;
   private simulationOutlet: SimulationOutlet;
   private instantMemoryDiagramOutlet: InstantMemoryDiagramOutlet;
@@ -37,57 +40,62 @@ export class SimpleExerciseLobsterOutlet {
     // Set up simulation and source tabs
     // var sourceTab = element.find(".sourceTab");
     // var simTab = element.find(".simTab");
-    this.tabsElem = element.find(".lobster-simulation-outlet-tabs");
+    this.tabsElem = element.find('.lobster-simulation-outlet-tabs');
 
     // TODO: HACK to make codeMirror refresh correctly when sourcePane becomes visible
-    this.tabsElem.find('a.lobster-source-tab').on("shown.bs.tab", () => {
+    this.tabsElem.find('a.lobster-source-tab').on('shown.bs.tab', () => {
       this.projectEditor.refreshEditorView();
     });
 
-    this.simulationOutlet = new SimulationOutlet(element.find(".lobster-sim-pane"));
-    this.sourceTabElem = element.find(".lobster-source-tab");
-    this.simulateTabElem = element.find(".lobster-simulate-tab");
+    this.simulationOutlet = new SimulationOutlet(element.find('.lobster-sim-pane'));
+    this.sourceTabElem = element.find('.lobster-source-tab');
+    this.simulateTabElem = element.find('.lobster-simulate-tab');
     this.setSimulationTabEnabled(false);
 
-    let runButtonElem = element.find(".runButton")
-      .click(() => {
-        let program = this.project.program;
-        if (program.isRunnable()) {
-          let sim = new Simulation(program);
-          while (!sim.globalAllocator.isDone) {
-            sim.stepForward(); // TODO: put this loop in simulation runners in function to skip stuff before main
-          }
-          this.setSimulation(sim);
+    let runButtonElem = element.find('.runButton').click(() => {
+      let program = this.project.program;
+      if (program.isRunnable()) {
+        let sim = new Simulation(program);
+        while (!sim.globalAllocator.isDone) {
+          sim.stepForward(); // TODO: put this loop in simulation runners in function to skip stuff before main
         }
-        this.simulateTabElem.tab("show");
+        this.setSimulation(sim);
       }
-    );
-
-    
-    element.find(".lobster-return-to-source").on("click", () => {
-      this.clearSimulation();
-      this.element.find(".lobster-source-tab").tab("show");
+      this.simulateTabElem.tab('show');
     });
 
-    this.projectEditor = new ProjectEditor(element.find(".lobster-source-pane"), project);
-    let co = element.find(".lobster-compilation-pane");
-    if (co.length === 0) { co = $("#lobster-compilation-pane"); }
+    element.find('.lobster-return-to-source').on('click', () => {
+      this.clearSimulation();
+      this.element.find('.lobster-source-tab').tab('show');
+    });
+
+    this.projectEditor = new ProjectEditor(element.find('.lobster-source-pane'), project);
+    let co = element.find('.lobster-compilation-pane');
+    if (co.length === 0) {
+      co = $('#lobster-compilation-pane');
+    }
     this.compilationOutlet = new CompilationOutlet(co, project);
-    this.compilationStatusOutlet = new CompilationStatusOutlet(element.find(".compilation-status-outlet"), project);
-    this.checkpointsOutlet = new CheckpointsOutlet(element.find(".lobster-ex-checkpoints"), project.exercise);
-    let IMDOElem = element.find(".lobster-instant-memory-diagram");
+    this.compilationStatusOutlet = new CompilationStatusOutlet(
+      element.find('.compilation-status-outlet'),
+      project
+    );
+    this.checkpointsOutlet = new CheckpointsOutlet(
+      element.find('.lobster-ex-checkpoints'),
+      project.exercise
+    );
+    let IMDOElem = element.find('.lobster-instant-memory-diagram');
     this.instantMemoryDiagramOutlet = new InstantMemoryDiagramOutlet(IMDOElem, project, false);
     this.isInstantMemoryDiagramActive = false;
 
-    element.find(".lobster-instant-memory-diagram-buttons button").on("click", () => {
-      ["active", "btn-default", "btn-primary"].forEach(c => element.find(".lobster-instant-memory-diagram-buttons button").toggleClass(c)
+    element.find('.lobster-instant-memory-diagram-buttons button').on('click', () => {
+      ['active', 'btn-default', 'btn-primary'].forEach(c =>
+        element.find('.lobster-instant-memory-diagram-buttons button').toggleClass(c)
       );
       this.isInstantMemoryDiagramActive = !this.isInstantMemoryDiagramActive;
       this.instantMemoryDiagramOutlet.setActive(this.isInstantMemoryDiagramActive);
       if (this.isInstantMemoryDiagramActive) {
         IMDOElem.show();
-      }
-      else {
+      } else {
         IMDOElem.hide();
       }
     });
@@ -133,30 +141,28 @@ export class SimpleExerciseLobsterOutlet {
   //         this.afterAnnotation.length = 0;
   //     }
   // }
-  @messageResponse("requestFocus")
+  @messageResponse('requestFocus')
   protected requestFocus(msg: Message<undefined>) {
     if (msg.source === this.projectEditor) {
-      this.tabsElem.find('a.lobster-source-tab').tab("show");
+      this.tabsElem.find('a.lobster-source-tab').tab('show');
     }
   }
 
-
-  @messageResponse("beforeStepForward")
+  @messageResponse('beforeStepForward')
   protected beforeStepForward(msg: Message<RuntimeConstruct>) {
-    var oldGets = $(".code-memoryObject .get");
-    var oldSets = $(".code-memoryObject .set");
+    var oldGets = $('.code-memoryObject .get');
+    var oldSets = $('.code-memoryObject .set');
     setTimeout(() => {
-      oldGets.removeClass("get");
-      oldSets.removeClass("set");
+      oldGets.removeClass('get');
+      oldSets.removeClass('set');
     }, 300);
   }
 
   setSimulationTabEnabled(isEnabled: boolean) {
     if (isEnabled) {
-      this.simulateTabElem.parent().removeClass("disabled");
-    }
-    else {
-      this.simulateTabElem.parent().addClass("disabled");
+      this.simulateTabElem.parent().removeClass('disabled');
+    } else {
+      this.simulateTabElem.parent().addClass('disabled');
     }
   }
 }

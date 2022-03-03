@@ -1,6 +1,6 @@
-import { TopLevelDeclarationASTNode } from "./ast_declarations";
+import { TopLevelDeclarationASTNode } from './ast_declarations';
 
 export interface TranslationUnitAST {
-    readonly construct_type: "translation_unit";
-    readonly declarations: readonly TopLevelDeclarationASTNode[];
+  readonly construct_type: 'translation_unit';
+  readonly declarations: readonly TopLevelDeclarationASTNode[];
 }
