@@ -1,6 +1,6 @@
-import { areSemanticallyEquivalent, SemanticContext } from "../core/contexts";
-import { Expression } from "../core/expressionBase";
-import { ToBooleanConversion, AnalyticExpression, AssignmentExpression, CompoundAssignmentExpression, RelationalBinaryOperatorExpression, isIntegerLiteralZero, NullPointerConversion, PointerComparisonExpression, PointerToBooleanConversion } from "../core/expressions";
+import { areSemanticallyEquivalent, SemanticContext } from "../core/compilation/contexts";
+import { Expression } from "../core/constructs/expressions/Expression";
+import { ToBooleanConversion, AnalyticExpression, AssignmentExpression, CompoundAssignmentExpression, RelationalBinaryOperatorExpression, isIntegerLiteralZero, NullPointerConversion, PointerComparisonExpression, PointerToBooleanConversion } from "../core/constructs/expressions/expressions";
 import { Predicates } from "../core/predicates";
 import { AtomicType, PointerType } from "../core/types";
 

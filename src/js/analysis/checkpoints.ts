@@ -1,6 +1,6 @@
 import { assign } from "lodash";
-import { LocalObjectEntity, VariableEntity } from "../core/entities";
-import { AnalyticExpression } from "../core/expressions";
+import { LocalObjectEntity, VariableEntity } from "../core/compilation/entities";
+import { AnalyticExpression } from "../core/constructs/expressions/expressions";
 import { CPPObject } from "../core/objects";
 import { Program } from "../core/Program";
 import { Project } from "../core/Project";

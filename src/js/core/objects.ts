@@ -2,12 +2,12 @@ import { Type, BoundedArrayType, AtomicType, PointerType, ObjectPointerType, Arr
 import { Observable } from "../util/observe";
 import { assert, Mutable, asMutable } from "../util/util";
 import { Memory, Value, RawValueType } from "./runtimeEnvironment";
-import { RuntimeConstruct } from "./constructs";
-import { CompiledClassDefinition } from "./declarations/class/ClassDefinition";
-import { ParameterDefinition } from "./declarations/function/ParameterDefinition";
-import { GlobalVariableDefinition, CompiledGlobalVariableDefinition } from "./declarations/variable/GlobalVariableDefinition";
-import { LocalVariableDefinition } from "./declarations/variable/LocalVariableDefinition";
-import { BoundReferenceEntity } from "./entities";
+import { RuntimeConstruct } from "./constructs/constructs";
+import { CompiledClassDefinition } from "./constructs/declarations/class/ClassDefinition";
+import { ParameterDefinition } from "./constructs/declarations/function/ParameterDefinition";
+import { GlobalVariableDefinition, CompiledGlobalVariableDefinition } from "./constructs/declarations/variable/GlobalVariableDefinition";
+import { LocalVariableDefinition } from "./constructs/declarations/variable/LocalVariableDefinition";
+import { BoundReferenceEntity } from "./compilation/entities";
 
 export interface ObjectDescription {
     name: string;

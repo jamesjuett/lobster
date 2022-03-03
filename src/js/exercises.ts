@@ -1,5 +1,5 @@
 import { isEqual } from "lodash";
-import { CompilerNote, NoteKind } from "./core/errors";
+import { CompilerNote, NoteKind } from "./core/compilation/errors";
 import { Predicates } from "./core/predicates";
 import { Program } from "./core/Program";
 import { COMPLETION_ALL_CHECKPOINTS, COMPLETION_LAST_CHECKPOINT, ExerciseCompletionPredicate, Project } from "./core/Project";

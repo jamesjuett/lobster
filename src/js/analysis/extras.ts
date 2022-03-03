@@ -1,7 +1,7 @@
-import { FunctionDefinition } from "../core/declarations/function/FunctionDefinition";
-import { CompilerNote, NoteKind } from "../core/errors";
-import { AssignmentExpression } from "../core/expressions";
-import { DirectInitializer } from "../core/initializers";
+import { FunctionDefinition } from "../core/constructs/declarations/function/FunctionDefinition";
+import { CompilerNote, NoteKind } from "../core/compilation/errors";
+import { AssignmentExpression } from "../core/constructs/expressions/expressions";
+import { DirectInitializer } from "../core/constructs/initializers/DirectInitializer";
 import { Predicates } from "../core/predicates";
 import { Program } from "../core/Program";
 import { Project } from "../core/Project";

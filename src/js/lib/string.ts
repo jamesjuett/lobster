@@ -1,13 +1,13 @@
 import { registerLibraryHeader, SourceFile } from "../core/Program";
 import { MemberSubobject, CPPObject } from "../core/objects";
 import { Int, Char, PointerType, BoundedArrayType, CompleteObjectType, ReferenceType, CompleteClassType, ArrayPointerType, Size_t, VoidType, PotentiallyCompleteClassType, Bool, isArrayPointerType, Double } from "../core/types";
-import { runtimeObjectLookup, VariableEntity, LocalVariableEntity, LocalObjectEntity, LocalReferenceEntity } from "../core/entities";
+import { runtimeObjectLookup, VariableEntity, LocalVariableEntity, LocalObjectEntity, LocalReferenceEntity } from "../core/compilation/entities";
 import { Value } from "../core/runtimeEnvironment";
 import { SimulationEvent } from "../core/Simulation";
 import { registerOpaqueExpression, RuntimeOpaqueExpression, OpaqueExpressionImpl, lookupTypeInContext, getLocal } from "../core/opaqueExpression";
-import { ExpressionContext } from "../core/contexts";
+import { ExpressionContext } from "../core/compilation/contexts";
 import { assert } from "../util/util";
-import { Expression, RuntimeExpression } from "../core/expressionBase";
+import { Expression, RuntimeExpression } from "../core/constructs/expressions/Expression";
 import { nth } from "lodash";
 
 

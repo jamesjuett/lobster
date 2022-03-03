@@ -1,4 +1,4 @@
-import { RuntimeConstruct } from "../core/constructs";
+import { RuntimeConstruct } from "../core/constructs/constructs";
 import { Project } from "../core/Project";
 import { Simulation } from "../core/Simulation";
 import { AsynchronousSimulationRunner } from "../core/simulationRunners";

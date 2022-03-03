@@ -1,14 +1,14 @@
-import { TemporaryObjectEntity } from "./entities";
+import { TemporaryObjectEntity } from "./compilation/entities";
 import { assert } from "../util/util";
 import { CompleteClassType, isCompleteClassType } from "./types";
 import { TemporaryObject } from "./objects";
-import { TranslationUnitContext, SemanticContext } from "./contexts";
-import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct } from "./constructs";
+import { TranslationUnitContext, SemanticContext } from "./compilation/contexts";
+import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct } from "./constructs/constructs";
 import { ASTNode } from "../ast/ASTNode";
-import { CPPError } from "./errors";
-import { FunctionCall, CompiledFunctionCall } from "./FunctionCall";
+import { CPPError } from "./compilation/errors";
+import { FunctionCall, CompiledFunctionCall } from "./constructs/FunctionCall";
 import { AnalyticConstruct } from "./predicates";
-import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
+import { PotentialFullExpression, RuntimePotentialFullExpression } from "./constructs/PotentialFullExpression";
 
 
 

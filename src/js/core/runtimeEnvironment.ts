@@ -3,10 +3,10 @@ import { Observable } from "../util/observe";
 import { CPPObject, AutoObject, StringLiteralObject, StaticObject, TemporaryObject, DynamicObject, InvalidObject, ArraySubobject } from "./objects";
 import { Bool, Char, ObjectPointerType, ArrayPointerType, similarType, subType, PointerType, sameType, AtomicType, IntegralType, Int, ArrayElemType, BoundedArrayType, ReferenceType, PointerToCompleteType, CompleteObjectType } from "./types";
 import last from "lodash/last";
-import { GlobalObjectEntity, LocalObjectEntity, LocalReferenceEntity, TemporaryObjectEntity } from "./entities";
-import { RuntimeConstruct } from "./constructs";
-import { CompiledGlobalVariableDefinition } from "./declarations/variable/GlobalVariableDefinition";
-import { RuntimeFunction } from "./functions";
+import { GlobalObjectEntity, LocalObjectEntity, LocalReferenceEntity, TemporaryObjectEntity } from "./compilation/entities";
+import { RuntimeConstruct } from "./constructs/constructs";
+import { CompiledGlobalVariableDefinition } from "./constructs/declarations/variable/GlobalVariableDefinition";
+import { RuntimeFunction } from "./compilation/functions";
 
 export type byte = number; // HACK - can be resolved if I make the memory model realistic and not hacky
 export type RawValueType = number; // HACK - can be resolved if I make the raw value type used depend on the Type parameter

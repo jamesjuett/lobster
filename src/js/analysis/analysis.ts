@@ -1,16 +1,16 @@
-import { CPPConstruct } from "../core/constructs";
+import { CPPConstruct } from "../core/constructs/constructs";
 import { Program, TranslationUnit } from "../core/Program";
-import { AssignmentExpression, AnalyticBinaryOperatorExpression, NumericLiteralExpression, IdentifierExpression, AnalyticExpression } from "../core/expressions";
-import { CPPError, Note, NoteKind, CompilerNote } from "../core/errors";
+import { AssignmentExpression, AnalyticBinaryOperatorExpression, NumericLiteralExpression, IdentifierExpression, AnalyticExpression } from "../core/constructs/expressions/expressions";
+import { CPPError, Note, NoteKind, CompilerNote } from "../core/compilation/errors";
 import { Constructor } from "../util/util";
-import { FunctionCallExpression } from "../core/FunctionCallExpression";
-import { VariableDefinition } from "../core/declarations/variable/common";
-import { FunctionDefinition } from "../core/declarations/function/FunctionDefinition";
-import { LocalVariableDefinition, TypedLocalVariableDefinition } from "../core/declarations/variable/LocalVariableDefinition";
-import { DirectInitializer } from "../core/initializers";
+import { FunctionCallExpression } from "../core/constructs/expressions/FunctionCallExpression";
+import { VariableDefinition } from "../core/constructs/declarations/variable/common";
+import { FunctionDefinition } from "../core/constructs/declarations/function/FunctionDefinition";
+import { LocalVariableDefinition, TypedLocalVariableDefinition } from "../core/constructs/declarations/variable/LocalVariableDefinition";
+import { DirectInitializer } from "../core/constructs/initializers/DirectInitializer";
 import { ForStatement, CompiledForStatement, UnsupportedStatement } from "../core/statements";
 import { BoundedArrayType, isBoundedArrayType, CompleteObjectType, Type, ReferenceType, isVoidType, isAtomicType, isCompleteObjectType, isPotentiallyCompleteClassType, isIntegralType, isPointerType, isFunctionType, isType, Int, sameType, Double } from "../core/types";
-import { Expression } from "../core/expressionBase";
+import { Expression } from "../core/constructs/expressions/Expression";
 import { Predicates, AnalyticConstruct } from "../core/predicates";
 import { isUnqualifiedIdentifier } from "../core/lexical";
 

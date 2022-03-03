@@ -1,12 +1,12 @@
-import {ExpressionContext, ConstructDescription } from "./contexts"
-import { CPPConstruct, SuccessfullyCompiled, RuntimeConstruct } from "./constructs";
+import {ExpressionContext, ConstructDescription } from "./compilation/contexts"
+import { CPPConstruct, SuccessfullyCompiled, RuntimeConstruct } from "./constructs/constructs";
 import { ASTNode } from "../ast/ASTNode";
 import { Value } from "./runtimeEnvironment";
 import { Int, ExpressionType, VoidType, CompleteObjectType, ReferenceType } from "./types";
 import { assert } from "../util/util";
-import { Expression, ValueCategory, VCResultTypes, RuntimeExpression, t_TypedExpression } from "./expressionBase";
+import { Expression, ValueCategory, VCResultTypes, RuntimeExpression, t_TypedExpression } from "./constructs/expressions/Expression";
 import { ConstructOutlet, OpaqueExpressionOutlet } from "../view/codeOutlets";
-import { LocalObjectEntity, LocalReferenceEntity } from "./entities";
+import { LocalObjectEntity, LocalReferenceEntity } from "./compilation/entities";
 import { CompiledTemporaryDeallocator } from "./TemporaryDeallocator";
 import { OpaqueExpressionASTNode } from "../ast/ast_expressions";
 

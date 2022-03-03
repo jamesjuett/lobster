@@ -5,7 +5,7 @@ import { Int, CompleteClassType, Bool, VoidType } from "../core/types";
 import { getDataPtr } from "./string";
 import { Value } from "../core/runtimeEnvironment";
 import { CPPObject } from "../core/objects";
-import { RuntimeExpression } from "../core/expressionBase";
+import { RuntimeExpression } from "../core/constructs/expressions/Expression";
 import { StandardInputStream } from "../core/streams";
 
 

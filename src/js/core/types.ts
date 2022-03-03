@@ -1,11 +1,11 @@
 import { Constructor, htmlDecoratedType, unescapeString } from "../util/util";
-import { ConstructDescription, TranslationUnitContext } from "./contexts";
+import { ConstructDescription, TranslationUnitContext } from "./compilation/contexts";
 import { byte, RawValueType, Value } from "./runtimeEnvironment";
 import { CPPObject } from "./objects";
 import { ExpressionASTNode } from "../ast/ast_expressions";
-import { ClassDefinition } from "./declarations/class/ClassDefinition";
-import { ClassScope } from "./entities";
-import { RuntimeExpression } from "./expressionBase";
+import { ClassDefinition } from "./constructs/declarations/class/ClassDefinition";
+import { ClassScope } from "./compilation/scopes";
+import { RuntimeExpression } from "./constructs/expressions/Expression";
 import { SimulationEvent } from "./Simulation";
 import { qualifiedNamesEq, QualifiedName } from "./lexical";
 
