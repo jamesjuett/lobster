@@ -287,7 +287,7 @@ module.exports = {
     'line-comment-position': 'off',
     'linebreak-style': 'off',
     'lines-around-comment': 'off',
-    'max-depth': ['error', 5],
+    'max-depth': ['warn', 5],
     'max-len': 'off',
     'max-lines': 'off',
     'max-nested-callbacks': ['error', 3],
@@ -442,7 +442,7 @@ module.exports = {
       },
     ],
     'no-const-assign': 'error',
-    'no-dupe-class-members': 'warn', // was "error"
+    'no-dupe-class-members': 'warn',
     'no-duplicate-imports': 'error',
     'no-new-symbol': 'error',
     'no-restricted-imports': 'off',
