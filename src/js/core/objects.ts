@@ -418,6 +418,10 @@ export abstract class CPPObject<T extends CompleteObjectType = CompleteObjectTyp
         return this.getArrayElemSubobject(0).getPointerTo();
     }
 
+    public isBaseSubobject() : this is BaseSubobject {
+        return false;
+    }
+
     public getValue(read: boolean = false): ObjectValueRepresentation<T> {
         let val = this.data.getValue(this._isValid);
         if (read) {
@@ -925,6 +929,10 @@ export class BaseSubobject extends Subobject<CompleteClassType> {
     public isTyped<NarrowedT extends CompleteObjectType>(predicate: (t:CompleteObjectType) => t is NarrowedT) : this is never;
     public isTyped<NarrowedT extends CompleteClassType>(predicate: (t:CompleteClassType) => t is NarrowedT) : this is BaseSubobject {
         return predicate(this.type);
+    }
+
+    public override isBaseSubobject() : this is BaseSubobject {
+        return true;
     }
 
     public describe(): ObjectDescription {

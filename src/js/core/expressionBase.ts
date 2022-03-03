@@ -1,21 +1,23 @@
-import { StringLiteralExpression, AnalyticExpression, CompiledExpressionKinds, AnalyticTypedExpression } from "./expressions";
 import { ExpressionASTNode } from "../ast/ast_expressions";
-
-import { ExpressionContext, ConstructDescription, SemanticContext, areAllSemanticallyEquivalent } from "./contexts";
-import { RuntimeConstruct, CPPConstruct, SuccessfullyCompiled } from "./constructs";
-import { CompiledTemporaryDeallocator, PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
-
-import { Type, CompleteObjectType, AtomicType, ArithmeticType, IntegralType, FloatingPointType, PointerType, ReferenceType, BoundedArrayType, ArrayOfUnknownBoundType, FunctionType, PotentiallyCompleteClassType, CompleteClassType, isAtomicType, isCompleteObjectType, ExpressionType } from "./types";
-
-import { Constructor, Mutable } from "../util/util";
-
-import { FunctionEntity } from "./entities";
-
-import { Value } from "./runtimeEnvironment";
-
-import { CPPObject } from "./objects";
+import { Mutable } from "../util/util";
 import { ConstructOutlet, ExpressionOutlet } from "../view/codeOutlets";
-import { AnalyticConstruct, Predicates } from "./predicates";
+import { CPPConstruct, RuntimeConstruct, SuccessfullyCompiled } from "./constructs";
+import { areAllSemanticallyEquivalent, ConstructDescription, ExpressionContext, SemanticContext } from "./contexts";
+import { FunctionEntity } from "./entities";
+import { AnalyticExpression, StringLiteralExpression } from "./expressions";
+import { CPPObject } from "./objects";
+import { FunctionCall } from "./FunctionCall";
+import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
+import { CompiledTemporaryDeallocator } from "./TemporaryDeallocator";
+import type { AnalyticConstruct } from "./predicates";
+import { Value } from "./runtimeEnvironment";
+import { AtomicType, CompleteObjectType, ExpressionType, FunctionType, Type } from "./types";
+
+
+
+
+
+
 
 
 export type ValueCategory = "prvalue" | "lvalue";
@@ -106,7 +108,7 @@ export function allWellTyped(expressions: readonly Expression[]): expressions is
 export function allObjectTyped(expressions: Expression[]): expressions is TypedExpression<CompleteObjectType>[];
 export function allObjectTyped(expressions: readonly Expression[]): expressions is readonly TypedExpression<CompleteObjectType>[];
 export function allObjectTyped(expressions: readonly Expression[]): expressions is readonly TypedExpression<CompleteObjectType>[] {
-    return expressions.every((expr) => { return Predicates.isTypedExpression(expr, isCompleteObjectType) });
+    return expressions.every((expr) => { return expr.isWellTyped() && expr.type!.isCompleteObjectType() });
 }
 
 export type VCResultTypes<T extends Type, V extends ValueCategory> =

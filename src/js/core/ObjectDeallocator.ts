@@ -10,11 +10,12 @@ import { CPPObject } from "./objects";
 import { RuntimeBlock, RuntimeForStatement } from "./statements";
 import { Simulation } from "./Simulation";
 import { AnalyticConstruct } from "./predicates";
+import { PotentialFullExpression } from "./PotentialFullExpression";
 
 
 
 
-export abstract class ObjectDeallocator extends BasicCPPConstruct<TranslationUnitContext, ASTNode> {
+export abstract class ObjectDeallocator extends PotentialFullExpression {
     public readonly construct_type = "ObjectDeallocator";
 
     public readonly objectTargets: readonly ObjectEntity[];

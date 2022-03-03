@@ -1,15 +1,17 @@
 import { ASTNode } from "../ast/ASTNode";
 import { Observable } from "../util/observe";
 import { asMutable, assert, Mutable } from "../util/util";
+import { areAllSemanticallyEquivalent, ConstructDescription, ConstructExplanation, ProgramContext, SemanticContext, TranslationUnitContext } from "./contexts";
 import { CPPEntity } from "./entities";
 import { Note, NoteRecorder } from "./errors";
+import { FunctionCall } from "./FunctionCall";
 import { RuntimeFunction } from "./functions";
 import { CPPObject } from "./objects";
+import { PotentialFullExpression } from "./PotentialFullExpression";
 import { AnalyticConstruct } from "./predicates";
 import { SourceReference } from "./Program";
 import { Simulation } from "./Simulation";
 import { CompleteClassType } from "./types";
-import { ProgramContext, ConstructExplanation, ConstructDescription, TranslationUnitContext, SemanticContext, areAllSemanticallyEquivalent } from "./contexts";
 
 
 
@@ -101,6 +103,18 @@ export abstract class CPPConstruct<ContextType extends ProgramContext = ProgramC
     // };
     public isSuccessfullyCompiled(): this is CompiledConstruct {
         return !this.getContainedNotes().hasErrors;
+    }
+
+    public isFullExpression() : boolean {
+        return false;
+    }
+
+    public mayManageTemporaryLifetimes() : this is PotentialFullExpression | FunctionCall {
+        return false;
+    }
+
+    public findFullExpression() : PotentialFullExpression | FunctionCall | undefined {
+        return undefined;
     }
 
     public isSemanticallyEquivalent(other: CPPConstruct, equivalenceContext: SemanticContext): boolean {

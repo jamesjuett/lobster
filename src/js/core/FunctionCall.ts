@@ -1,24 +1,25 @@
-import { areEntitiesSemanticallyEquivalent, FunctionEntity, PassByReferenceParameterEntity, PassByValueParameterEntity, TemporaryObjectEntity } from "./entities";
-import { Mutable, assert } from "../util/util";
-import { AtomicType, CompleteClassType, CompleteReturnType, FunctionType, ReferenceType, VoidType } from "./types";
-import { CPPObject } from "./objects";
-import { TranslationUnitContext, areSemanticallyEquivalent, SemanticContext, areAllSemanticallyEquivalent } from "./contexts";
-import { SuccessfullyCompiled, RuntimeConstruct } from "./constructs";
+import type { ASTNode } from "../ast/ASTNode";
+import { asMutable, assert, Mutable } from "../util/util";
+import type { CPPConstruct, SuccessfullyCompiled } from "./constructs";
+import { BasicCPPConstruct, RuntimeConstruct } from "./constructs";
+import type { SemanticContext, TranslationUnitContext } from "./contexts";
+import { areAllSemanticallyEquivalent } from "./contexts";
+import type { CompiledFunctionDefinition } from "./declarations";
+import type { FunctionEntity } from "./entities";
+import { PassByReferenceParameterEntity, PassByValueParameterEntity, areEntitiesSemanticallyEquivalent, TemporaryObjectEntity } from "./entities";
 import { CPPError } from "./errors";
-import { CompiledDirectInitializer, DirectInitializer, RuntimeDirectInitializer } from "./initializers";
-import { CompiledExpression, Expression, TypedExpression } from "./expressionBase";
-import { CompiledFunctionDefinition } from "./declarations";
-import { RuntimeFunction } from "./functions";
-import { PotentialFullExpression, CompiledTemporaryDeallocator, RuntimePotentialFullExpression } from "./PotentialFullExpression";
-import { AnalyticConstruct } from "./predicates";
+import type { CompiledExpression, Expression, TypedExpression } from "./expressionBase";
+import type { RuntimeFunction } from "./functions";
+import type { CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
+import {  DirectInitializer } from "./initializers";
+import type { CPPObject } from "./objects";
+import type { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
+import type { AnalyticConstruct } from "./predicates";
+import type { CompiledTemporaryDeallocator } from "./TemporaryDeallocator";
+import type { AtomicType, CompleteClassType, CompleteObjectType, CompleteReturnType, FunctionType, ReferenceType, VoidType } from "./types";
 
 
-
-
-
-
-
-export class FunctionCall extends PotentialFullExpression {
+export class FunctionCall extends BasicCPPConstruct<TranslationUnitContext, ASTNode> {
     public readonly construct_type = "FunctionCall";
 
     public readonly func: FunctionEntity<FunctionType<CompleteReturnType>>;
@@ -28,6 +29,8 @@ export class FunctionCall extends PotentialFullExpression {
     public readonly argInitializers?: readonly DirectInitializer[];
 
     public readonly returnByValueTarget?: TemporaryObjectEntity;
+
+    private readonly temporaryObjects: TemporaryObjectEntity[] = [];
 
     /**
      * A FunctionEntity must be provided to specify which function is being called. The
@@ -80,18 +83,55 @@ export class FunctionCall extends PotentialFullExpression {
 
         // TODO
         // this.isRecursive = this.func.definition === this.context.containingFunction;
-        // No returns for void functions, of course.
-        // If return by reference, the return object already exists and no need to create a temporary.
-        // Else, for a return by value, we do need to create a temporary object.
-        let returnType = this.func.type.returnType;
-        if (!(returnType instanceof VoidType) && !(returnType instanceof ReferenceType)) {
-            this.returnByValueTarget = this.createTemporaryObject(returnType, `[${this.func.name}() return]`);
-        }
 
         // TODO: need to check that it's not an auxiliary function call before adding these?
         // this.context.containingFunction.addCall(this);
         this.context.translationUnit.registerFunctionCall(this); // TODO: is this needed?
         this.func.registerCall(this);
+
+        // No returns for void functions, of course.
+        // If return by reference, the return object already exists and no need to create a temporary.
+        // Else, for a return by value, we do need to create a temporary object.
+        let returnType = this.func.type.returnType;
+        if (!returnType.isVoidType() && !returnType.isReferenceType()) {
+            let returnTarget = new TemporaryObjectEntity(returnType, this, this, `[${this.func.name}() return]`);
+            asMutable(this).returnByValueTarget = returnTarget;
+            this.addTemporaryObject(returnTarget);
+        }
+    }
+    
+    public override mayManageTemporaryLifetimes() : this is FunctionCall {
+        return true;
+    }
+    
+    public findFullExpression(): PotentialFullExpression | FunctionCall {
+        return this.parent?.findFullExpression() ?? this;
+    }
+
+    public addTemporaryObject(tempObjEnt: TemporaryObjectEntity) {
+        assert(!this.parent, "Temporary objects may not be added to a function call after it has been attached.");
+        this.temporaryObjects.push(tempObjEnt);
+        tempObjEnt.setOwner(this);
+    }
+
+    public override onAttach(parent: CPPConstruct) {
+
+        super.onAttach(parent);
+
+        if (this.func.isDestructor) {
+            // Exception - implicitly called destructors will not return anything or take any arguments
+            // and will thus have no temporary objects. This is good since our parent may be a
+            // TemporaryDeallocator object that isn't a potential full epxression.
+            return;
+        }
+
+        const full_exp = parent.findFullExpression();
+        assert(full_exp, "Function calls may only be attached to a parent that is a potential full expression.");
+        
+        this.temporaryObjects.forEach((tempEnt) => {
+            full_exp.addTemporaryObject(tempEnt);
+        });
+        this.temporaryObjects.length = 0; // clear array
     }
 
     // public checkLinkingProblems() {
@@ -198,7 +238,7 @@ export const INDEX_FUNCTION_CALL_PUSH = 0;
 export const INDEX_FUNCTION_CALL_ARGUMENTS = 1;
 export const INDEX_FUNCTION_CALL_CALL = 2;
 export const INDEX_FUNCTION_CALL_RETURN = 3;
-export class RuntimeFunctionCall<T extends FunctionType<CompleteReturnType> = FunctionType<CompleteReturnType>> extends RuntimePotentialFullExpression<CompiledFunctionCall<T>> {
+export class RuntimeFunctionCall<T extends FunctionType<CompleteReturnType> = FunctionType<CompleteReturnType>> extends RuntimeConstruct<CompiledFunctionCall<T>> {
 
     public readonly model!: CompiledFunctionCall<T>; // narrows type of member in base class
 
@@ -228,15 +268,15 @@ export class RuntimeFunctionCall<T extends FunctionType<CompleteReturnType> = Fu
         // Create argument initializer instances
         this.argInitializers = this.model.argInitializers.map((aInit) => aInit.createRuntimeInitializer(this));
 
-
-
         // TODO: TCO? would reuse this.containingRuntimeFunction instead of creating new
         this.calledFunction = functionDef.createRuntimeFunction(this, this.receiver);
 
         // TODO: TCO? if using TCO, don't create a new return object, just reuse the old one
         if (this.isReturnByValue()) {
             // If return-by-value, set return object to temporary
-            this.calledFunction.setReturnObject(this.model.returnByValueTarget.objectInstance(this));
+            this.calledFunction.setReturnObject(this.model.returnByValueTarget.objectInstance(
+                <RuntimePotentialFullExpression>this.findParentByModel(this.model.findFullExpression())
+            ));
         }
         this.index = INDEX_FUNCTION_CALL_PUSH;
     }

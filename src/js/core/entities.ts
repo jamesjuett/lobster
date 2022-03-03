@@ -1,20 +1,21 @@
-import { PotentialParameterType, Type, CompleteObjectType, sameType, ReferenceType, BoundedArrayType, Char, ArrayElemType, FunctionType, referenceCompatible, createClassType, PotentiallyCompleteClassType, CompleteClassType, PotentiallyCompleteObjectType, PeelReference, Completed, VoidType, CompleteReturnType, PointerType, ArrayOfUnknownBoundType, PotentiallyCompleteArrayType } from "./types";
-import { assert, Mutable, unescapeString, assertFalse, asMutable, assertNever } from "../util/util";
+import type { RuntimeConstruct } from "./constructs";
+import type { SemanticContext } from "./contexts";
+import type { ClassDeclaration, ClassDefinition, FunctionDeclaration, FunctionDefinition, FunctionDefinitionGroup, GlobalVariableDefinition, LocalVariableDefinition, MemberVariableDeclaration, ParameterDefinition } from "./declarations";
+import type { CompilerNote } from "./errors";
+import type { Expression } from "./expressionBase";
+import type { FunctionCall } from "./FunctionCall";
+import type { RuntimeFunction } from "./functions";
+import type { QualifiedName, UnqualifiedName } from "./lexical";
+import type { NewObjectType, RuntimeNewArrayExpression, RuntimeNewExpression } from "./new_delete";
+import type { AutoObject, BaseSubobject, CPPObject, StaticObject, TemporaryObject } from "./objects";
+import type { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
+import type { TranslationUnit } from "./Program";
+import type { ArrayElemType, ArrayOfUnknownBoundType, BoundedArrayType, CompleteClassType, CompleteObjectType, CompleteReturnType, FunctionType, PointerType, PotentiallyCompleteArrayType, PotentiallyCompleteClassType, PotentiallyCompleteObjectType, PotentialParameterType, ReferenceType, Type, VoidType } from "./types";
 import { Observable } from "../util/observe";
-import { isClassContext, SemanticContext } from "./contexts";
-import { RuntimeConstruct } from "./constructs";
-import { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
-import { FunctionCall } from "./FunctionCall";
-import { LocalVariableDefinition, ParameterDefinition, GlobalVariableDefinition, LinkedDefinition, FunctionDefinition, ParameterDeclaration, FunctionDeclaration, ClassDefinition, FunctionDefinitionGroup, ClassDeclaration, MemberVariableDeclaration, SimpleDeclaration, CompiledClassDefinition } from "./declarations";
-import { CPPObject, AutoObject, StaticObject, StringLiteralObject, TemporaryObject, ObjectDescription, MemberSubobject, ArraySubobject, BaseSubobject, DynamicObject } from "./objects";
-import { CPPError, CompilerNote } from "./errors";
-import { Memory } from "./runtimeEnvironment";
-import { Expression } from "./expressionBase";
-import { TranslationUnit } from "./Program";
-import { RuntimeFunction } from "./functions";
-import { NewObjectType, RuntimeNewArrayExpression, RuntimeNewExpression } from "./new_delete";
-import { QualifiedName, UnqualifiedName } from "./lexical";
-
+import { asMutable, assert, assertFalse, assertNever, Mutable } from "../util/util";
+import { CPPError } from "./errors";
+import { sameType, createClassType } from "./types";
+import { isClassContext } from "./contexts";
 
 
 interface NormalLookupOptions {
@@ -1424,18 +1425,18 @@ export class TemporaryObjectEntity<T extends CompleteObjectType = CompleteObject
     protected static readonly _name = "TemporaryObjectEntity";
     // storage: "temp",
 
-    public readonly creator: PotentialFullExpression;
-    public readonly owner: PotentialFullExpression;
+    public readonly creator: PotentialFullExpression | FunctionCall;
+    public readonly owner: PotentialFullExpression | FunctionCall;
     public readonly name: string;
 
-    constructor(type: T, creator: PotentialFullExpression, owner: PotentialFullExpression, name: string) {
+    constructor(type: T, creator: PotentialFullExpression | FunctionCall, owner: PotentialFullExpression | FunctionCall, name: string) {
         super(type);
         this.creator = creator;
         this.owner = owner;
         this.name = name;
     }
 
-    public setOwner(newOwner: PotentialFullExpression) {
+    public setOwner(newOwner: PotentialFullExpression | FunctionCall) {
         (<Mutable<this>>this).owner = newOwner;
     }
 
@@ -1652,7 +1653,7 @@ export class FunctionEntity<T extends FunctionType = FunctionType> extends Decla
         }
         else {
             assert(receiver, "virtual function dynamic binding requires a receiver");
-            while (receiver instanceof BaseSubobject) {
+            while (receiver.isBaseSubobject()) {
                 receiver = receiver.containingObject;
             }
             let dynamicType: CompleteClassType | undefined = receiver.type;

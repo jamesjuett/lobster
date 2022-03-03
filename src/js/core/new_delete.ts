@@ -8,7 +8,7 @@ import { NewObjectEntity, NewArrayEntity, DynamicLengthArrayNextElementEntity } 
 import { assertNever, assert, Mutable, asMutable } from "../util/util";
 import { RuntimeExpression, VCResultTypes, Expression, CompiledExpression, t_TypedExpression } from "./expressionBase";
 import { ConstructOutlet, NewExpressionOutlet, DeleteExpressionOutlet, NewArrayExpressionOutlet, DeleteArrayExpressionOutlet } from "../view/codeOutlets";
-import { CompiledTemporaryDeallocator } from "./PotentialFullExpression";
+import { CompiledTemporaryDeallocator } from "./TemporaryDeallocator";
 import { CompiledFunctionCall, FunctionCall, RuntimeFunctionCall } from "./FunctionCall";
 import { CompiledDefaultInitializer, CompiledDirectInitializer, CompiledInitializer, DefaultInitializer, DirectInitializer, Initializer, ListInitializer, RuntimeDefaultInitializer, RuntimeDirectInitializer, RuntimeInitializer, ValueInitializer } from "./initializers";
 import { CompiledDeclarator, CompiledTypeSpecifier, Declarator, TypeSpecifier } from "./declarations";

@@ -7,7 +7,7 @@ import { assert } from "../util/util";
 import { Expression, ValueCategory, VCResultTypes, RuntimeExpression, t_TypedExpression } from "./expressionBase";
 import { ConstructOutlet, OpaqueExpressionOutlet } from "../view/codeOutlets";
 import { LocalObjectEntity, LocalReferenceEntity } from "./entities";
-import { CompiledTemporaryDeallocator } from "./PotentialFullExpression";
+import { CompiledTemporaryDeallocator } from "./TemporaryDeallocator";
 import { OpaqueExpressionASTNode } from "../ast/ast_expressions";
 
 

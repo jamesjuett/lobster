@@ -13,7 +13,7 @@ import { containsConstruct, findFirstConstruct } from "../analysis/analysis";
 import { VariableEntity } from "./entities";
 import { FunctionCall } from "./FunctionCall";
 import { ObjectDeallocator } from "./ObjectDeallocator";
-import { TemporaryDeallocator } from "./PotentialFullExpression";
+import { TemporaryDeallocator } from "./TemporaryDeallocator";
 
 
 

@@ -1,7 +1,7 @@
 import { ExpressionContext, createExpressionContextWithParameterTypes, ConstructDescription, SemanticContext, areSemanticallyEquivalent, areAllSemanticallyEquivalent } from "./contexts";
 import { SuccessfullyCompiled, RuntimeConstruct } from "./constructs";
 import { ASTNode } from "../ast/ASTNode";
-import { CompiledTemporaryDeallocator } from "./PotentialFullExpression";
+import { CompiledTemporaryDeallocator } from "./TemporaryDeallocator";
 import { CompiledFunctionCall, FunctionCall, RuntimeFunctionCall, TypedFunctionCall } from "./FunctionCall";
 import { FunctionEntity } from "./entities";
 import { IdentifierExpression, createExpressionFromAST, CompiledFunctionIdentifierExpression, RuntimeFunctionIdentifierExpression, MagicFunctionCallExpression, createRuntimeExpression, DotExpression, CompiledFunctionDotExpression, RuntimeFunctionDotExpression, ArrowExpression, CompiledFunctionArrowExpression, RuntimeFunctionArrowExpression, selectOperatorOverload, InvalidOperatorOverloadExpression, OperatorOverloadExpression } from "./expressions";
