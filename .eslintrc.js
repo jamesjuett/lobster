@@ -173,7 +173,7 @@ module.exports = {
     'no-throw-literal': 'warn',
     'no-unmodified-loop-condition': 'error',
     'no-unused-expressions': [
-      'error',
+      'warn',
       {
         allowShortCircuit: true,
         allowTernary: true,
