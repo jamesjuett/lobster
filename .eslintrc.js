@@ -449,7 +449,7 @@ module.exports = {
     'no-this-before-super': 'error',
     'no-useless-computed-key': 'error',
     'no-useless-rename': 'error',
-    'no-var': 'error',
+    'no-var': 'warn',
     'object-shorthand': 'off',
     'prefer-arrow-callback': 'off',
     'prefer-const': 'off',
