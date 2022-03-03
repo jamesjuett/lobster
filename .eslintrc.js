@@ -63,7 +63,7 @@ module.exports = {
     'no-extra-parens': ['error', 'functions'],
     'no-extra-semi': 'error',
     'no-func-assign': 'error',
-    'no-inner-declarations': ['error', 'both'],
+    'no-inner-declarations': ['warn', 'both'],
     'no-invalid-regexp': 'error',
     'no-irregular-whitespace': [
       'error',
