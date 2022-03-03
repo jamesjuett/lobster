@@ -164,7 +164,7 @@ module.exports = {
     'no-param-reassign': 'warn', // previously set to "error"
     'no-proto': 'error',
     'no-restricted-properties': 'off',
-    'no-return-assign': ['error', 'always'],
+    'no-return-assign': ['warn', 'always'],
     'no-return-await': 'error',
     'no-script-url': 'error',
     'no-self-assign': 'error',
