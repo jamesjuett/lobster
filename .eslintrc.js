@@ -333,7 +333,7 @@ module.exports = {
     'no-unneeded-ternary': 'off',
     'no-whitespace-before-property': 'error',
     'nonblock-statement-body-position': [
-      'error',
+      'warn',
       'beside',
       {
         overrides: {
