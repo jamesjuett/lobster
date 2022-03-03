@@ -481,7 +481,7 @@ module.exports = {
     '@typescript-eslint/no-array-constructor': 'error',
     '@typescript-eslint/no-empty-interface': 'off',
     '@typescript-eslint/no-explicit-any': 'off',
-    '@typescript-eslint/no-namespace': 'error',
+    '@typescript-eslint/no-namespace': 'warn',
     '@typescript-eslint/no-parameter-properties': 'off',
     '@typescript-eslint/no-triple-slash-reference': 'off',
     '@typescript-eslint/no-type-alias': 'off',
