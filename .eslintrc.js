@@ -106,7 +106,7 @@ module.exports = {
     curly: ['error', 'multi-line', 'consistent'],
     'default-case': ['error', { commentPattern: '^no default$' }],
     'dot-location': ['error', 'property'],
-    'dot-notation': ['error', { allowKeywords: true }],
+    'dot-notation': ['warn', { allowKeywords: true }],
     eqeqeq: [
       'warn', // was "error"
       'always',
