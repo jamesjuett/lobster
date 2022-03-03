@@ -189,7 +189,7 @@ module.exports = {
     'no-warning-comments': 'off',
     'no-with': 'error',
     'prefer-promise-reject-errors': 'error',
-    radix: 'error',
+    radix: 'warn',
     'require-await': 'off',
     'vars-on-top': 'off',
     'wrap-iife': [
