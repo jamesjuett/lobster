@@ -117,7 +117,7 @@ module.exports = {
     'guard-for-in': 'warn', // was "error"
     'no-alert': 'off',
     'no-caller': 'error',
-    'no-case-declarations': 'error',
+    'no-case-declarations': 'warn',
     'no-div-regex': 'off',
     'no-else-return': ['warn', { allowElseIf: false }],
     'no-empty-pattern': 'error',
