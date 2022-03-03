@@ -192,9 +192,8 @@ export type VCResultTypes<T extends Type, V extends ValueCategory> = T extends F
     : V extends 'xvalue'
     ? CPPObject<T>
     : CPPObject<T> // lvalue
-  : T extends CompleteObjectType // e.g. If T is actually ObjectType, then it could be an AtomicType and we go with the first option Value<AtomicType> | CPPObject<T>.
-  ? //      However, if T is actually ClassType, then it can't be an AtomicType and we go with the second option of only CPPObject<T>
-    V extends 'prvalue'
+  : T extends CompleteObjectType // e.g. If T is actually ObjectType, then it could be an AtomicType and we go with the first option Value<AtomicType> | CPPObject<T>. However, if T is actually ClassType, then it can't be an AtomicType and we go with the second option of only CPPObject<T>
+  ? V extends 'prvalue'
     ? AtomicType extends T
       ? Value<AtomicType> | CPPObject<T>
       : CPPObject<T>
