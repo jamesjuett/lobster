@@ -94,7 +94,7 @@ module.exports = {
       },
     ],
     'array-callback-return': 'warn',
-    'block-scoped-var': 'error',
+    'block-scoped-var': 'warn',
     'class-methods-use-this': 'off',
     complexity: [
       'warn',
