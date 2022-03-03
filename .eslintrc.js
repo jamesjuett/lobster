@@ -457,7 +457,7 @@ module.exports = {
     'prefer-numeric-literals': 'off',
     'prefer-rest-params': 'off',
     'prefer-spread': 'off',
-    'prefer-template': 'error',
+    'prefer-template': 'warn',
     'require-yield': 'error',
     'rest-spread-spacing': ['error', 'never'],
     'sort-imports': 'off',
