@@ -1,13 +1,14 @@
-import { Type, BoundedArrayType, AtomicType, PointerType, ObjectPointerType, ArrayPointerType, ArrayElemType, Char, Int, CompleteObjectType, CompleteClassType, toHexadecimalString } from "./types";
-import { Observable } from "../util/observe";
-import { assert, Mutable, asMutable } from "../util/util";
-import { Memory, Value, RawValueType } from "./runtimeEnvironment";
-import { RuntimeConstruct } from "./constructs/constructs";
-import { CompiledClassDefinition } from "./constructs/declarations/class/ClassDefinition";
-import { ParameterDefinition } from "./constructs/declarations/function/ParameterDefinition";
-import { GlobalVariableDefinition, CompiledGlobalVariableDefinition } from "./constructs/declarations/variable/GlobalVariableDefinition";
-import { LocalVariableDefinition } from "./constructs/declarations/variable/LocalVariableDefinition";
-import { BoundReferenceEntity } from "./compilation/entities";
+import { Type, BoundedArrayType, AtomicType, PointerType, ObjectPointerType, ArrayPointerType, ArrayElemType, Char, Int, CompleteObjectType, CompleteClassType, toHexadecimalString } from "../compilation/types";
+import { Observable } from "../../util/observe";
+import { assert, Mutable, asMutable } from "../../util/util";
+import { Value, RawValueType } from "./Value";
+import { Memory } from "./Memory";
+import { RuntimeConstruct } from "../constructs/constructs";
+import { CompiledClassDefinition } from "../constructs/declarations/class/ClassDefinition";
+import { ParameterDefinition } from "../constructs/declarations/function/ParameterDefinition";
+import { GlobalVariableDefinition, CompiledGlobalVariableDefinition } from "../constructs/declarations/variable/GlobalVariableDefinition";
+import { LocalVariableDefinition } from "../constructs/declarations/variable/LocalVariableDefinition";
+import { BoundReferenceEntity } from "../compilation/entities";
 
 export interface ObjectDescription {
     name: string;

@@ -1,6 +1,6 @@
 import { CompiledGlobalVariableDefinition, GlobalVariableDefinition } from "./declarations/variable/GlobalVariableDefinition";
-import { AnalyticConstruct } from "../predicates";
-import { Simulation } from "../Simulation";
+import { AnalyticConstruct } from "../../analysis/predicates";
+import { Simulation } from "../runtime/Simulation";
 import { ProgramContext, SemanticContext, areAllSemanticallyEquivalent } from "../compilation/contexts";
 import { CPPConstruct, SuccessfullyCompiled, RuntimeConstruct } from "./constructs";
 

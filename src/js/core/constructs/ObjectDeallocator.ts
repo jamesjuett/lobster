@@ -2,14 +2,15 @@ import { TranslationUnitContext, BlockContext, SemanticContext } from "../compil
 import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct } from "./constructs";
 import { ASTNode } from "../../ast/ASTNode";
 import { CPPError } from "../compilation/errors";
-import { isReferenceToCompleteType, isCompleteClassType, CompleteClassType, isBoundedArrayType, BoundedArrayType } from "../types";
+import { isReferenceToCompleteType, isCompleteClassType, CompleteClassType, isBoundedArrayType, BoundedArrayType } from "../compilation/types";
 import { LocalObjectEntity, ObjectEntity, BoundReferenceEntity, ArraySubobjectEntity, GlobalObjectEntity, GlobalVariableEntity } from "../compilation/entities";
 import { assert } from "../../util/util";
 import { CompiledFunctionCall, FunctionCall } from "./FunctionCall";
-import { CPPObject } from "../objects";
-import { RuntimeBlock, RuntimeForStatement } from "../statements";
-import { Simulation } from "../Simulation";
-import { AnalyticConstruct } from "../predicates";
+import { CPPObject } from "../runtime/objects";
+import { RuntimeForStatement } from "./statements/ForStatement";
+import { RuntimeBlock } from "./statements/Block";
+import { Simulation } from "../runtime/Simulation";
+import { AnalyticConstruct } from "../../analysis/predicates";
 import { PotentialFullExpression } from "./PotentialFullExpression";
 
 

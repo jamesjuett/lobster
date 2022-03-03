@@ -1,11 +1,12 @@
 import { AccessSpecifier } from "../../ast/ast_declarations";
 import { asMutable, assert } from "../../util/util";
 import { CPPConstruct } from "../constructs/constructs";
+import { RuntimeExpression } from "../constructs/expressions/RuntimeExpression";
+import { AnalyticConstruct } from "../../analysis/predicates";
+import { AtomicType, CompleteClassType, CompleteObjectType, ExpressionType, ReferenceType } from "./types";
 import { ClassEntity, CompleteClassEntity, FunctionEntity, LocalObjectEntity, LocalReferenceEntity, LocalVariableEntity } from "./entities";
+import { Program, TranslationUnit } from "./Program";
 import { BlockScope, ClassScope, Scope } from "./scopes";
-import { AnalyticConstruct } from "../predicates";
-import { Program, TranslationUnit } from "../Program";
-import { AtomicType, CompleteClassType, ExpressionType } from "../types";
 
 export interface ConstructDescription {
     name?: string;
@@ -240,7 +241,23 @@ export class ContextualLocals {
 
 
 
+export function lookupTypeInContext(typeName: string) {
+    return (context: ExpressionContext) => {
+        let customType = context.contextualScope.lookup(typeName);
+        assert(customType?.declarationKind === "class");
+        return customType.type.cvUnqualified();
+    }
+}
 
+export function getLocal<T extends CompleteObjectType>(rt: RuntimeExpression, name: string) {
+    let local = <LocalObjectEntity<T> | LocalReferenceEntity<ReferenceType<T>>>rt.model.context.contextualScope.lookup(name);
+    if(local.variableKind === "object") {
+        return local.runtimeLookup(rt);
+    }
+    else {
+        return local.runtimeLookup(rt)!;
+    }
+}
 
 
 

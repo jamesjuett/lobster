@@ -1,5 +1,5 @@
 import { checkLocalAtomicVariableValues } from "../analysis/runtime";
-import { IOState } from "../core/streams";
+import { IOState } from "../core/compilation/streams";
 import { SingleTranslationUnitTest, NoErrorsNoWarningsVerifier, NoBadRuntimeEventsVerifier, EndOfMainStateVerifier, OutputVerifier } from "./verifiers";
 
 export function createCinTests() {

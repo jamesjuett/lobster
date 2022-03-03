@@ -1,26 +1,39 @@
 
-import { containsConstruct, findFirstConstruct } from "../analysis/analysis";
+import { containsConstruct, findFirstConstruct } from "./analysis";
 import { DiscriminateUnion } from "../util/util";
-import { CPPConstruct } from "./constructs/constructs";
-import { AnalyticDeclaration, AnalyticTypedDeclaration } from "./constructs/declarations/analytics";
-import { BaseSpecifier } from "./constructs/declarations/class/BaseSpecifier";
-import { FunctionDefinition } from "./constructs/declarations/function/FunctionDefinition";
-import { StorageSpecifier } from "./constructs/declarations/StorageSpecifier";
-import { TypeSpecifier } from "./constructs/declarations/TypeSpecifier";
-import { GlobalVariableDefinition } from "./constructs/declarations/variable/GlobalVariableDefinition";
-import { LocalVariableDefinition } from "./constructs/declarations/variable/LocalVariableDefinition";
-import { VariableEntity } from "./compilation/entities";
-import { Expression, TypedExpression, ValueCategory } from "./constructs/expressions/Expression";
-import { AnalyticExpression, AnalyticTypedExpression, ArrowExpression, AssignmentExpression, CompoundAssignmentExpression, DotExpression, IdentifierExpression, ImplicitConversion, NumericLiteralExpression, OperatorOverloadExpression, PostfixIncrementExpression, PrefixIncrementExpression, SubscriptExpression, t_OverloadableOperators } from "./constructs/expressions/expressions";
-import { FunctionCall } from "./constructs/FunctionCall";
-import { FunctionCallExpression } from "./constructs/expressions/FunctionCallExpression";
-import { GlobalObjectAllocator } from "./constructs/GlobalObjectAllocator";
-import { CtorInitializer } from "./constructs/initializers/CtorInitializer";
-import { AtomicDirectInitializer } from "./constructs/initializers/DirectInitializer";
-import { ObjectDeallocator } from "./constructs/ObjectDeallocator";
-import { AnalyticStatement } from "./statements";
-import { TemporaryDeallocator } from "./TemporaryDeallocator";
-import { ExpressionType, Type } from "./types";
+import { CPPConstruct } from "../core/constructs/constructs";
+import { AnalyticDeclaration, AnalyticTypedDeclaration } from "../core/constructs/declarations/analytics";
+import { BaseSpecifier } from "../core/constructs/declarations/class/BaseSpecifier";
+import { FunctionDefinition } from "../core/constructs/declarations/function/FunctionDefinition";
+import { StorageSpecifier } from "../core/constructs/declarations/StorageSpecifier";
+import { TypeSpecifier } from "../core/constructs/declarations/TypeSpecifier";
+import { GlobalVariableDefinition } from "../core/constructs/declarations/variable/GlobalVariableDefinition";
+import { LocalVariableDefinition } from "../core/constructs/declarations/variable/LocalVariableDefinition";
+import { VariableEntity } from "../core/compilation/entities";
+import { Expression, TypedExpression, ValueCategory } from "../core/constructs/expressions/Expression";
+import { AnalyticExpression, AnalyticTypedExpression } from "../core/constructs/expressions/expressions";
+import { t_OverloadableOperators } from "../core/constructs/expressions/selectOperatorOverload";
+import { OperatorOverloadExpression } from "../core/constructs/expressions/NonMemberOperatorOverloadExpression";
+import { ImplicitConversion } from "../core/constructs/expressions/ImplicitConversion";
+import { NumericLiteralExpression } from "../core/constructs/expressions/NumericLiteralExpression";
+import { IdentifierExpression } from "../core/constructs/expressions/IdentifierExpression";
+import { PostfixIncrementExpression } from "../core/constructs/expressions/PostfixIncrementExpression";
+import { ArrowExpression } from "../core/constructs/expressions/ArrowExpression";
+import { DotExpression } from "../core/constructs/expressions/DotExpression";
+import { SubscriptExpression } from "../core/constructs/expressions/SubscriptExpression";
+import { PrefixIncrementExpression } from "../core/constructs/expressions/PrefixIncrementExpression";
+import { CompoundAssignmentExpression } from "../core/constructs/expressions/CompoundAssignmentExpression";
+import { AssignmentExpression } from "../core/constructs/expressions/AssignmentExpression";
+import { FunctionCall } from "../core/constructs/FunctionCall";
+import { FunctionCallExpression } from "../core/constructs/expressions/FunctionCallExpression";
+import { GlobalObjectAllocator } from "../core/constructs/GlobalObjectAllocator";
+import { CtorInitializer } from "../core/constructs/initializers/CtorInitializer";
+import { AtomicDirectInitializer } from "../core/constructs/initializers/DirectInitializer";
+import { ObjectDeallocator } from "../core/constructs/ObjectDeallocator";
+import { AnalyticStatement } from "../core/constructs/statements/statements";
+import { TemporaryDeallocator } from "../core/constructs/TemporaryDeallocator";
+import { ExpressionType, Type } from "../core/compilation/types";
+import { AnalyticInitializer } from "../core/constructs/initializers/initializers";
 
 
 
@@ -37,6 +50,7 @@ export type AnalyticConstruct =
     TemporaryDeallocator |
     BaseSpecifier |
     FunctionCall |
+    AnalyticInitializer |
     CtorInitializer;
 
 // type TypedKinds<T extends Type> = TypedDeclarationKinds<T> & TypedExpressionKinds<T, ValueCategory>;
@@ -138,17 +152,17 @@ export namespace Predicates {
                     return false;
                 }
 
-                let init = construct.initializer;
-                if (! (init instanceof AtomicDirectInitializer)) {
+                let init = <AnalyticInitializer>construct.initializer;
+                if (! (init.construct_type === "AtomicDirectInitializer")) {
                     return false;
                 }
 
-                let expr = init.arg;
-                while (expr instanceof ImplicitConversion) {
-                    expr = expr.from;
+                let expr = <AnalyticExpression>init.arg;
+                while (expr.construct_type === "ImplicitConversion") {
+                    expr = <AnalyticExpression>expr.from;
                 }
 
-                return expr instanceof NumericLiteralExpression && expr.value.rawEquals(queryValue);
+                return expr.construct_type === "numeric_literal_expression" && expr.value.rawEquals(queryValue);
 
             });
     }
@@ -178,12 +192,12 @@ export namespace Predicates {
 
     export function byFunctionName(name: string) {
         return <(construct: AnalyticConstruct) => construct is FunctionDefinition>
-                ((construct) => (construct instanceof FunctionDefinition) && construct.name === name);
+                ((construct) => (construct.construct_type === "function_definition") && construct.name === name);
     }
 
     export function byFunctionCallName<N extends string>(name: N) {
         return <(construct: AnalyticConstruct) => construct is FunctionCallExpression & {call: FunctionCall}>
-                ((construct) => (construct instanceof FunctionCallExpression) && construct.call?.func.name === name);
+                ((construct) => (construct.construct_type === "function_call_expression") && construct.call?.func.name === name);
     }
 
     export function byOperatorOverloadCall(operator: t_OverloadableOperators) {

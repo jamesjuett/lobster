@@ -1,13 +1,13 @@
 import { FunctionDefinition } from "../core/constructs/declarations/function/FunctionDefinition";
 import { CompilerNote, NoteKind } from "../core/compilation/errors";
-import { AssignmentExpression } from "../core/constructs/expressions/expressions";
+import { AssignmentExpression } from "../core/constructs/expressions/AssignmentExpression";
 import { DirectInitializer } from "../core/constructs/initializers/DirectInitializer";
-import { Predicates } from "../core/predicates";
-import { Program } from "../core/Program";
+import { Predicates } from "./predicates";
+import { Program } from "../core/compilation/Program";
 import { Project } from "../core/Project";
-import { Simulation } from "../core/Simulation";
-import { AsynchronousSimulationRunner } from "../core/simulationRunners";
-import { Int, isCompleteObjectType, isPointerType, isPotentiallyCompleteObjectType, isType } from "../core/types";
+import { Simulation } from "../core/runtime/Simulation";
+import { AsynchronousSimulationRunner } from "../core/runtime/simulationRunners";
+import { Int, isCompleteObjectType, isPointerType, isPotentiallyCompleteObjectType, isType } from "../core/compilation/types";
 import { findFirstConstruct, findConstructs, containsConstruct, constructTest } from "./analysis";
 import { findLoopControlVars } from "./loops";
 

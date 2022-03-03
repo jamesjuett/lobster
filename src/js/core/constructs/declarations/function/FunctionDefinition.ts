@@ -4,11 +4,12 @@ import { areAllSemanticallyEquivalent, areSemanticallyEquivalent, createBlockCon
 import { ReceiverEntity } from "../../../compilation/entities";
 import { CPPError } from "../../../compilation/errors";
 import { RuntimeFunction } from "../../../compilation/functions";
-import { isQualifiedName } from "../../../lexical";
-import { CPPObject } from "../../../objects";
-import { AnalyticConstruct } from "../../../predicates";
-import { Block, CompiledBlock, createStatementFromAST } from "../../../statements";
-import { CompleteClassType, CompleteReturnType, FunctionType } from "../../../types";
+import { isQualifiedName } from "../../../compilation/lexical";
+import { CPPObject } from "../../../runtime/objects";
+import { AnalyticConstruct } from "../../../../analysis/predicates";
+import { createStatementFromAST } from "../../statements/statements";
+import { Block, CompiledBlock } from "../../statements/Block";
+import { CompleteClassType, CompleteReturnType, FunctionType } from "../../../compilation/types";
 import { BasicCPPConstruct, InvalidConstruct, SuccessfullyCompiled } from "../../constructs";
 import { RuntimeFunctionCall } from "../../FunctionCall";
 import { CompiledCtorInitializer, CtorInitializer } from "../../initializers/CtorInitializer";

@@ -1,6 +1,6 @@
 import { trimStart } from "lodash";
-import { Observable } from "../util/observe";
-import { assert, Mutable } from "../util/util";
+import { Observable } from "../../util/observe";
+import { assert, Mutable } from "../../util/util";
 import { ArithmeticType, SuccessParsingResult, ErrorParsingResult, isType, Char, isIntegralType, ParsingResult } from "./types";
 
 export enum IOState {

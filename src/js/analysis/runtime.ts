@@ -1,5 +1,6 @@
-import { MemoryFrame, RawValueType } from "../core/runtimeEnvironment";
-import { isAtomicType } from "../core/types";
+import { RawValueType } from "../core/runtime/Value";
+import { MemoryFrame } from "../core/runtime/Memory";
+import { isAtomicType } from "../core/compilation/types";
 
 
 export function checkLocalAtomicVariableValues(frame: MemoryFrame, targets: {[index: string]: RawValueType}, requireValid = true) {

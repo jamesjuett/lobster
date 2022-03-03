@@ -1,5 +1,5 @@
 import { LocalObjectEntity, LocalReferenceEntity } from "../../../compilation/entities";
-import { CompleteParameterType, ReferenceType } from "../../../types";
+import { CompleteParameterType, ReferenceType } from "../../../compilation/types";
 import { SuccessfullyCompiled } from "../../constructs";
 import { CompiledDeclarator, TypedDeclarator } from "../Declarator";
 import { CompiledStorageSpecifier } from "../StorageSpecifier";

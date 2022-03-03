@@ -1,18 +1,20 @@
-import { Observable } from "../util/observe";
-import { RunnableProgram } from "./Program";
-import { Memory, Value } from "./runtimeEnvironment";
-import { RuntimeConstruct } from "./constructs/constructs";
-import { RuntimeGlobalObjectAllocator } from "./constructs/GlobalObjectAllocator";
-import { CPPRandom, Mutable, escapeString, asMutable, assertNever, assert } from "../util/util";
+import { Observable } from "../../util/observe";
+import { RunnableProgram } from "../compilation/Program";
+import { Value } from "./Value";
+import { Memory } from "./Memory";
+import { RuntimeConstruct } from "../constructs/constructs";
+import { RuntimeGlobalObjectAllocator } from "../constructs/GlobalObjectAllocator";
+import { CPPRandom, Mutable, escapeString, asMutable, assertNever, assert } from "../../util/util";
 import { DynamicObject, MainReturnObject } from "./objects";
-import { Int, PointerType, Char, CompleteObjectType, AtomicType, FunctionType, PotentiallyCompleteObjectType, ReferenceType, ReferredType, ArithmeticType, AnalyticArithmeticType, isType, isIntegralType, IntegralType, SuccessParsingResult, ErrorParsingResult } from "./types";
-import { Initializer } from "./constructs/initializers/Initializer";
-import { RuntimeDirectInitializer } from "./constructs/initializers/DirectInitializer";
-import { PassByReferenceParameterEntity, PassByValueParameterEntity } from "./compilation/entities";
-import { CompiledExpression, RuntimeExpression } from "./constructs/expressions/Expression";
-import { RuntimeFunction } from "./compilation/functions";
+import { Int, PointerType, Char, CompleteObjectType, AtomicType, FunctionType, PotentiallyCompleteObjectType, ReferenceType, ReferredType, ArithmeticType, AnalyticArithmeticType, isType, isIntegralType, IntegralType, SuccessParsingResult, ErrorParsingResult } from "../compilation/types";
+import { Initializer } from "../constructs/initializers/Initializer";
+import { RuntimeDirectInitializer } from "../constructs/initializers/DirectInitializer";
+import { PassByReferenceParameterEntity, PassByValueParameterEntity } from "../compilation/entities";
+import { CompiledExpression } from "../constructs/expressions/Expression";
+import { RuntimeExpression } from "../constructs/expressions/RuntimeExpression";
+import { RuntimeFunction } from "../compilation/functions";
 import { first, clone, trimStart } from "lodash";
-import { StandardInputStream } from "./streams";
+import { StandardInputStream } from "../compilation/streams";
 
 
 export enum SimulationEvent {

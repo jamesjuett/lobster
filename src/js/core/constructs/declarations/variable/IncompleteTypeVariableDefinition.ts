@@ -1,8 +1,8 @@
 import { NonMemberSimpleDeclarationASTNode } from "../../../../ast/ast_declarations";
 import { SemanticContext, TranslationUnitContext } from "../../../compilation/contexts";
 import { CPPError } from "../../../compilation/errors";
-import { AnalyticConstruct } from "../../../predicates";
-import { IncompleteObjectType, sameType } from "../../../types";
+import { AnalyticConstruct } from "../../../../analysis/predicates";
+import { IncompleteObjectType, sameType } from "../../../compilation/types";
 import { OtherSpecifiers } from "../declarations";
 import { Declarator, TypedDeclarator } from "../Declarator";
 import { SimpleDeclaration } from "../SimpleDeclaration";

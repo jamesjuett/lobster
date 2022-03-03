@@ -1,6 +1,6 @@
 import { SimulationOutlet } from "./simOutlets";
 import { ProjectEditor, CompilationOutlet, CompilationStatusOutlet } from "./editors";
-import { Simulation } from "../core/Simulation";
+import { Simulation } from "../core/runtime/Simulation";
 import { MessageResponses, listenTo, stopListeningTo, messageResponse, Message } from "../util/observe";
 import { Mutable } from "../util/util";
 import { RuntimeConstruct } from "../core/constructs/constructs";

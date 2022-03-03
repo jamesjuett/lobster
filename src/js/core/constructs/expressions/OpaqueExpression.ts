@@ -1,14 +1,15 @@
-import {ExpressionContext, ConstructDescription } from "./compilation/contexts"
-import { CPPConstruct, SuccessfullyCompiled, RuntimeConstruct } from "./constructs/constructs";
-import { ASTNode } from "../ast/ASTNode";
-import { Value } from "./runtimeEnvironment";
-import { Int, ExpressionType, VoidType, CompleteObjectType, ReferenceType } from "./types";
-import { assert } from "../util/util";
-import { Expression, ValueCategory, VCResultTypes, RuntimeExpression, t_TypedExpression } from "./constructs/expressions/Expression";
-import { ConstructOutlet, OpaqueExpressionOutlet } from "../view/codeOutlets";
-import { LocalObjectEntity, LocalReferenceEntity } from "./compilation/entities";
-import { CompiledTemporaryDeallocator } from "./TemporaryDeallocator";
-import { OpaqueExpressionASTNode } from "../ast/ast_expressions";
+import {ExpressionContext, ConstructDescription } from "../../compilation/contexts"
+import { CPPConstruct, SuccessfullyCompiled, RuntimeConstruct } from "../constructs";
+import { ASTNode } from "../../../ast/ASTNode";
+import { Value } from "../../runtime/Value";
+import { Int, ExpressionType, VoidType, CompleteObjectType, ReferenceType } from "../../compilation/types";
+import { assert } from "../../../util/util";
+import { Expression, ValueCategory, VCResultTypes, t_TypedExpression } from "./Expression";
+import { RuntimeExpression } from "./RuntimeExpression";
+import { ConstructOutlet, OpaqueExpressionOutlet } from "../../../view/codeOutlets";
+import { LocalObjectEntity, LocalReferenceEntity } from "../../compilation/entities";
+import { CompiledTemporaryDeallocator } from "../TemporaryDeallocator";
+import { OpaqueExpressionASTNode } from "../../../ast/ast_expressions";
 
 
 export type OpaqueExpressionImpl<T extends ExpressionType = ExpressionType, VC extends ValueCategory = ValueCategory> = {
@@ -99,23 +100,5 @@ export class RuntimeOpaqueExpression<T extends ExpressionType = ExpressionType, 
             this.setEvalResult(<VCResultTypes<T,VC>>result);
         }
         this.startCleanup();
-    }
-}
-
-export function lookupTypeInContext(typeName: string) {
-    return (context: ExpressionContext) => {
-        let customType = context.contextualScope.lookup(typeName);
-        assert(customType?.declarationKind === "class");
-        return customType.type.cvUnqualified();
-    }
-}
-
-export function getLocal<T extends CompleteObjectType>(rt: RuntimeExpression, name: string) {
-    let local = <LocalObjectEntity<T> | LocalReferenceEntity<ReferenceType<T>>>rt.model.context.contextualScope.lookup(name);
-    if(local.variableKind === "object") {
-        return local.runtimeLookup(rt);
-    }
-    else {
-        return local.runtimeLookup(rt)!;
     }
 }

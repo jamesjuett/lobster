@@ -1,19 +1,25 @@
-import { ExpressionContext, createExpressionContextWithParameterTypes, ConstructDescription, SemanticContext, areSemanticallyEquivalent, areAllSemanticallyEquivalent } from "../../compilation/contexts";
-import { SuccessfullyCompiled, RuntimeConstruct } from "../constructs";
-import { ASTNode } from "../../../ast/ASTNode";
-import { CompiledTemporaryDeallocator } from "../../TemporaryDeallocator";
-import { CompiledFunctionCall, FunctionCall, RuntimeFunctionCall, TypedFunctionCall } from "../FunctionCall";
-import { FunctionEntity } from "../../compilation/entities";
-import { IdentifierExpression, createExpressionFromAST, CompiledFunctionIdentifierExpression, RuntimeFunctionIdentifierExpression, MagicFunctionCallExpression, createRuntimeExpression, DotExpression, CompiledFunctionDotExpression, RuntimeFunctionDotExpression, ArrowExpression, CompiledFunctionArrowExpression, RuntimeFunctionArrowExpression, selectOperatorOverload, InvalidOperatorOverloadExpression, OperatorOverloadExpression } from "./expressions";
-import { ExpressionASTNode, FunctionCallExpressionASTNode } from "../../../ast/ast_expressions";
-import { ReferenceType, PeelReference, peelReference, AtomicType, FunctionType, CompleteReturnType, isPotentiallyCompleteClassType } from "../../types";
-import { CPPObject } from "../../objects";
-import { CPPError } from "../../compilation/errors";
-import { allWellTyped, CompiledExpression, RuntimeExpression, VCResultTypes, ValueCategory, Expression } from "./Expression";
-import { MAGIC_FUNCTION_NAMES, LOBSTER_MAGIC_FUNCTIONS, identifierToString, astToIdentifier } from "../../lexical";
-import { FunctionCallExpressionOutlet, ConstructOutlet } from "../../../view/codeOutlets";
+import { AnalyticConstruct } from "../../../analysis/predicates";
+import { FunctionCallExpressionASTNode } from "../../../ast/ast_expressions";
 import { Mutable } from "../../../util/util";
-import { AnalyticConstruct, Predicates } from "../../predicates";
+import { ConstructOutlet, FunctionCallExpressionOutlet } from "../../../view/codeOutlets";
+import { areAllSemanticallyEquivalent, areSemanticallyEquivalent, ConstructDescription, createExpressionContextWithParameterTypes, ExpressionContext, SemanticContext } from "../../compilation/contexts";
+import { FunctionEntity } from "../../compilation/entities";
+import { CPPError } from "../../compilation/errors";
+import { astToIdentifier, identifierToString, LOBSTER_MAGIC_FUNCTIONS, MAGIC_FUNCTION_NAMES } from "../../compilation/lexical";
+import { AtomicType, CompleteReturnType, FunctionType, isPotentiallyCompleteClassType, PeelReference, peelReference, ReferenceType } from "../../compilation/types";
+import { CPPObject } from "../../runtime/objects";
+import { RuntimeConstruct, SuccessfullyCompiled } from "../constructs";
+import { CompiledFunctionCall, FunctionCall, RuntimeFunctionCall, TypedFunctionCall } from "../FunctionCall";
+import { CompiledTemporaryDeallocator } from "../TemporaryDeallocator";
+import { ArrowExpression, CompiledFunctionArrowExpression, RuntimeFunctionArrowExpression } from "./ArrowExpression";
+import { CompiledFunctionDotExpression, DotExpression, RuntimeFunctionDotExpression } from "./DotExpression";
+import { allWellTyped, CompiledExpression, Expression, ValueCategory, VCResultTypes } from "./Expression";
+import { RuntimeExpression } from "./RuntimeExpression";
+import { AnalyticExpression, createExpressionFromAST, createRuntimeExpression } from "./expressions";
+import { CompiledFunctionIdentifierExpression, IdentifierExpression, RuntimeFunctionIdentifierExpression } from "./IdentifierExpression";
+import { MagicFunctionCallExpression } from "./MagicFunctionCallExpression";
+import { selectOperatorOverload } from "./selectOperatorOverload";
+import { InvalidOperatorOverloadExpression, OperatorOverloadExpression } from "./NonMemberOperatorOverloadExpression";
 
 
 
@@ -45,40 +51,41 @@ export class FunctionCallExpression extends Expression<FunctionCallExpressionAST
             return;
         }
 
-        if (!(operand instanceof IdentifierExpression || operand instanceof DotExpression || operand instanceof ArrowExpression)) {
-            this.addNote(CPPError.expr.functionCall.invalid_operand_expression(this, operand));
+        const analytic_operand = <AnalyticExpression>operand;
+        if (!(analytic_operand.construct_type === "identifier_expression" || analytic_operand.construct_type === "dot_expression" || analytic_operand.construct_type === "arrow_expression")) {
+            this.addNote(CPPError.expr.functionCall.invalid_operand_expression(this, analytic_operand));
             this.attachAll(args);
             return;
         }
 
-        if (!operand.entity) {
+        if (!analytic_operand.entity) {
             // type, valueCategory, and call remain undefined
-            // operand will already have an error about the failed lookup
+            // analytic_operand will already have an error about the failed lookup
             this.attachAll(args);
             return;
         }
 
-        if (!(operand.entity instanceof FunctionEntity)) {
+        if (!(analytic_operand.entity instanceof FunctionEntity)) {
             // type, valueCategory, and call remain undefined
-            this.addNote(CPPError.expr.functionCall.operand(this, operand.entity));
+            this.addNote(CPPError.expr.functionCall.operand(this, analytic_operand.entity));
             this.attachAll(args);
             return;
         }
 
 
-        if (!operand.entity.returnsCompleteType()) {
+        if (!analytic_operand.entity.returnsCompleteType()) {
             this.attachAll(args);
-            this.addNote(CPPError.expr.functionCall.incomplete_return_type(this, operand.entity.type.returnType));
+            this.addNote(CPPError.expr.functionCall.incomplete_return_type(this, analytic_operand.entity.type.returnType));
             return;
         }
 
-        let returnType = operand.entity.type.returnType;
+        let returnType = analytic_operand.entity.type.returnType;
         this.type = peelReference(returnType);
 
         this.valueCategory = returnType instanceof ReferenceType ? "lvalue" : "prvalue";
 
         // If we get to here, we don't attach the args directly since they will be attached under the function call.
-        this.attach(this.call = new FunctionCall(context, operand.entity, args, operand.context.contextualReceiverType));
+        this.attach(this.call = new FunctionCall(context, analytic_operand.entity, args, analytic_operand.context.contextualReceiverType));
     }
 
     public static createFromAST(ast: FunctionCallExpressionASTNode, context: ExpressionContext): FunctionCallExpression | MagicFunctionCallExpression | OperatorOverloadExpression {
@@ -96,7 +103,7 @@ export class FunctionCallExpression extends Expression<FunctionCallExpressionAST
         let operand = createExpressionFromAST(ast.operand, createExpressionContextWithParameterTypes(context, contextualParamTypes));
 
         // Consider an assignment operator overload if the LHS is class type
-        if (Predicates.isTypedExpression(operand, isPotentiallyCompleteClassType)) {
+        if (operand.isWellTyped() && isPotentiallyCompleteClassType(operand.type)) {
             return selectOperatorOverload(context, ast, "[]", [operand, ...args]) ??
                 new InvalidOperatorOverloadExpression(context, ast, "[]", [operand, ...args]);;
         }

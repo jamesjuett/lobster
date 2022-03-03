@@ -16,10 +16,10 @@ import { StorageSpecifier } from "../constructs/declarations/StorageSpecifier";
 import { LocalObjectEntity, TemporaryObjectEntity, ObjectEntity, CPPEntity, FunctionEntity, ClassEntity, GlobalObjectEntity, NamedEntity, ArraySubobjectEntity } from "./entities";
 import { DeclaredEntity } from "./scopes";
 import { Expression, TypedExpression } from "../constructs/expressions/Expression";
-import { t_OverloadableOperators } from "../constructs/expressions/expressions";
-import { CPPObject } from "../objects";
-import { SourceReference } from "../Program";
-import { CompleteObjectType, ReferenceType, CompleteClassType, Type, AtomicType, PotentiallyCompleteArrayType, PotentiallyCompleteClassType, FunctionType, VoidType, PointerType, ExpressionType, sameType, PotentialParameterType, PotentialReturnType, IncompleteObjectType, BoundedArrayType } from "../types";
+import { t_OverloadableOperators } from "../constructs/expressions/selectOperatorOverload";
+import { CPPObject } from "../runtime/objects";
+import { SourceReference } from "./Program";
+import { CompleteObjectType, ReferenceType, CompleteClassType, Type, AtomicType, PotentiallyCompleteArrayType, PotentiallyCompleteClassType, FunctionType, VoidType, PointerType, ExpressionType, sameType, PotentialParameterType, PotentialReturnType, IncompleteObjectType, BoundedArrayType } from "./types";
 
 export enum NoteKind {
     ERROR = "error",

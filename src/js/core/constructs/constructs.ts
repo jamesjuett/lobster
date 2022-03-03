@@ -6,12 +6,12 @@ import { CPPEntity } from "../compilation/entities";
 import { Note, NoteRecorder } from "../compilation/errors";
 import { FunctionCall } from "./FunctionCall";
 import { RuntimeFunction } from "../compilation/functions";
-import { CPPObject } from "../objects";
+import { CPPObject } from "../runtime/objects";
 import { PotentialFullExpression } from "./PotentialFullExpression";
-import { AnalyticConstruct } from "../predicates";
-import { SourceReference } from "../Program";
-import { Simulation } from "../Simulation";
-import { CompleteClassType } from "../types";
+import { AnalyticConstruct } from "../../analysis/predicates";
+import { SourceReference } from "../compilation/Program";
+import { Simulation } from "../runtime/Simulation";
+import { CompleteClassType } from "../compilation/types";
 
 
 

@@ -1,4 +1,4 @@
-import { ArrayOfUnknownBoundType, Type, VoidType } from "../../types";
+import { ArrayOfUnknownBoundType, Type, VoidType } from "../../compilation/types";
 import { InvalidConstruct } from "../constructs";
 import { ClassDeclaration, CompiledClassDeclaration, TypedClassDeclaration } from "./class/ClassDeclaration";
 import { ClassDefinition, CompiledClassDefinition, TypedClassDefinition } from "./class/ClassDefinition";

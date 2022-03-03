@@ -1,7 +1,7 @@
 import { CompilerNote } from "./errors";
-import { UnqualifiedName } from "../lexical";
-import { TranslationUnit } from "../Program";
-import { CompleteClassType, PotentialParameterType } from "../types";
+import { UnqualifiedName } from "./lexical";
+import { TranslationUnit } from "./Program";
+import { CompleteClassType, PotentialParameterType } from "./types";
 import { assert } from "../../util/util";
 import { CPPError } from "./errors";
 import { VariableEntity, FunctionEntity, ClassEntity, FunctionOverloadGroup, GlobalObjectEntity } from "./entities";

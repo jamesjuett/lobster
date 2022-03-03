@@ -3,8 +3,8 @@ import { TypeSpecifierASTNode, TypeSpecifierKey } from "../../../ast/ast_declara
 import { asMutable } from "../../../util/util";
 import { SemanticContext, TranslationUnitContext } from "../../compilation/contexts";
 import { CPPError } from "../../compilation/errors";
-import { AnalyticConstruct } from "../../predicates";
-import { builtInTypes, isBuiltInTypeName, sameType, Type } from "../../types";
+import { AnalyticConstruct } from "../../../analysis/predicates";
+import { builtInTypes, isBuiltInTypeName, sameType, Type } from "../../compilation/types";
 import { BasicCPPConstruct, SuccessfullyCompiled } from "../constructs";
 
 

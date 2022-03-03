@@ -1,8 +1,8 @@
 import { SimpleDeclarationASTNode } from "../../../../ast/ast_declarations";
 import { SemanticContext, TranslationUnitContext } from "../../../compilation/contexts";
 import { CPPError } from "../../../compilation/errors";
-import { AnalyticConstruct } from "../../../predicates";
-import { VoidType } from "../../../types";
+import { AnalyticConstruct } from "../../../../analysis/predicates";
+import { VoidType } from "../../../compilation/types";
 import { OtherSpecifiers } from "../declarations";
 import { Declarator } from "../Declarator";
 import { SimpleDeclaration } from "../SimpleDeclaration";

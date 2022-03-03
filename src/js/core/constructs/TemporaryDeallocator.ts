@@ -1,14 +1,15 @@
-import { TemporaryObjectEntity } from "./compilation/entities";
-import { assert } from "../util/util";
-import { CompleteClassType, isCompleteClassType } from "./types";
-import { TemporaryObject } from "./objects";
-import { TranslationUnitContext, SemanticContext } from "./compilation/contexts";
-import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct } from "./constructs/constructs";
-import { ASTNode } from "../ast/ASTNode";
-import { CPPError } from "./compilation/errors";
-import { FunctionCall, CompiledFunctionCall } from "./constructs/FunctionCall";
-import { AnalyticConstruct } from "./predicates";
-import { PotentialFullExpression, RuntimePotentialFullExpression } from "./constructs/PotentialFullExpression";
+import { TemporaryObjectEntity } from "../compilation/entities";
+import { assert } from "../../util/util";
+import { CompleteClassType, isCompleteClassType } from "../compilation/types";
+import { TemporaryObject } from "../runtime/objects";
+import { TranslationUnitContext, SemanticContext } from "../compilation/contexts";
+import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct } from "./constructs";
+import { ASTNode } from "../../ast/ASTNode";
+import { CPPError } from "../compilation/errors";
+import { FunctionCall, CompiledFunctionCall } from "./FunctionCall";
+import { AnalyticConstruct } from "../../analysis/predicates";
+import { PotentialFullExpression } from "./PotentialFullExpression";
+import { RuntimePotentialFullExpression } from "./RuntimePotentialFullExpression";
 
 
 

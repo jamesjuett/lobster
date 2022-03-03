@@ -1,10 +1,12 @@
-import { FunctionType, VoidType, PeelReference, CompleteObjectType, ReferenceType, AtomicType, CompleteClassType, CompleteReturnType, PotentiallyCompleteObjectType, ReferredType } from "../types";
+import { FunctionType, VoidType, PeelReference, CompleteObjectType, ReferenceType, AtomicType, CompleteClassType, CompleteReturnType, PotentiallyCompleteObjectType, ReferredType } from "./types";
 import { RuntimeConstruct } from "../constructs/constructs";
 import { CompiledFunctionDefinition } from "../constructs/declarations/function/FunctionDefinition";
-import { MemoryFrame, Value } from "../runtimeEnvironment";
-import { CPPObject } from "../objects";
-import { RuntimeBlock, createRuntimeStatement } from "../statements";
-import { Simulation } from "../Simulation";
+import { Value } from "../runtime/Value";
+import { MemoryFrame } from "../runtime/Memory";
+import { CPPObject } from "../runtime/objects";
+import { createRuntimeStatement } from "../constructs/statements/statements";
+import { RuntimeBlock } from "../constructs/statements/Block";
+import { Simulation } from "../runtime/Simulation";
 import { Mutable, assert } from "../../util/util";
 import { LocalObjectEntity, LocalReferenceEntity } from "./entities";
 import { RuntimeCtorInitializer } from "../constructs/initializers/CtorInitializer";

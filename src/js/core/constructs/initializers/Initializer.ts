@@ -1,12 +1,14 @@
 import { ConstructOutlet, InitializerOutlet } from "../../../view/codeOutlets";
 import { areAllSemanticallyEquivalent, SemanticContext } from "../../compilation/contexts";
 import { areEntitiesSemanticallyEquivalent, NewArrayEntity, ObjectEntity, ObjectEntityType, UnboundReferenceEntity } from "../../compilation/entities";
-import { AnalyticConstruct } from "../../predicates";
-import { CompiledTemporaryDeallocator } from "../../TemporaryDeallocator";
-import { ReferenceType } from "../../types";
+import { AnalyticConstruct } from "../../../analysis/predicates";
+import { CompiledTemporaryDeallocator } from "../TemporaryDeallocator";
+import { ReferenceType } from "../../compilation/types";
 import { CPPConstruct, RuntimeConstruct, SuccessfullyCompiled } from "../constructs";
-import { PotentialFullExpression, RuntimePotentialFullExpression } from "../PotentialFullExpression";
+import { PotentialFullExpression } from "../PotentialFullExpression";
+import { RuntimePotentialFullExpression } from "../RuntimePotentialFullExpression";
 import { DirectInitializerKind } from "./DirectInitializer";
+import { DefaultInitializer } from "./DefaultInitializer";
 
 export type InitializerKind = "default" | "value" | DirectInitializerKind | "list";
 

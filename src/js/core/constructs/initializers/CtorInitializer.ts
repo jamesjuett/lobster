@@ -4,11 +4,11 @@ import { ArrayMemberInitializerOutlet, ConstructOutlet, CtorInitializerOutlet } 
 import { areAllSemanticallyEquivalent, createImplicitContext, MemberBlockContext, SemanticContext, TranslationUnitContext } from "../../compilation/contexts";
 import { ArraySubobjectEntity, BaseSubobjectEntity, MemberObjectEntity, ReceiverEntity } from "../../compilation/entities";
 import { CPPError } from "../../compilation/errors";
-import { CPPObject } from "../../objects";
-import { OpaqueExpression } from "../../opaqueExpression";
-import { AnalyticConstruct } from "../../predicates";
-import { CompiledTemporaryDeallocator } from "../../TemporaryDeallocator";
-import { AtomicType, BoundedArrayType, CompleteClassType, isBoundedArrayType } from "../../types";
+import { CPPObject } from "../../runtime/objects";
+import { OpaqueExpression } from "../expressions/OpaqueExpression";
+import { AnalyticConstruct } from "../../../analysis/predicates";
+import { CompiledTemporaryDeallocator } from "../TemporaryDeallocator";
+import { AtomicType, BoundedArrayType, CompleteClassType, isBoundedArrayType } from "../../compilation/types";
 import { BasicCPPConstruct, RuntimeConstruct, SuccessfullyCompiled } from "../constructs";
 import { Expression } from "../expressions/Expression";
 import { AnalyticExpression, createExpressionFromAST } from "../expressions/expressions";

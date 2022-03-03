@@ -1,8 +1,8 @@
 import { assert, Mutable } from "../../../../util/util";
 import { areSemanticallyEquivalent, SemanticContext, TranslationUnitContext } from "../../../compilation/contexts";
 import { areEntitiesSemanticallyEquivalent, VariableEntity } from "../../../compilation/entities";
-import { AnalyticConstruct } from "../../../predicates";
-import { CompleteObjectType, ReferenceType } from "../../../types";
+import { AnalyticConstruct } from "../../../../analysis/predicates";
+import { CompleteObjectType, ReferenceType } from "../../../compilation/types";
 import { InvalidConstruct } from "../../constructs";
 import { Expression } from "../../expressions/Expression";
 import { DefaultInitializer } from "../../initializers/DefaultInitializer";

@@ -1,7 +1,7 @@
 import { NonMemberSimpleDeclarationASTNode } from "../../../../ast/ast_declarations";
 import { BlockContext } from "../../../compilation/contexts";
 import { LocalObjectEntity, LocalReferenceEntity } from "../../../compilation/entities";
-import { ReferenceType } from "../../../types";
+import { ReferenceType } from "../../../compilation/types";
 import { SuccessfullyCompiled } from "../../constructs";
 import { CompiledInitializer } from "../../initializers/Initializer";
 import { OtherSpecifiers } from "../declarations";

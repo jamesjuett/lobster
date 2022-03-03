@@ -1,22 +1,22 @@
 
-import { ASTNode } from "../ast/ASTNode";
-import { TranslationUnitAST } from "../ast/ast_program";
-import { parse as cpp_parse } from "../parse/cpp_parser";
-import { asMutable, assert, assertFalse, Mutable } from "../util/util";
-import { CPPConstruct } from "./constructs/constructs";
-import { createLibraryContext, createTranslationUnitContext, ProgramContext, TranslationUnitContext } from "./compilation/contexts";
-import { createTopLevelDeclarationFromAST, FunctionDefinitionGroup, TopLevelDeclaration } from "./constructs/declarations/declarations";
-import { ClassDefinition } from "./constructs/declarations/class/ClassDefinition";
-import { CompiledFunctionDefinition, FunctionDefinition } from "./constructs/declarations/function/FunctionDefinition";
-import { CompiledGlobalVariableDefinition, GlobalVariableDefinition } from "./constructs/declarations/variable/GlobalVariableDefinition";
-import { ClassEntity, FunctionEntity, GlobalObjectEntity, selectOverloadedDefinition } from "./compilation/entities";
-import { NamedScope, NameLookupOptions, NamespaceScope } from "./compilation/scopes";
-import { CPPError, Note, NoteKind, NoteRecorder, SyntaxNote } from "./compilation/errors";
-import { StringLiteralExpression } from "./constructs/expressions/expressions";
-import { FunctionCall } from "./constructs/FunctionCall";
-import { CompiledGlobalObjectAllocator, GlobalObjectAllocator } from "./constructs/GlobalObjectAllocator";
+import { ASTNode } from "../../ast/ASTNode";
+import { TranslationUnitAST } from "../../ast/ast_program";
+import { parse as cpp_parse } from "../../parse/cpp_parser";
+import { asMutable, assert, assertFalse, Mutable } from "../../util/util";
+import { createLibraryContext, createTranslationUnitContext, ProgramContext, TranslationUnitContext } from "./contexts";
+import { ClassEntity, FunctionEntity, GlobalObjectEntity, selectOverloadedDefinition } from "./entities";
+import { CPPError, Note, NoteKind, NoteRecorder, SyntaxNote } from "./errors";
+import { NamedScope, NameLookupOptions, NamespaceScope } from "./scopes";
+import { CPPConstruct } from "../constructs/constructs";
+import { ClassDefinition } from "../constructs/declarations/class/ClassDefinition";
+import { createTopLevelDeclarationFromAST, FunctionDefinitionGroup, TopLevelDeclaration } from "../constructs/declarations/declarations";
+import { CompiledFunctionDefinition, FunctionDefinition } from "../constructs/declarations/function/FunctionDefinition";
+import { CompiledGlobalVariableDefinition, GlobalVariableDefinition } from "../constructs/declarations/variable/GlobalVariableDefinition";
+import { StringLiteralExpression } from "../constructs/expressions/StringLiteralExpression";
+import { FunctionCall } from "../constructs/FunctionCall";
+import { CompiledGlobalObjectAllocator, GlobalObjectAllocator } from "../constructs/GlobalObjectAllocator";
+import { CompiledObjectDeallocator, createStaticDeallocator, ObjectDeallocator } from "../constructs/ObjectDeallocator";
 import { QualifiedName } from "./lexical";
-import { CompiledObjectDeallocator, createStaticDeallocator, ObjectDeallocator } from "./constructs/ObjectDeallocator";
 import { FunctionType, Int } from "./types";
 
 

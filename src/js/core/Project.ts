@@ -4,7 +4,7 @@ import { ExerciseSpecification } from "../exercises";
 import { listenTo, messageResponse, MessageResponses, Observable } from "../util/observe";
 import { Mutable, assert, asMutable } from "../util/util";
 import { Note } from "./compilation/errors";
-import { SourceFile, Program } from "./Program";
+import { SourceFile, Program } from "./compilation/Program";
 
 export interface FileData {
     readonly name: string;

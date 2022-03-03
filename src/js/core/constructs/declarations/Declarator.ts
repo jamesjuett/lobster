@@ -3,9 +3,9 @@ import { parseNumericLiteralValueFromAST } from "../../../ast/ast_expressions";
 import { asMutable, assertNever, Mutable } from "../../../util/util";
 import { isClassContext, SemanticContext, TranslationUnitContext } from "../../compilation/contexts";
 import { CPPError, NoteHandler } from "../../compilation/errors";
-import { astToIdentifier, checkIdentifier, getUnqualifiedName, isQualifiedName, isUnqualifiedName, LexicalIdentifier, QualifiedName, UnqualifiedName } from "../../lexical";
-import { AnalyticConstruct } from "../../predicates";
-import { ArrayOfUnknownBoundType, BoundedArrayType, FunctionType, PointerType, PotentialParameterType, ReferenceType, sameType, Type, VoidType } from "../../types";
+import { astToIdentifier, checkIdentifier, getUnqualifiedName, isQualifiedName, isUnqualifiedName, LexicalIdentifier, QualifiedName, UnqualifiedName } from "../../compilation/lexical";
+import { AnalyticConstruct } from "../../../analysis/predicates";
+import { ArrayOfUnknownBoundType, BoundedArrayType, FunctionType, PointerType, PotentialParameterType, ReferenceType, sameType, Type, VoidType } from "../../compilation/types";
 import { BasicCPPConstruct, SuccessfullyCompiled } from "../constructs";
 import { CompiledParameterDeclaration, ParameterDeclaration } from "./function/ParameterDeclaration";
 

@@ -3,12 +3,12 @@ import { ArrayAggregateInitializerOutlet, ConstructOutlet } from "../../../view/
 import { TranslationUnitContext } from "../../compilation/contexts";
 import { ArraySubobjectEntity, ObjectEntity, ObjectEntityType, UnboundReferenceEntity } from "../../compilation/entities";
 import { CPPError } from "../../compilation/errors";
-import { Simulation } from "../../Simulation";
-import { CompiledTemporaryDeallocator } from "../../TemporaryDeallocator";
-import { AtomicType, BoundedArrayType, CompleteClassType, CompleteObjectType, ReferenceType } from "../../types";
+import { Simulation } from "../../runtime/Simulation";
+import { CompiledTemporaryDeallocator } from "../TemporaryDeallocator";
+import { AtomicType, BoundedArrayType, CompleteClassType, CompleteObjectType, ReferenceType } from "../../compilation/types";
 import { InvalidConstruct, RuntimeConstruct, SuccessfullyCompiled } from "../constructs";
 import { CompiledExpression, Expression } from "../expressions/Expression";
-import { InitializerListExpression } from "../expressions/expressions";
+import { InitializerListExpression } from "../expressions/InitializerListExpression";
 import { ClassDirectInitializer, CompiledDirectInitializer, DirectInitializer, RuntimeDirectInitializer } from "./DirectInitializer";
 import { Initializer, RuntimeInitializer } from "./Initializer";
 import { CompiledValueInitializer, RuntimeValueInitializer, ValueInitializer } from "./ValueInitializer";

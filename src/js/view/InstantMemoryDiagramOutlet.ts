@@ -1,7 +1,7 @@
 import { RuntimeConstruct } from "../core/constructs/constructs";
 import { Project } from "../core/Project";
-import { Simulation } from "../core/Simulation";
-import { AsynchronousSimulationRunner } from "../core/simulationRunners";
+import { Simulation } from "../core/runtime/Simulation";
+import { AsynchronousSimulationRunner } from "../core/runtime/simulationRunners";
 import { MessageResponses, listenTo, stopListeningTo, messageResponse, Message } from "../util/observe";
 import { assert, Mutable } from "../util/util";
 import { CheckpointsOutlet } from "./checkpointOutlets";

@@ -1,6 +1,7 @@
-import { Predicates } from "../core/predicates";
-import { WhileStatement, ForStatement } from "../core/statements";
-import { isPointerType } from "../core/types";
+import { Predicates } from "./predicates";
+import { ForStatement } from "../core/constructs/statements/ForStatement";
+import { WhileStatement } from "../core/constructs/statements/WhileStatement";
+import { isPointerType } from "../core/compilation/types";
 import { containsConstruct, findFirstConstruct } from "./analysis";
 
 // Note that this doesn't account for traversal by iterator at all

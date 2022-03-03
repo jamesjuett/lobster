@@ -2,9 +2,9 @@ import { ASTNode } from "../../../../ast/ASTNode";
 import { ClassKey } from "../../../../ast/ast_declarations";
 import { SemanticContext, TranslationUnitContext } from "../../../compilation/contexts";
 import { ClassEntity } from "../../../compilation/entities";
-import { getQualifiedName, getUnqualifiedName, LexicalIdentifier, QualifiedName } from "../../../lexical";
-import { AnalyticConstruct } from "../../../predicates";
-import { PotentiallyCompleteClassType } from "../../../types";
+import { getQualifiedName, getUnqualifiedName, LexicalIdentifier, QualifiedName } from "../../../compilation/lexical";
+import { AnalyticConstruct } from "../../../../analysis/predicates";
+import { PotentiallyCompleteClassType } from "../../../compilation/types";
 import { BasicCPPConstruct, SuccessfullyCompiled } from "../../constructs";
 
 

@@ -15,12 +15,13 @@ import { CPPError } from "./errors";
 import type { Expression } from "../constructs/expressions/Expression";
 import type { FunctionCall } from "../constructs/FunctionCall";
 import type { RuntimeFunction } from "./functions";
-import type { QualifiedName } from "../lexical";
-import type { NewObjectType, RuntimeNewArrayExpression, RuntimeNewExpression } from "../constructs/expressions/new_delete";
-import type { AutoObject, CPPObject, StaticObject, TemporaryObject } from "../objects";
-import type { PotentialFullExpression, RuntimePotentialFullExpression } from "../constructs/PotentialFullExpression";
-import type { ArrayElemType, ArrayOfUnknownBoundType, BoundedArrayType, CompleteClassType, CompleteObjectType, CompleteReturnType, FunctionType, PointerType, PotentiallyCompleteArrayType, PotentiallyCompleteClassType, PotentiallyCompleteObjectType, ReferenceType, Type, VoidType } from "../types";
-import { createClassType, sameType } from "../types";
+import type { QualifiedName } from "./lexical";
+import type { NewObjectType, RuntimeNewArrayExpression, RuntimeNewExpression } from "../constructs/expressions/NewExpression";
+import type { AutoObject, CPPObject, StaticObject, TemporaryObject } from "../runtime/objects";
+import type { PotentialFullExpression } from "../constructs/PotentialFullExpression";
+import { RuntimePotentialFullExpression } from "../constructs/RuntimePotentialFullExpression";
+import type { ArrayElemType, ArrayOfUnknownBoundType, BoundedArrayType, CompleteClassType, CompleteObjectType, CompleteReturnType, FunctionType, PointerType, PotentiallyCompleteArrayType, PotentiallyCompleteClassType, PotentiallyCompleteObjectType, ReferenceType, Type, VoidType } from "./types";
+import { createClassType, sameType } from "./types";
 import type { SemanticContext } from "./contexts";
 import { isClassContext } from "./contexts";
 import { DeclaredEntity } from "./scopes";
@@ -1208,3 +1209,7 @@ function convLen(args: readonly Expression[]) {
 export function selectOverloadedDefinition(overloadGroup: readonly FunctionDefinition[], type: FunctionType) {
     return overloadGroup.find(func => type.sameSignature(func.declaration.type));
 }
+
+
+
+

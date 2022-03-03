@@ -3,7 +3,7 @@ import { StorageSpecifierASTNode, StorageSpecifierKey } from "../../../ast/ast_d
 import { asMutable } from "../../../util/util";
 import { SemanticContext, TranslationUnitContext } from "../../compilation/contexts";
 import { CPPError } from "../../compilation/errors";
-import { AnalyticConstruct } from "../../predicates";
+import { AnalyticConstruct } from "../../../analysis/predicates";
 import { BasicCPPConstruct, SuccessfullyCompiled } from "../constructs";
 
 

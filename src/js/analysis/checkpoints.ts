@@ -1,13 +1,14 @@
 import { assign } from "lodash";
 import { LocalObjectEntity, VariableEntity } from "../core/compilation/entities";
 import { AnalyticExpression } from "../core/constructs/expressions/expressions";
-import { CPPObject } from "../core/objects";
-import { Program } from "../core/Program";
+import { CPPObject } from "../core/runtime/objects";
+import { Program } from "../core/compilation/Program";
 import { Project } from "../core/Project";
-import { Simulation } from "../core/Simulation";
-import { AsynchronousSimulationRunner } from "../core/simulationRunners";
-import { ForStatement, WhileStatement } from "../core/statements";
-import { BoundedArrayType, isArrayPointerToType, isBoundedArrayType, isPointerToCompleteObjectType, isPointerToType } from "../core/types";
+import { Simulation } from "../core/runtime/Simulation";
+import { AsynchronousSimulationRunner } from "../core/runtime/simulationRunners";
+import { ForStatement } from "../core/constructs/statements/ForStatement";
+import { WhileStatement } from "../core/constructs/statements/WhileStatement";
+import { BoundedArrayType, isArrayPointerToType, isBoundedArrayType, isPointerToCompleteObjectType, isPointerToType } from "../core/compilation/types";
 
 export abstract class Checkpoint {
 

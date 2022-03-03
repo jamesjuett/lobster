@@ -3,13 +3,17 @@ import { AtomicCopyInitializerOutlet, AtomicDirectInitializerOutlet, ClassCopyIn
 import { TranslationUnitContext } from "../../compilation/contexts";
 import { FunctionEntity, ObjectEntity, ObjectEntityType, UnboundReferenceEntity } from "../../compilation/entities";
 import { CPPError } from "../../compilation/errors";
-import { CPPObject } from "../../objects";
-import { Simulation } from "../../Simulation";
-import { CompiledTemporaryDeallocator } from "../../TemporaryDeallocator";
-import { AtomicType, BoundedArrayType, Char, CompleteClassType, CompleteObjectType, FunctionType, referenceCompatible, referenceRelated, ReferenceType, ReferredType, sameType, VoidType } from "../../types";
+import { CPPObject } from "../../runtime/objects";
+import { Simulation } from "../../runtime/Simulation";
+import { CompiledTemporaryDeallocator } from "../TemporaryDeallocator";
+import { AtomicType, BoundedArrayType, Char, CompleteClassType, CompleteObjectType, FunctionType, referenceCompatible, referenceRelated, ReferenceType, ReferredType, sameType, VoidType } from "../../compilation/types";
 import { RuntimeConstruct, SuccessfullyCompiled } from "../constructs";
-import { allWellTyped, CompiledExpression, Expression, RuntimeExpression } from "../expressions/Expression";
-import { CompiledStringLiteralExpression, createRuntimeExpression, overloadResolution, RuntimeStringLiteralExpression, standardConversion, StringLiteralExpression } from "../expressions/expressions";
+import { allWellTyped, CompiledExpression, Expression } from "../expressions/Expression";
+import { RuntimeExpression } from "../expressions/RuntimeExpression";
+import { createRuntimeExpression } from "../expressions/expressions";
+import { standardConversion } from "../expressions/ImplicitConversion";
+import { overloadResolution } from "../../compilation/overloads";
+import { CompiledStringLiteralExpression, RuntimeStringLiteralExpression, StringLiteralExpression } from "../expressions/StringLiteralExpression";
 import { CompiledFunctionCall, FunctionCall, RuntimeFunctionCall } from "../FunctionCall";
 import { Initializer, RuntimeInitializer } from "./Initializer";
 

@@ -2,8 +2,8 @@ import { AccessSpecifier, BaseSpecifierASTNode } from "../../../../ast/ast_decla
 import { SemanticContext, TranslationUnitContext } from "../../../compilation/contexts";
 import { areEntitiesSemanticallyEquivalent, ClassEntity, CompleteClassEntity } from "../../../compilation/entities";
 import { CPPError } from "../../../compilation/errors";
-import { astToIdentifier, checkIdentifier, identifierToString, LexicalIdentifier } from "../../../lexical";
-import { AnalyticConstruct } from "../../../predicates";
+import { astToIdentifier, checkIdentifier, identifierToString, LexicalIdentifier } from "../../../compilation/lexical";
+import { AnalyticConstruct } from "../../../../analysis/predicates";
 import { BasicCPPConstruct, SuccessfullyCompiled } from "../../constructs";
 
 

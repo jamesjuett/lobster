@@ -2,8 +2,8 @@ import { MemberSimpleDeclarationASTNode } from "../../../../ast/ast_declarations
 import { MemberSpecificationContext, SemanticContext } from "../../../compilation/contexts";
 import { MemberObjectEntity, MemberReferenceEntity, MemberVariableEntity, ObjectEntityType } from "../../../compilation/entities";
 import { CPPError } from "../../../compilation/errors";
-import { AnalyticConstruct } from "../../../predicates";
-import { CompleteObjectType, ReferenceType } from "../../../types";
+import { AnalyticConstruct } from "../../../../analysis/predicates";
+import { CompleteObjectType, ReferenceType } from "../../../compilation/types";
 import { SuccessfullyCompiled } from "../../constructs";
 import { DefaultInitializer } from "../../initializers/DefaultInitializer";
 import { CompiledInitializer, Initializer } from "../../initializers/Initializer";

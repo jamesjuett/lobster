@@ -1,8 +1,7 @@
-import { NoteHandler, CPPError } from "./compilation/errors";
-import { CPPConstruct, TranslationUnitConstruct } from "./constructs/constructs";
-import { expr } from "jquery";
-import { assert } from "../util/util";
-import { IdentifierASTNode } from "../ast/ast_identifiers";
+import { IdentifierASTNode } from "../../ast/ast_identifiers";
+import { assert } from "../../util/util";
+import { TranslationUnitConstruct } from "../constructs/constructs";
+import { CPPError, NoteHandler } from "./errors";
 
 export const KEYWORDS = new Set([
     "alignas", "continue", "friend", "register", "true",

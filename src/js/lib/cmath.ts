@@ -1,9 +1,9 @@
 
-import { registerLibraryHeader, SourceFile } from "../core/Program";
-import { registerOpaqueExpression, OpaqueExpressionImpl, RuntimeOpaqueExpression, getLocal } from "../core/opaqueExpression";
-import { Int, CompleteClassType, Bool, VoidType, Double } from "../core/types";
-import { getDataPtr } from "./string";
-import { Value } from "../core/runtimeEnvironment";
+import { getLocal } from "../core/compilation/contexts";
+import { registerLibraryHeader, SourceFile } from "../core/compilation/Program";
+import { OpaqueExpressionImpl, registerOpaqueExpression, RuntimeOpaqueExpression } from "../core/constructs/expressions/OpaqueExpression";
+import { Value } from "../core/runtime/Value";
+import { Double } from "../core/compilation/types";
 import { assertNever } from "../util/util";
 
 type NoArgMathFn = {

@@ -1,11 +1,10 @@
 import { TemporaryObjectEntity } from "../compilation/entities";
-import { Mutable, assertFalse, assert } from "../../util/util";
-import { CompleteObjectType } from "../types";
-import { TemporaryObject } from "../objects";
+import { Mutable, assert } from "../../util/util";
+import { CompleteObjectType } from "../compilation/types";
 import { TranslationUnitContext } from "../compilation/contexts";
-import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, StackType, CPPConstruct } from "./constructs";
+import { BasicCPPConstruct, SuccessfullyCompiled, CPPConstruct } from "./constructs";
 import { ASTNode } from "../../ast/ASTNode";
-import { TemporaryDeallocator, CompiledTemporaryDeallocator, RuntimeTemporaryDeallocator } from "../TemporaryDeallocator";
+import { TemporaryDeallocator, CompiledTemporaryDeallocator } from "./TemporaryDeallocator";
 import { FunctionCall } from "./FunctionCall";
 
 export abstract class PotentialFullExpression<ContextType extends TranslationUnitContext = TranslationUnitContext, ASTType extends ASTNode = ASTNode> extends BasicCPPConstruct<ContextType, ASTType> {
@@ -69,38 +68,5 @@ export abstract class PotentialFullExpression<ContextType extends TranslationUni
 export interface CompiledPotentialFullExpression extends PotentialFullExpression, SuccessfullyCompiled {
     readonly temporaryDeallocator?: CompiledTemporaryDeallocator;
 }
-
-export abstract class RuntimePotentialFullExpression<C extends CompiledPotentialFullExpression = CompiledPotentialFullExpression> extends RuntimeConstruct<C> {
-    public readonly temporaryDeallocator?: RuntimeTemporaryDeallocator;
-
-    public readonly temporaryObjects: {
-        [index: number]: TemporaryObject | undefined;
-    } = {};
-
-    public readonly containingFullExpression: RuntimePotentialFullExpression;
-
-    public constructor(model: C, stackType: StackType, parent: RuntimeConstruct) {
-        super(model, stackType, parent);
-        if (this.model.temporaryDeallocator) {
-            this.temporaryDeallocator = this.model.temporaryDeallocator.createRuntimeConstruct(this);
-            this.setCleanupConstruct(this.temporaryDeallocator);
-        }
-        this.containingFullExpression = this.findFullExpression();
-    }
-    
-    private findFullExpression(): RuntimePotentialFullExpression {
-        let rt: RuntimeConstruct = this;
-        while (!rt.model.isFullExpression() && rt.parent) {
-            rt = rt.parent;
-        }
-        if (rt instanceof RuntimePotentialFullExpression) {
-            return rt;
-        }
-        else {
-            return assertFalse();
-        }
-    }
-}
-
 
 

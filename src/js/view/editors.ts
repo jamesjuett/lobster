@@ -1,4 +1,4 @@
-import { Program, SourceFile, SourceReference } from "../core/Program";
+import { Program, SourceFile, SourceReference } from "../core/compilation/Program";
 import CodeMirror from 'codemirror';
 import 'codemirror/lib/codemirror.css';
 import '../../css/lobster.css';

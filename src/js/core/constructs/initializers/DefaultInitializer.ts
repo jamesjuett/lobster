@@ -3,11 +3,11 @@ import { ArrayDefaultInitializerOutlet, AtomicDefaultInitializerOutlet, ClassDef
 import { TranslationUnitContext } from "../../compilation/contexts";
 import { ArraySubobjectEntity, FunctionEntity, ObjectEntity, UnboundReferenceEntity } from "../../compilation/entities";
 import { CPPError } from "../../compilation/errors";
-import { Simulation } from "../../Simulation";
-import { CompiledTemporaryDeallocator } from "../../TemporaryDeallocator";
-import { AtomicType, BoundedArrayType, CompleteClassType, CompleteObjectType, FunctionType, VoidType } from "../../types";
+import { Simulation } from "../../runtime/Simulation";
+import { CompiledTemporaryDeallocator } from "../TemporaryDeallocator";
+import { AtomicType, BoundedArrayType, CompleteClassType, CompleteObjectType, FunctionType, VoidType } from "../../compilation/types";
 import { RuntimeConstruct, SuccessfullyCompiled } from "../constructs";
-import { overloadResolution } from "../expressions/expressions";
+import { overloadResolution } from "../../compilation/overloads";
 import { CompiledFunctionCall, FunctionCall, RuntimeFunctionCall } from "../FunctionCall";
 import { Initializer, RuntimeInitializer } from "./Initializer";
 

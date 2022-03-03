@@ -1,6 +1,10 @@
 import { CPPConstruct } from "../core/constructs/constructs";
-import { Program, TranslationUnit } from "../core/Program";
-import { AssignmentExpression, AnalyticBinaryOperatorExpression, NumericLiteralExpression, IdentifierExpression, AnalyticExpression } from "../core/constructs/expressions/expressions";
+import { Program, TranslationUnit } from "../core/compilation/Program";
+import { AnalyticExpression } from "../core/constructs/expressions/expressions";
+import { NumericLiteralExpression } from "../core/constructs/expressions/NumericLiteralExpression";
+import { IdentifierExpression } from "../core/constructs/expressions/IdentifierExpression";
+import { AnalyticBinaryOperatorExpression } from "../core/constructs/expressions/BinaryOperatorExpression";
+import { AssignmentExpression } from "../core/constructs/expressions/AssignmentExpression";
 import { CPPError, Note, NoteKind, CompilerNote } from "../core/compilation/errors";
 import { Constructor } from "../util/util";
 import { FunctionCallExpression } from "../core/constructs/expressions/FunctionCallExpression";
@@ -8,11 +12,12 @@ import { VariableDefinition } from "../core/constructs/declarations/variable/com
 import { FunctionDefinition } from "../core/constructs/declarations/function/FunctionDefinition";
 import { LocalVariableDefinition, TypedLocalVariableDefinition } from "../core/constructs/declarations/variable/LocalVariableDefinition";
 import { DirectInitializer } from "../core/constructs/initializers/DirectInitializer";
-import { ForStatement, CompiledForStatement, UnsupportedStatement } from "../core/statements";
-import { BoundedArrayType, isBoundedArrayType, CompleteObjectType, Type, ReferenceType, isVoidType, isAtomicType, isCompleteObjectType, isPotentiallyCompleteClassType, isIntegralType, isPointerType, isFunctionType, isType, Int, sameType, Double } from "../core/types";
+import { ForStatement, CompiledForStatement } from "../core/constructs/statements/ForStatement";
+import { UnsupportedStatement } from "../core/constructs/statements/UnsupportedStatement";
+import { BoundedArrayType, isBoundedArrayType, CompleteObjectType, Type, ReferenceType, isVoidType, isAtomicType, isCompleteObjectType, isPotentiallyCompleteClassType, isIntegralType, isPointerType, isFunctionType, isType, Int, sameType, Double } from "../core/compilation/types";
 import { Expression } from "../core/constructs/expressions/Expression";
-import { Predicates, AnalyticConstruct } from "../core/predicates";
-import { isUnqualifiedIdentifier } from "../core/lexical";
+import { Predicates, AnalyticConstruct } from "./predicates";
+import { isUnqualifiedIdentifier } from "../core/compilation/lexical";
 
 export type CPPConstructTest<Original extends CPPConstruct, T extends Original> = (construct: Original) => construct is T;
 

@@ -5,10 +5,32 @@ import { RuntimeConstruct } from "../core/constructs/constructs";
 import { CompiledParameterDeclaration } from "../core/constructs/declarations/function/ParameterDeclaration";
 import { CompiledSimpleDeclaration } from "../core/constructs/declarations/SimpleDeclaration";
 import { CompiledLocalVariableDefinition, LocalVariableDefinition } from "../core/constructs/declarations/variable/LocalVariableDefinition";
-import { CompiledExpression, RuntimeExpression } from "../core/constructs/expressions/Expression";
-import { CompiledAssignmentExpression, CompiledBinaryOperatorExpression, CompiledCommaExpression, CompiledCompoundAssignmentExpression, CompiledFunctionArrowExpression, CompiledFunctionDotExpression, CompiledFunctionIdentifierExpression, CompiledImplicitConversion, CompiledInitializerListExpression, CompiledInputOperatorExpression, CompiledMagicFunctionCallExpression, CompiledMemberOperatorOverloadExpression, CompiledNonMemberOperatorOverloadExpression, CompiledNullptrExpression, CompiledNumericLiteralExpression, CompiledObjectArrowExpression, CompiledObjectDotExpression, CompiledObjectIdentifierExpression, CompiledOutputOperatorExpression, CompiledParenthesesExpression, CompiledPostfixIncrementExpression, CompiledStringLiteralExpression, CompiledSubscriptExpression, CompiledTernaryExpression, CompiledThisExpression, CompiledUnaryOperatorExpression, RuntimeAssignment as RuntimeAssignmentExpression, RuntimeBinaryOperator, RuntimeComma, RuntimeCompoundAssignment as RuntimeCompoundAssignmentExpression, RuntimeFunctionArrowExpression, RuntimeFunctionDotExpression, RuntimeFunctionIdentifierExpression, RuntimeImplicitConversion, RuntimeInitializerListExpression, RuntimeInputOperatorExpression, RuntimeMagicFunctionCallExpression, RuntimeMemberOperatorOverloadExpression, RuntimeNonMemberOperatorOverloadExpression, RuntimeNullptrExpression, RuntimeNumericLiteral, RuntimeObjectArrowExpression, RuntimeObjectDotExpression, RuntimeObjectIdentifierExpression, RuntimeOutputOperatorExpression, RuntimeParentheses, RuntimePostfixIncrementExpression, RuntimeStringLiteralExpression, RuntimeSubscriptExpression, RuntimeTernary, RuntimeThisExpression, RuntimeUnaryOperatorExpression } from "../core/constructs/expressions/expressions";
+import { CompiledExpression } from "../core/constructs/expressions/Expression";
+import { RuntimeExpression } from "../core/constructs/expressions/RuntimeExpression";
+import { CompiledMemberOperatorOverloadExpression, CompiledNonMemberOperatorOverloadExpression, RuntimeMemberOperatorOverloadExpression, RuntimeNonMemberOperatorOverloadExpression } from "../core/constructs/expressions/NonMemberOperatorOverloadExpression";
+import { CompiledImplicitConversion, RuntimeImplicitConversion } from "../core/constructs/expressions/ImplicitConversion";
+import { CompiledMagicFunctionCallExpression, RuntimeMagicFunctionCallExpression } from "../core/constructs/expressions/MagicFunctionCallExpression";
+import { CompiledInitializerListExpression, RuntimeInitializerListExpression } from "../core/constructs/expressions/InitializerListExpression";
+import { CompiledParenthesesExpression, RuntimeParentheses } from "../core/constructs/expressions/ParenthesesExpression";
+import { CompiledStringLiteralExpression, RuntimeStringLiteralExpression } from "../core/constructs/expressions/StringLiteralExpression";
+import { CompiledNumericLiteralExpression, RuntimeNumericLiteral } from "../core/constructs/expressions/NumericLiteralExpression";
+import { CompiledNullptrExpression, RuntimeNullptrExpression } from "../core/constructs/expressions/NullptrExpression";
+import { CompiledThisExpression, RuntimeThisExpression } from "../core/constructs/expressions/ThisExpression";
+import { CompiledFunctionIdentifierExpression, CompiledObjectIdentifierExpression, RuntimeFunctionIdentifierExpression, RuntimeObjectIdentifierExpression } from "../core/constructs/expressions/IdentifierExpression";
+import { CompiledPostfixIncrementExpression, RuntimePostfixIncrementExpression } from "../core/constructs/expressions/PostfixIncrementExpression";
+import { CompiledFunctionArrowExpression, CompiledObjectArrowExpression, RuntimeFunctionArrowExpression, RuntimeObjectArrowExpression } from "../core/constructs/expressions/ArrowExpression";
+import { CompiledFunctionDotExpression, CompiledObjectDotExpression, RuntimeFunctionDotExpression, RuntimeObjectDotExpression } from "../core/constructs/expressions/DotExpression";
+import { CompiledSubscriptExpression, RuntimeSubscriptExpression } from "../core/constructs/expressions/SubscriptExpression";
+import { CompiledUnaryOperatorExpression, RuntimeUnaryOperatorExpression } from "../core/constructs/expressions/UnaryOperatorExpression";
+import { CompiledInputOperatorExpression, RuntimeInputOperatorExpression } from "../core/constructs/expressions/InputOperatorExpression";
+import { CompiledOutputOperatorExpression, RuntimeOutputOperatorExpression } from "../core/constructs/expressions/OutputOperatorExpression";
+import { CompiledBinaryOperatorExpression, RuntimeBinaryOperator } from "../core/constructs/expressions/BinaryOperatorExpression";
+import { CompiledCompoundAssignmentExpression, RuntimeCompoundAssignment as RuntimeCompoundAssignmentExpression } from "../core/constructs/expressions/CompoundAssignmentExpression";
+import { CompiledAssignmentExpression, RuntimeAssignment as RuntimeAssignmentExpression } from "../core/constructs/expressions/AssignmentExpression";
+import { CompiledCommaExpression, CompiledTernaryExpression, RuntimeComma, RuntimeTernary } from "../core/constructs/expressions/CommaExpression";
 import { CompiledFunctionCallExpression, RuntimeFunctionCallExpression } from "../core/constructs/expressions/FunctionCallExpression";
-import { CompiledDeleteArrayExpression, CompiledDeleteExpression, CompiledNewArrayExpression, CompiledNewExpression, RuntimeDeleteArrayExpression, RuntimeDeleteExpression, RuntimeNewArrayExpression, RuntimeNewExpression } from "../core/constructs/expressions/new_delete";
+import { CompiledNewArrayExpression, CompiledNewExpression, RuntimeNewArrayExpression, RuntimeNewExpression } from "../core/constructs/expressions/NewExpression";
+import { CompiledDeleteArrayExpression, CompiledDeleteExpression, RuntimeDeleteArrayExpression, RuntimeDeleteExpression } from "../core/constructs/expressions/DeleteExpression";
 import { CompiledFunctionCall, RuntimeFunctionCall } from "../core/constructs/FunctionCall";
 import { CompiledArrayMemberInitializer, CompiledCtorInitializer, RuntimeArrayMemberInitializer, RuntimeCtorInitializer } from "../core/constructs/initializers/CtorInitializer";
 import { CompiledArrayDefaultInitializer, CompiledClassDefaultInitializer, RuntimeArrayDefaultInitializer, RuntimeAtomicDefaultInitializer, RuntimeClassDefaultInitializer } from "../core/constructs/initializers/DefaultInitializer";
@@ -16,13 +38,22 @@ import { CompiledArrayDirectInitializer, CompiledAtomicDirectInitializer, Compil
 import { CompiledInitializer, RuntimeInitializer } from "../core/constructs/initializers/Initializer";
 import { CompiledArrayAggregateInitializer, RuntimeArrayAggregateInitializer } from "../core/constructs/initializers/ListInitializer";
 import { CompiledArrayValueInitializer, CompiledClassValueInitializer, RuntimeArrayValueInitializer, RuntimeAtomicValueInitializer, RuntimeClassValueInitializer } from "../core/constructs/initializers/ValueInitializer";
-import { RuntimePotentialFullExpression } from "../core/constructs/PotentialFullExpression";
-import { identifierToString } from "../core/lexical";
-import { AutoObject, CPPObject } from "../core/objects";
-import { CompiledOpaqueExpression, RuntimeOpaqueExpression } from "../core/opaqueExpression";
-import { Value } from "../core/runtimeEnvironment";
-import { Block, CompiledBlock, CompiledBreakStatement, CompiledDeclarationStatement, CompiledExpressionStatement, CompiledForStatement, CompiledIfStatement, CompiledNullStatement, CompiledReturnStatement, CompiledStatement, CompiledWhileStatement, RuntimeBlock, RuntimeBreakStatement, RuntimeDeclarationStatement, RuntimeExpressionStatement, RuntimeForStatement, RuntimeIfStatement, RuntimeNullStatement, RuntimeReturnStatement, RuntimeStatement, RuntimeWhileStatement } from "../core/statements";
-import { ArrayPointerType, AtomicType, Bool, Char, CompleteObjectType, isAtomicType, isCompleteClassType, isType, PointerType } from "../core/types";
+import { RuntimePotentialFullExpression } from "../core/constructs/RuntimePotentialFullExpression";
+import { identifierToString } from "../core/compilation/lexical";
+import { AutoObject, CPPObject } from "../core/runtime/objects";
+import { CompiledOpaqueExpression, RuntimeOpaqueExpression } from "../core/constructs/expressions/OpaqueExpression";
+import { Value } from "../core/runtime/Value";
+import { CompiledForStatement, RuntimeForStatement } from "../core/constructs/statements/ForStatement";
+import { CompiledWhileStatement, RuntimeWhileStatement } from "../core/constructs/statements/WhileStatement";
+import { CompiledIfStatement, RuntimeIfStatement } from "../core/constructs/statements/IfStatement";
+import { Block, CompiledBlock, RuntimeBlock } from "../core/constructs/statements/Block";
+import { CompiledReturnStatement, RuntimeReturnStatement } from "../core/constructs/statements/ReturnStatement";
+import { CompiledBreakStatement, RuntimeBreakStatement } from "../core/constructs/statements/BreakStatement";
+import { CompiledDeclarationStatement, RuntimeDeclarationStatement } from "../core/constructs/statements/DeclarationStatement";
+import { CompiledNullStatement, RuntimeNullStatement } from "../core/constructs/statements/NullStatement";
+import { CompiledExpressionStatement, RuntimeExpressionStatement } from "../core/constructs/statements/ExpressionStatement";
+import { CompiledStatement, RuntimeStatement } from "../core/constructs/statements/Statement";
+import { ArrayPointerType, AtomicType, Bool, Char, CompleteObjectType, isAtomicType, isCompleteClassType, isType, PointerType } from "../core/compilation/types";
 import { listenTo, Message, messageResponse, MessageResponses, Observable, ObserverType, stopListeningTo } from "../util/observe";
 import { asMutable, assertFalse, assertNever, htmlDecoratedKeyword, htmlDecoratedName, htmlDecoratedObject, htmlDecoratedOperator, htmlDecoratedType, htmlDecoratedValue, Mutable, unescapeString } from "../util/util";
 
@@ -676,7 +707,7 @@ export class StatementOutlet<RTConstruct_type extends RuntimeStatement = Runtime
 }
 
 function allLocalVariableDefinitions(declarations: readonly CompiledSimpleDeclaration[]) : declarations is CompiledLocalVariableDefinition[] {
-    return declarations.every(decl => decl instanceof LocalVariableDefinition);
+    return declarations.every(decl => decl.construct_type === "local_variable_definition");
 }
 
 export class DeclarationStatementOutlet extends StatementOutlet<RuntimeDeclarationStatement> {
@@ -2381,7 +2412,7 @@ export function addChildInitializerOutlet(parentElement: JQuery, construct: Comp
 
 export function addChildStatementOutlet(parentElement: JQuery, construct: CompiledStatement, parent: ConstructOutlet, indented: boolean = true) {
     let childElem = $("<span></span>");
-    if (!construct.isBlock() && construct.parent instanceof Block) {
+    if (!construct.isBlock() && construct.parent?.construct_type === "block") {
         parentElement.append("<br />");
         childElem.addClass("code-indentedBlockBody")
     }

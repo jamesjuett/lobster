@@ -1,172 +1,16 @@
-import { assert, assertFalse, Mutable, CPPRandom } from "../util/util";
-import { Observable } from "../util/observe";
+import { assert, assertFalse, Mutable, CPPRandom } from "../../util/util";
+import { Observable } from "../../util/observe";
 import { CPPObject, AutoObject, StringLiteralObject, StaticObject, TemporaryObject, DynamicObject, InvalidObject, ArraySubobject } from "./objects";
-import { Bool, Char, ObjectPointerType, ArrayPointerType, similarType, subType, PointerType, sameType, AtomicType, IntegralType, Int, ArrayElemType, BoundedArrayType, ReferenceType, PointerToCompleteType, CompleteObjectType } from "./types";
+import { Char, ObjectPointerType, ArrayPointerType, similarType, subType, PointerType, AtomicType, ArrayElemType, BoundedArrayType, ReferenceType, PointerToCompleteType, CompleteObjectType } from "../compilation/types";
 import last from "lodash/last";
-import { GlobalObjectEntity, LocalObjectEntity, LocalReferenceEntity, TemporaryObjectEntity } from "./compilation/entities";
-import { RuntimeConstruct } from "./constructs/constructs";
-import { CompiledGlobalVariableDefinition } from "./constructs/declarations/variable/GlobalVariableDefinition";
-import { RuntimeFunction } from "./compilation/functions";
+import { GlobalObjectEntity, LocalObjectEntity, LocalReferenceEntity, TemporaryObjectEntity } from "../compilation/entities";
+import { RuntimeConstruct } from "../constructs/constructs";
+import { CompiledGlobalVariableDefinition } from "../constructs/declarations/variable/GlobalVariableDefinition";
+import { RuntimeFunction } from "../compilation/functions";
+import { RawValueType, Value } from "./Value";
+
 
 export type byte = number; // HACK - can be resolved if I make the memory model realistic and not hacky
-export type RawValueType = number; // HACK - can be resolved if I make the raw value type used depend on the Type parameter
-
-// export type ValueType<T extends AtomicType> = T extends AtomicType ? Value<T> : never;
-
-export class Value<T extends AtomicType = AtomicType> {
-    private static _name = "Value";
-
-    public readonly type: T;
-    private readonly _isValid: boolean;
-
-    public readonly rawValue: RawValueType;
-
-
-    // TODO: ts: change any type for value to match type expected for CPP type of value
-    constructor(rawValue: RawValueType, type: T, isValid: boolean = true) {
-        // TODO: remove this.value in favor of using rawValue() function
-        this.rawValue = rawValue;
-        this.type = type;
-        this._isValid = isValid;
-    };
-
-    public get isValid() {
-        // Note: this is implemented as a getter since it is necessary to call isValueValid on the type each time.
-        //       e.g. A type with RTTI like an object pointer may become invalid if the object dies.
-        return this._isValid && this.type.isValueValid(this.rawValue);
-    }
-
-    public isTyped<NarrowedT extends AtomicType>(predicate: (t:AtomicType) => t is NarrowedT) : this is Value<NarrowedT> {
-        return predicate(this.type);
-    }
-
-    public clone(valueToClone: RawValueType = this.rawValue) {
-        return new Value<T>(valueToClone, this.type, this.isValid);
-    }
-
-    public cvUnqualified() {
-        return new Value<T>(this.rawValue, this.type.cvUnqualified(), this.isValid);
-    }
-
-    public cvQualified(isConst: boolean, isVolatile: boolean = false) {
-        return new Value<T>(this.rawValue, this.type.cvQualified(isConst, isVolatile), this.isValid);
-    }
-
-    public invalidated() {
-        return new Value<T>(this.rawValue, this.type, false);
-    }
-
-    public equals(otherValue: Value<T>) {
-        return new Value<Bool>(
-            this.rawValue === otherValue.rawValue ? 1 : 0,
-            new Bool(),
-            this.isValid && otherValue.isValid);
-    }
-
-    public rawEquals(otherRawValue: RawValueType) {
-        return this.rawValue === otherRawValue;
-    }
-
-    public combine(otherValue: Value<T>, combiner: (a: RawValueType, b: RawValueType) => RawValueType) {
-        assert(similarType(this.type, otherValue.type));
-        return new Value<T>(
-            combiner(this.rawValue, otherValue.rawValue),
-            this.type,
-            this.isValid && otherValue.isValid);
-    }
-
-    public pointerOffset<T extends PointerToCompleteType>(this: Value<T>, offsetValue: Value<IntegralType>, subtract: boolean = false) {
-        return new Value<T>(
-            (subtract ?
-                this.rawValue - this.type.ptrTo.size * offsetValue.rawValue :
-                this.rawValue + this.type.ptrTo.size * offsetValue.rawValue),
-            this.type,
-            this.isValid && offsetValue.isValid);
-    }
-
-    public pointerOffsetRaw<T extends PointerToCompleteType>(this: Value<T>, rawOffsetValue: number, subtract: boolean = false) {
-        return new Value<T>(
-            (subtract ?
-                this.rawValue - this.type.ptrTo.size * rawOffsetValue :
-                this.rawValue + this.type.ptrTo.size * rawOffsetValue),
-            this.type,
-            this.isValid);
-    }
-
-    public pointerDifference(this: Value<PointerToCompleteType>, otherValue: Value<PointerToCompleteType>) {
-        return new Value<Int>(
-            (this.rawValue - otherValue.rawValue) / this.type.ptrTo.size,
-            new Int(),
-            this.isValid && otherValue.isValid);
-    }
-
-    public compare(otherValue: Value<T>, comparer: (a: RawValueType, b: RawValueType) => boolean) {
-        assert(similarType(this.type, otherValue.type));
-        return new Value<Bool>(
-            comparer(this.rawValue, otherValue.rawValue) ? 1 : 0,
-            new Bool(),
-            this.isValid && otherValue.isValid);
-    }
-
-    public modify(modifier: (a: RawValueType) => RawValueType) {
-        return new Value<T>(
-            modifier(this.rawValue),
-            this.type,
-            this.isValid);
-    }
-    
-    public add(otherValue: Value<T>) {
-        return this.combine(otherValue, (a,b) => a + b);
-    }
-
-    public addRaw(x: number) {
-        return this.modify(a => a + x);
-    }
-    
-    public sub(otherValue: Value<T>) {
-        return this.combine(otherValue, (a,b) => a - b);
-    }
-
-    public subRaw(x: number) {
-        return this.modify(a => a - x);
-    }
-    
-    public arithmeticNegate() {
-        return this.modify(a => -a);
-    }
-    
-    public logicalNot() {
-        return this.modify(a => a === 0 ? 1 : 0);
-    }
-
-    public toString() {
-        return this.valueString();
-    }
-
-    public valueString() {
-        return this.type.valueToString(this.rawValue);
-    }
-
-    // TODO: perhaps this should be moved to the ostream class
-    public valueToOstreamString() {
-        return this.type.valueToOstreamString(this.rawValue);
-    }
-
-    /**
-     * This should be used VERY RARELY. The only time to use it is if you have a temporary Value instance
-     * that you're using locally and want to keep updating its raw value to something else before passing
-     * to something like memory.dereference(). For example, this is done when traversing through a cstring by
-     * getting the value of the pointer initially, then ad hoc updating that value as you move through the cstring.
-     */
-    public setRawValue(rawValue: RawValueType) {
-        (<RawValueType>this.rawValue) = rawValue;
-        (<boolean>this.isValid) = this.isValid && this.type.isValueValid(this.rawValue);
-    }
-
-    public describe() {
-        return { message: this.valueString() };
-    }
-}
 
 export class Memory {
     private static _name = "Memory";
@@ -194,10 +38,10 @@ export class Memory {
     // Definite assignment assertions with ! are for properties initialized in the reset function called
     // at the end of the constructor.
     private bytes!: RawValueType[]; //TODO: Hack - instead of real bytes, memory just stores the raw value in the first byte of an object
-    private objects!: { [index: number]: CPPObject<CompleteObjectType> };
-    private stringLiteralMap!: { [index: string]: StringLiteralObject | undefined };
-    private staticObjects!: { [index: string]: StaticObject };
-    private temporaryObjects!: { [index: number]: TemporaryObject };
+    private objects!: { [index: number]: CPPObject<CompleteObjectType>; };
+    private stringLiteralMap!: { [index: string]: StringLiteralObject | undefined; };
+    private staticObjects!: { [index: string]: StaticObject; };
+    private temporaryObjects!: { [index: number]: TemporaryObject; };
     public readonly stack!: MemoryStack;
     public readonly heap!: MemoryHeap;
 
@@ -285,7 +129,6 @@ export class Memory {
         //        obj.bytesRead(ad, end-ad);//.send("bytesRead", {addr: ad, length: end-ad});
         //    }
         //}
-
         return this.bytes.slice(addr, end);
     }
 
@@ -333,7 +176,6 @@ export class Memory {
     }
 
     public writeBytes(addr: number, values: RawValueType[]) {
-
         //TODO remove this commented code
         //if (isA(fromObj, TemporaryObject)){
         //    var objBytes = this.temporaryObjects[fromObj.entityId];
@@ -402,7 +244,7 @@ export class Memory {
         return Object.values(this.objects).filter(obj => obj.isAlive);
     }
 
-    public allocateObject(object: CPPObject<CompleteObjectType>) { // TODO: allocateObject is not the best name for this
+    public allocateObject(object: CPPObject<CompleteObjectType>) {
         this.objects[object.address] = object;
         this.observable.send("objectAllocated", object);
     }
@@ -410,7 +252,7 @@ export class Memory {
     /**
      * Ends the lifetime of an object. Its data actually remains in memory, but is marked as dead and invalid.
      * If the object is already dead, does nothing.
-     * @param addr 
+     * @param addr
      * @param killer The runtime construct that killed the object
      */
     public killObject(obj: CPPObject, killer?: RuntimeConstruct) {
@@ -423,7 +265,7 @@ export class Memory {
     /**
      * Allocates and returns a string literal object, unless a string literal with exactly
      * the same contents has already been allocated, in which case that same object is returned.
-     * @param contents 
+     * @param contents
      */
     public allocateStringLiteral(contents: string) {
         let previousObj = this.stringLiteralMap[contents];
@@ -499,8 +341,8 @@ export class Memory {
         }
         return JSON.stringify(objs, null, 4);
     }
-};
-
+}
+;
 class MemoryStack {
     private static readonly _name = "MemoryStack";
 
@@ -523,7 +365,6 @@ class MemoryStack {
     //     this.frames.length = 0;
     //     this.top = this.start;
     // }
-
     public topFrame() {
         return last(this.frames);
     }
@@ -555,7 +396,6 @@ class MemoryStack {
         return str;
     }
 }
-
 class MemoryHeap {
     private static readonly _name = "MemoryHeap";
 
@@ -565,10 +405,9 @@ class MemoryHeap {
     private readonly end: number;
     private readonly memory: Memory;
 
-    public readonly objectMap: { [index: number]: DynamicObject };
+    public readonly objectMap: { [index: number]: DynamicObject; };
 
     // public readonly mostRecentlyAllocatedObject?: DynamicObject;
-
     public constructor(memory: Memory, end: number) {
         this.memory = memory;
         this.end = end;
@@ -579,7 +418,6 @@ class MemoryHeap {
     // public clear() {
     //     this.objectMap = {};
     // }
-
     public allocateNewObject<T extends CompleteObjectType>(type: T) {
         this.bottom -= type.size;
         let obj = new DynamicObject(type, this.memory, this.bottom);
@@ -606,10 +444,7 @@ class MemoryHeap {
         return obj;
     }
 }
-
-
-type MemoryFrameMessages =
-    "referenceBound";
+type MemoryFrameMessages = "referenceBound";
 
 export class MemoryFrame {
     private static readonly _name = "MemoryFrame";
@@ -624,10 +459,10 @@ export class MemoryFrame {
     public readonly size: number;
 
     public readonly localObjects: readonly AutoObject[];
-    public readonly localObjectsByName: { [index: string]: AutoObject | undefined } = {};
+    public readonly localObjectsByName: { [index: string]: AutoObject | undefined; } = {};
 
-    private readonly localObjectsByEntityId: { [index: number]: AutoObject } = {};
-    private readonly localReferencesByEntityId: { [index: number]: CPPObject | undefined } = {};
+    private readonly localObjectsByEntityId: { [index: number]: AutoObject; } = {};
+    private readonly localReferencesByEntityId: { [index: number]: CPPObject | undefined; } = {};
     private readonly localReferenceEntities: readonly LocalReferenceEntity[];
 
     public constructor(memory: Memory, start: number, rtFunc: RuntimeFunction) {
@@ -644,13 +479,11 @@ export class MemoryFrame {
         //     let obj = new ThisObject(new ObjectPointer(rtFunc.receiver), memory, addr);
         //     obj.setValue(rtFunc.receiver.getPointerTo());
         //     addr += obj.size;
-
         //     this.localObjectsByEntityId[obj.entityId] = obj;
         //     this.size += obj.size;
         // }
-
         let functionLocals = rtFunc.model.context.functionLocals;
-        
+
         // Push objects for all entities in the block
         this.localObjects = functionLocals.localObjects.map((objEntity) => {
 
@@ -693,7 +526,6 @@ export class MemoryFrame {
     // public initializeLocalObject<T extends AtomicType>(entity: LocalObjectEntity<T>, newValue: Value<T>) {
     //     this.localObjectLookup(entity).writeValue(newValue);
     // }
-
     public localReferenceLookup<T extends CompleteObjectType>(entity: LocalReferenceEntity<ReferenceType<T>>) {
         return <CPPObject<T> | undefined>this.localReferencesByEntityId[entity.entityId];
     }
@@ -704,12 +536,5 @@ export class MemoryFrame {
         this.observable.send("referenceBound", { entity: entity, object: obj });
     }
 
-    // public setUpReferenceInstances() {
-    //     this.scope.referenceObjects.forEach((ref: LocalReferenceEntity) => {
-    //         this.localReferencesByEntityId[ref.entityId] = undefined;
-    //         //self.memory.allocateObject(ref, addr);
-    //         //addr += ref.type.size;
-    //     });
-    // }
-
-};
+}
+;

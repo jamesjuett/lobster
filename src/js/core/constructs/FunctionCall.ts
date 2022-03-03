@@ -12,11 +12,12 @@ import type { CompiledExpression, Expression, TypedExpression } from "./expressi
 import type { RuntimeFunction } from "../compilation/functions";
 import { CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers/DirectInitializer";
 import { DirectInitializer } from "./initializers/DirectInitializer";
-import type { CPPObject } from "../objects";
-import type { PotentialFullExpression, RuntimePotentialFullExpression } from "./PotentialFullExpression";
-import type { AnalyticConstruct } from "../predicates";
-import type { CompiledTemporaryDeallocator } from "../TemporaryDeallocator";
-import type { AtomicType, CompleteClassType, CompleteObjectType, CompleteReturnType, FunctionType, ReferenceType, VoidType } from "../types";
+import type { CPPObject } from "../runtime/objects";
+import type { PotentialFullExpression } from "./PotentialFullExpression";
+import { RuntimePotentialFullExpression } from "./RuntimePotentialFullExpression";
+import type { AnalyticConstruct } from "../../analysis/predicates";
+import type { CompiledTemporaryDeallocator } from "./TemporaryDeallocator";
+import type { AtomicType, CompleteClassType, CompleteObjectType, CompleteReturnType, FunctionType, ReferenceType, VoidType } from "../compilation/types";
 
 
 export class FunctionCall extends BasicCPPConstruct<TranslationUnitContext, ASTNode> {
