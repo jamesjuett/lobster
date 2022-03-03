@@ -11,7 +11,7 @@
 //
 // https://pegjs.org/   https://github.com/metadevpro/ts-pegjs
 
-'use strict';
+// 'use strict';
 
 export interface IFilePosition {
   offset: number;
