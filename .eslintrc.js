@@ -436,7 +436,7 @@ module.exports = {
     ],
     'no-class-assign': 'error',
     'no-confusing-arrow': [
-      'error',
+      'warn',
       {
         allowParens: true,
       },
