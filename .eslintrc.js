@@ -93,7 +93,7 @@ module.exports = {
         getWithoutSet: false,
       },
     ],
-    'array-callback-return': 'error',
+    'array-callback-return': 'warn',
     'block-scoped-var': 'error',
     'class-methods-use-this': 'off',
     complexity: [
