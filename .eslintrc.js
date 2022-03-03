@@ -156,12 +156,12 @@ module.exports = {
       },
     ],
     'no-multi-str': 'error',
-    'no-new': 'off', // previously set to "error"
+    'no-new': 'off',
     'no-new-func': 'error',
     'no-new-wrappers': 'error',
     'no-octal': 'error',
     'no-octal-escape': 'error',
-    'no-param-reassign': 'warn', // previously set to "error"
+    'no-param-reassign': 'warn',
     'no-proto': 'error',
     'no-restricted-properties': 'off',
     'no-return-assign': ['warn', 'always'],
@@ -215,7 +215,7 @@ module.exports = {
     'no-shadow': 'off',
     'no-shadow-restricted-names': 'error',
     'no-undef-init': 'warn',
-    'no-undefined': 'warn', // was "error"
+    'no-undefined': 'warn',
     'callback-return': 'off',
     'global-require': 'off',
     'handle-callback-err': 'error',
@@ -326,7 +326,7 @@ module.exports = {
     'no-new-object': 'error',
     'no-plusplus': 'off',
     'no-restricted-syntax': 'off',
-    'no-tabs': 'error',
+    'no-tabs': 'warn',
     'no-ternary': 'off',
     'no-trailing-spaces': 'error',
     'no-underscore-dangle': 'off',
