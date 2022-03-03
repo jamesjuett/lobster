@@ -97,7 +97,7 @@ module.exports = {
     'block-scoped-var': 'error',
     'class-methods-use-this': 'off',
     complexity: [
-      'error',
+      'warn',
       {
         max: 20,
       },
