@@ -358,7 +358,7 @@ module.exports = {
     ],
     'object-property-newline': 'off',
     'one-var': ['warn', 'never'],
-    'one-var-declaration-per-line': ['error', 'always'],
+    'one-var-declaration-per-line': ['warn', 'always'],
     'operator-assignment': 'off',
     'operator-linebreak': 'off',
     'padded-blocks': 'off',
