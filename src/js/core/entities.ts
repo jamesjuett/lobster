@@ -1,6 +1,14 @@
 import type { RuntimeConstruct } from "./constructs";
 import type { SemanticContext } from "./contexts";
-import type { ClassDeclaration, ClassDefinition, FunctionDeclaration, FunctionDefinition, FunctionDefinitionGroup, GlobalVariableDefinition, LocalVariableDefinition, MemberVariableDeclaration, ParameterDefinition } from "./declarations";
+import type { FunctionDefinitionGroup } from "./declarations/declarations";
+import { MemberVariableDeclaration } from "./declarations/class/MemberVariableDeclaration";
+import { ClassDefinition } from "./declarations/class/ClassDefinition";
+import { ClassDeclaration } from "./declarations/class/ClassDeclaration";
+import { FunctionDefinition } from "./declarations/function/FunctionDefinition";
+import { ParameterDefinition } from "./declarations/function/ParameterDefinition";
+import { GlobalVariableDefinition } from "./declarations/variable/GlobalVariableDefinition";
+import { LocalVariableDefinition } from "./declarations/variable/LocalVariableDefinition";
+import { FunctionDeclaration } from "./declarations/function/FunctionDeclaration";
 import type { CompilerNote } from "./errors";
 import type { Expression } from "./expressionBase";
 import type { FunctionCall } from "./FunctionCall";

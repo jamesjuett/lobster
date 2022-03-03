@@ -3,7 +3,11 @@ import { BasicCPPConstruct, SuccessfullyCompiled, RuntimeConstruct, CPPConstruct
 import { CPPError } from "./errors";
 import { createExpressionFromAST, createRuntimeExpression, standardConversion } from "./expressions";
 import { ExpressionASTNode } from "../ast/ast_expressions";
-import { FunctionDefinition, VariableDefinition, ClassDefinition, AnalyticCompiledDeclaration, LocalDeclaration, createLocalDeclarationFromAST, LocalSimpleDeclaration } from "./declarations";
+import { LocalDeclaration, createLocalDeclarationFromAST, LocalSimpleDeclaration } from "./declarations/declarations";
+import { VariableDefinition } from "./declarations/variable/common";
+import { ClassDefinition } from "./declarations/class/ClassDefinition";
+import { FunctionDefinition } from "./declarations/function/FunctionDefinition";
+import { AnalyticCompiledDeclaration } from "./declarations/analytics";
 import { DirectInitializer, CompiledDirectInitializer, RuntimeDirectInitializer } from "./initializers";
 import { VoidType, ReferenceType, Bool, isType, Int, isCompleteObjectType, isReferenceType, BoundedArrayType } from "./types";
 import { ReturnByReferenceEntity, ReturnObjectEntity, BlockScope, LocalReferenceEntity } from "./entities";

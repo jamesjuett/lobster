@@ -1,24 +1,22 @@
 
-import { parse as cpp_parse } from "../parse/cpp_parser";
-import { NoteKind, SyntaxNote, CPPError, NoteRecorder, Note } from "./errors";
-import { Mutable, asMutable, assertFalse, assert } from "../util/util";
-import { NamespaceScope, GlobalObjectEntity, selectOverloadedDefinition, FunctionEntity, ClassEntity, NameLookupOptions, Scope, NamedScope } from "./entities";
-import { Observable } from "../util/observe";
-import { TranslationUnitContext, createTranslationUnitContext, ProgramContext, createLibraryContext } from "./contexts";
-import { CPPConstruct } from "./constructs";
-import { GlobalObjectAllocator, CompiledGlobalObjectAllocator } from "./GlobalObjectAllocator";
 import { ASTNode } from "../ast/ASTNode";
-import { StringLiteralExpression } from "./expressions";
-import { FunctionType, Int, VoidType, CompleteClassType, Double } from "./types";
-import { startCase } from "lodash";
-import { registerOpaqueExpression, RuntimeOpaqueExpression } from "./opaqueExpression";
-import { getDataPtr } from "../lib/string";
-import { Value } from "./runtimeEnvironment";
-import { FunctionCall } from "./FunctionCall";
-import { QualifiedName, identifierToString } from "./lexical";
 import { TranslationUnitAST } from "../ast/ast_program";
-import { GlobalVariableDefinition, FunctionDefinitionGroup, ClassDefinition, FunctionDefinition, CompiledFunctionDefinition, CompiledGlobalVariableDefinition, TopLevelDeclaration, createTopLevelDeclarationFromAST } from "./declarations";
+import { parse as cpp_parse } from "../parse/cpp_parser";
+import { asMutable, assert, assertFalse, Mutable } from "../util/util";
+import { CPPConstruct } from "./constructs";
+import { createLibraryContext, createTranslationUnitContext, ProgramContext, TranslationUnitContext } from "./contexts";
+import { createTopLevelDeclarationFromAST, FunctionDefinitionGroup, TopLevelDeclaration } from "./declarations/declarations";
+import { ClassDefinition } from "./declarations/class/ClassDefinition";
+import { CompiledFunctionDefinition, FunctionDefinition } from "./declarations/function/FunctionDefinition";
+import { CompiledGlobalVariableDefinition, GlobalVariableDefinition } from "./declarations/variable/GlobalVariableDefinition";
+import { ClassEntity, FunctionEntity, GlobalObjectEntity, NamedScope, NameLookupOptions, NamespaceScope, selectOverloadedDefinition } from "./entities";
+import { CPPError, Note, NoteKind, NoteRecorder, SyntaxNote } from "./errors";
+import { StringLiteralExpression } from "./expressions";
+import { FunctionCall } from "./FunctionCall";
+import { CompiledGlobalObjectAllocator, GlobalObjectAllocator } from "./GlobalObjectAllocator";
+import { QualifiedName } from "./lexical";
 import { CompiledObjectDeallocator, createStaticDeallocator, ObjectDeallocator } from "./ObjectDeallocator";
+import { FunctionType, Int } from "./types";
 
 
 

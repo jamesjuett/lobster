@@ -4,7 +4,7 @@ import type { CPPConstruct, SuccessfullyCompiled } from "./constructs";
 import { BasicCPPConstruct, RuntimeConstruct } from "./constructs";
 import type { SemanticContext, TranslationUnitContext } from "./contexts";
 import { areAllSemanticallyEquivalent } from "./contexts";
-import type { CompiledFunctionDefinition } from "./declarations";
+import { CompiledFunctionDefinition } from "./declarations/function/FunctionDefinition";
 import type { FunctionEntity } from "./entities";
 import { PassByReferenceParameterEntity, PassByValueParameterEntity, areEntitiesSemanticallyEquivalent, TemporaryObjectEntity } from "./entities";
 import { CPPError } from "./errors";

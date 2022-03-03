@@ -3,7 +3,10 @@ import { Observable } from "../util/observe";
 import { assert, Mutable, asMutable } from "../util/util";
 import { Memory, Value, RawValueType } from "./runtimeEnvironment";
 import { RuntimeConstruct } from "./constructs";
-import { LocalVariableDefinition, GlobalVariableDefinition, CompiledGlobalVariableDefinition, ParameterDefinition, CompiledClassDefinition } from "./declarations";
+import { CompiledClassDefinition } from "./declarations/class/ClassDefinition";
+import { ParameterDefinition } from "./declarations/function/ParameterDefinition";
+import { GlobalVariableDefinition, CompiledGlobalVariableDefinition } from "./declarations/variable/GlobalVariableDefinition";
+import { LocalVariableDefinition } from "./declarations/variable/LocalVariableDefinition";
 import { BoundReferenceEntity } from "./entities";
 
 export interface ObjectDescription {

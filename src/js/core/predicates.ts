@@ -1,19 +1,25 @@
 
-import { AnalyticExpression, TypedExpressionKinds, CompiledExpressionKinds, TernaryExpression, TypedCommaExpression, AnalyticCompiledExpression, AnalyticTypedExpression, IdentifierExpression, PointerDifferenceExpression, TypedPointerDifferenceExpression, AssignmentExpression, TypedAssignmentExpression, NumericLiteralExpression, ImplicitConversion, PrefixIncrementExpression, PostfixIncrementExpression, t_OverloadableOperators, OperatorOverloadExpression, DotExpression, ArrowExpression, SubscriptExpression, CompoundAssignmentExpression } from "./expressions";
-import { ValueCategory, Expression, TypedExpression } from "./expressionBase";
-import { UnknownTypeDeclaration, VoidDeclaration, TypedUnknownBoundArrayDeclaration, FunctionDeclaration, TypedFunctionDeclaration, LocalVariableDefinition, TypedLocalVariableDefinition, GlobalVariableDefinition, TypedGlobalVariableDefinition, ParameterDeclaration, TypedParameterDeclaration, Declarator, TypedDeclarator, TypedFunctionDefinition, ClassDeclaration, TypedClassDeclaration, ClassDefinition, TypedClassDefinition, FunctionDefinition, AnalyticDeclaration, TypeSpecifier, StorageSpecifier, AnalyticTypedDeclaration, TypedDeclarationKinds, AnalyticCompiledDeclaration, BaseSpecifier } from "./declarations";
-import { Type, VoidType, ArrayOfUnknownBoundType, Bool, AtomicType, Int, isAtomicType, ExpressionType } from "./types";
-import { DiscriminateUnion } from "../util/util";
-import { AnalyticStatement } from "./statements";
-import { CPPConstruct } from "./constructs";
-import { GlobalObjectAllocator } from "./GlobalObjectAllocator";
-import { FunctionCallExpression } from "./FunctionCallExpression";
-import { DirectInitializer, AtomicDirectInitializer, CtorInitializer } from "./initializers";
 import { containsConstruct, findFirstConstruct } from "../analysis/analysis";
+import { DiscriminateUnion } from "../util/util";
+import { CPPConstruct } from "./constructs";
+import { AnalyticDeclaration, AnalyticTypedDeclaration } from "./declarations/analytics";
+import { BaseSpecifier } from "./declarations/class/BaseSpecifier";
+import { FunctionDefinition } from "./declarations/function/FunctionDefinition";
+import { StorageSpecifier } from "./declarations/StorageSpecifier";
+import { TypeSpecifier } from "./declarations/TypeSpecifier";
+import { GlobalVariableDefinition } from "./declarations/variable/GlobalVariableDefinition";
+import { LocalVariableDefinition } from "./declarations/variable/LocalVariableDefinition";
 import { VariableEntity } from "./entities";
+import { Expression, TypedExpression, ValueCategory } from "./expressionBase";
+import { AnalyticExpression, AnalyticTypedExpression, ArrowExpression, AssignmentExpression, CompoundAssignmentExpression, DotExpression, IdentifierExpression, ImplicitConversion, NumericLiteralExpression, OperatorOverloadExpression, PostfixIncrementExpression, PrefixIncrementExpression, SubscriptExpression, t_OverloadableOperators } from "./expressions";
 import { FunctionCall } from "./FunctionCall";
+import { FunctionCallExpression } from "./FunctionCallExpression";
+import { GlobalObjectAllocator } from "./GlobalObjectAllocator";
+import { AtomicDirectInitializer, CtorInitializer } from "./initializers";
 import { ObjectDeallocator } from "./ObjectDeallocator";
+import { AnalyticStatement } from "./statements";
 import { TemporaryDeallocator } from "./TemporaryDeallocator";
+import { ExpressionType, Type } from "./types";
 
 
 
@@ -121,13 +127,13 @@ export namespace Predicates {
 
     export function byVariableName(name: string) {
         return <(construct: AnalyticConstruct) => construct is (LocalVariableDefinition | GlobalVariableDefinition)>
-                ((construct) => (construct instanceof LocalVariableDefinition || construct instanceof GlobalVariableDefinition) && construct.name === name);
+                ((construct) => (construct.construct_type === "local_variable_definition" || construct.construct_type === "global_variable_definition") && construct.name === name);
     }
 
     export function byVariableInitialValue(queryValue: number) {
         return <(construct: AnalyticConstruct) => construct is (LocalVariableDefinition | GlobalVariableDefinition)>
             ((construct) => {
-                if (! (construct instanceof LocalVariableDefinition || construct instanceof GlobalVariableDefinition)) {
+                if (! (construct.construct_type === "local_variable_definition" || construct.construct_type === "global_variable_definition")) {
                     return false;
                 }
 

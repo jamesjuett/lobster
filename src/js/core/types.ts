@@ -3,7 +3,7 @@ import { ConstructDescription, TranslationUnitContext } from "./contexts";
 import { byte, RawValueType, Value } from "./runtimeEnvironment";
 import { CPPObject } from "./objects";
 import { ExpressionASTNode } from "../ast/ast_expressions";
-import { ClassDefinition } from "./declarations";
+import { ClassDefinition } from "./declarations/class/ClassDefinition";
 import { ClassScope } from "./entities";
 import { RuntimeExpression } from "./expressionBase";
 import { SimulationEvent } from "./Simulation";

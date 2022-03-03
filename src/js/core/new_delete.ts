@@ -11,7 +11,8 @@ import { ConstructOutlet, NewExpressionOutlet, DeleteExpressionOutlet, NewArrayE
 import { CompiledTemporaryDeallocator } from "./TemporaryDeallocator";
 import { CompiledFunctionCall, FunctionCall, RuntimeFunctionCall } from "./FunctionCall";
 import { CompiledDefaultInitializer, CompiledDirectInitializer, CompiledInitializer, DefaultInitializer, DirectInitializer, Initializer, ListInitializer, RuntimeDefaultInitializer, RuntimeDirectInitializer, RuntimeInitializer, ValueInitializer } from "./initializers";
-import { CompiledDeclarator, CompiledTypeSpecifier, Declarator, TypeSpecifier } from "./declarations";
+import { CompiledDeclarator, Declarator } from "./declarations/Declarator";
+import { CompiledTypeSpecifier, TypeSpecifier } from "./declarations/TypeSpecifier";
 import { convertToPRValue, createExpressionFromAST, createRuntimeExpression, standardConversion } from "./expressions";
 import { NewExpressionASTNode, DeleteExpressionASTNode, DeleteArrayExpressionASTNode } from "../ast/ast_expressions";
 

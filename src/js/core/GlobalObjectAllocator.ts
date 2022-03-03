@@ -1,4 +1,4 @@
-import { CompiledGlobalVariableDefinition, GlobalVariableDefinition } from "./declarations";
+import { CompiledGlobalVariableDefinition, GlobalVariableDefinition } from "./declarations/variable/GlobalVariableDefinition";
 import { AnalyticConstruct } from "./predicates";
 import { Simulation } from "./Simulation";
 import { ProgramContext, SemanticContext, areAllSemanticallyEquivalent } from "./contexts";

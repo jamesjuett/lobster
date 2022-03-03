@@ -1,4 +1,4 @@
-import { FunctionDefinition } from "../core/declarations";
+import { FunctionDefinition } from "../core/declarations/function/FunctionDefinition";
 import { CompilerNote, NoteKind } from "../core/errors";
 import { AssignmentExpression } from "../core/expressions";
 import { DirectInitializer } from "../core/initializers";

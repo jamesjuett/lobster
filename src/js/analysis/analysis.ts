@@ -4,7 +4,9 @@ import { AssignmentExpression, AnalyticBinaryOperatorExpression, NumericLiteralE
 import { CPPError, Note, NoteKind, CompilerNote } from "../core/errors";
 import { Constructor } from "../util/util";
 import { FunctionCallExpression } from "../core/FunctionCallExpression";
-import { VariableDefinition, FunctionDefinition, LocalVariableDefinition, TypedLocalVariableDefinition } from "../core/declarations";
+import { VariableDefinition } from "../core/declarations/variable/common";
+import { FunctionDefinition } from "../core/declarations/function/FunctionDefinition";
+import { LocalVariableDefinition, TypedLocalVariableDefinition } from "../core/declarations/variable/LocalVariableDefinition";
 import { DirectInitializer } from "../core/initializers";
 import { ForStatement, CompiledForStatement, UnsupportedStatement } from "../core/statements";
 import { BoundedArrayType, isBoundedArrayType, CompleteObjectType, Type, ReferenceType, isVoidType, isAtomicType, isCompleteObjectType, isPotentiallyCompleteClassType, isIntegralType, isPointerType, isFunctionType, isType, Int, sameType, Double } from "../core/types";

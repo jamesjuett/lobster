@@ -5,7 +5,7 @@ import { Bool, Char, ObjectPointerType, ArrayPointerType, similarType, subType, 
 import last from "lodash/last";
 import { GlobalObjectEntity, LocalObjectEntity, LocalReferenceEntity, TemporaryObjectEntity } from "./entities";
 import { RuntimeConstruct } from "./constructs";
-import { CompiledGlobalVariableDefinition } from "./declarations";
+import { CompiledGlobalVariableDefinition } from "./declarations/variable/GlobalVariableDefinition";
 import { RuntimeFunction } from "./functions";
 
 export type byte = number; // HACK - can be resolved if I make the memory model realistic and not hacky
