@@ -133,47 +133,6 @@ export class MemoryOutlet {
         this.svgOverlays = this.svgOverlays.filter(svgOverlay => svgOverlay.update());
     }
 
-    // @messageResponse("pointerPointed")
-    // private pointerPointed(msg: Message<{pointer: BoundReferenceEntity, pointee: CPPObject}>) {
-    //     let {pointer, pointee} = msg.data;
-    // }
-    // private updateArrow : function(arrow, start, end) {
-    //     start = start || arrow && arrow.oldStart;
-    //     end = end || arrow && arrow.oldEnd;
-    //     if (arrow && arrow.oldStart && arrow.oldEnd &&
-    //         arrow.oldStart.left === start.left && arrow.oldStart.top === start.top &&
-    //         arrow.oldEnd.left === end.left && arrow.oldEnd.top === end.top) {
-    //         return arrow;
-    //     }
-    //     var oldStart = {left:start.left,top:start.top};
-    //     var oldEnd = {left:end.left, top:end.top};
-    //     var off = this.svgElem.offset();
-    //     start.left = start.left - off.left;
-    //     start.top = start.top - off.top;
-    //     end.left = end.left - off.left;
-    //     end.top = end.top - off.top;
-    //     if (arrow) {
-    //         // If arrow already exists, just update it
-    //         if (Outlets.CPP.CPP_ANIMATIONS) {
-    //             arrow.animate(300).plot([[start.left,start.top],[end.left,end.top]]/*"M"+start.left+","+start.top+" L"+(end.left+50)+","+end.top*/);
-    //         }
-    //         else{
-    //             arrow.plot([[start.left,start.top],[end.left,end.top]]/*"M"+start.left+","+start.top+" L"+(end.left+50)+","+end.top*/);
-    //         }
-    //     }
-    //     else{
-    //         arrow = this.svg.polyline([[start.left,start.top],[end.left,end.top]]/*"M"+start.left+","+start.top+" L"+end.left+","+end.top*/).style({
-    //             stroke: "#ccccff",
-    //             "stroke-width": "1px",
-    //             fill: "none"
-    //         });
-    //         arrow.marker("start", SVG_DEFS.arrowStart);
-    //         arrow.marker("end", SVG_DEFS.arrowEnd);
-    //     }
-    //     arrow.oldStart = oldStart;
-    //     arrow.oldEnd = oldEnd;
-    //     return arrow;
-    // },
     @messageResponse("objectAllocated", "unwrap")
     private onObjectAllocated(object: CPPObject) {
         if (object.type.isPointerToCompleteObjectType()) {

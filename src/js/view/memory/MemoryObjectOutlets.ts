@@ -597,41 +597,6 @@ export class VectorMemoryObject<T extends CompleteClassType> extends MemoryObjec
         // TODO
     }
 }
-// export class VectorMemoryObject<T extends CompleteClassType> extends MemoryObjectOutlet<T> {
-//     protected readonly addrElem : JQuery;
-//     public readonly objElem : JQuery;
-//     private arrayOutlet?: ArrayMemoryObjectOutlet<ArithmeticType>;
-//     private dataPtr: 
-//     public constructor(element: JQuery, object: CPPObject<T>, memoryOutlet: MemoryOutlet) {
-//         super(element, object, memoryOutlet);
-//         this.element.addClass("code-memoryObjectSingle");
-//         this.addrElem = $("<div class='address'>"+toHexadecimalString(this.object.address)+"</div>");
-//         this.element.append(this.addrElem);
-//         this.objElem = $("<span></span>").appendTo(this.element);
-//         // this.objElem = $("<div class='code-memoryObject-object'>" + getValueString((<CPPObject<PointerType<Char>>>this.object.getMemberObject("data_ptr")).getValue()) + "</div>");
-//         // this.element.append(this.objElem);
-//         // if (this.object.name) {
-//         //     this.element.append("<span> </span>");
-//         //     this.element.append($("<div class='entity'>" + (this.object.name || "") + "</div>"));
-//         // }
-//         this.updateObject();
-//     }
-//     protected updateObject() {
-//         new ArrayMemoryObjectOutlet(this.objElem, (<CPPObject<ArrayPointerType>>object.getMemberObject("data_ptr")).type.arrayObject, memoryOutlet);
-//         // var elem = this.objElem;
-//         // var str = getValueString((<CPPObject<PointerType<Char>>>this.object.getMemberObject("data_ptr")).getValue());
-//         // if (this.object.type.isType(Char)) {
-//         //     str = str.substr(1,str.length-2);
-//         // }
-//         // elem.html(str);
-//         // if ((<CPPObject<PointerType<Char>>>this.object.getMemberObject("data_ptr")).isValueValid()) {
-//         //     elem.removeClass("invalid");
-//         // }
-//         // else{
-//         //     elem.addClass("invalid");
-//         // }
-//     }
-// }
 
 export function createMemoryObjectOutlet(elem: JQuery, obj: CPPObject, memoryOutlet: MemoryOutlet) {
     if (obj.isTyped(isPointerType)) {
