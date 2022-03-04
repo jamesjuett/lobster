@@ -3,7 +3,7 @@ import { listenTo, MessageResponses, messageResponse, Message } from "../../util
 import { CPPObject, DynamicObject } from "../../core/runtime/objects";
 import { CPP_ANIMATIONS } from "../constructs/common";
 import { SLIDE_DURATION } from "../simOutlets";
-import { createMemoryObjectOutlet } from "./MemoryObjectOutlet";
+import { createMemoryObjectOutlet } from "./MemoryObjectOutlets";
 import { MemoryOutlet } from "./MemoryOutlet";
 
 

@@ -7,7 +7,7 @@ import { Mutable } from "../../util/util";
 import { StackFramesOutlet } from "./StackFramesOutlet";
 import { TemporaryObjectsOutlet } from "./TemporaryObjectsOutlet";
 import { HeapOutlet } from "./HeapOutlet";
-import { MemoryObjectOutlet, ArrayMemoryObjectOutlet } from "./MemoryObjectOutlet";
+import { MemoryObjectOutlet, ArrayMemoryObjectOutlet } from "./MemoryObjectOutlets";
 
 
 

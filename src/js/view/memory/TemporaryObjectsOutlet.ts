@@ -3,7 +3,7 @@ import { listenTo, MessageResponses, messageResponse, Message } from "../../util
 import { CPPObject } from "../../core/runtime/objects";
 import { CPP_ANIMATIONS } from "../constructs/common";
 import { OutletCustomizations, SLIDE_DURATION } from "../simOutlets";
-import { createMemoryObjectOutlet } from "./MemoryObjectOutlet";
+import { createMemoryObjectOutlet } from "./MemoryObjectOutlets";
 import { MemoryOutlet } from "./MemoryOutlet";
 import { TemporaryObjectsCustomization } from "./StackFrameOutlet";
 

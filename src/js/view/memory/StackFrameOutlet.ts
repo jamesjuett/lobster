@@ -4,7 +4,7 @@ import { CPPObject } from "../../core/runtime/objects";
 import { BoundReferenceEntity } from "../../core/compilation/entities";
 import { RuntimeFunction } from "../../core/compilation/functions";
 import { OutletCustomizations } from "../simOutlets";
-import { ReferenceMemoryOutlet, createMemoryObjectOutlet } from "./MemoryObjectOutlet";
+import { ReferenceMemoryOutlet, createMemoryObjectOutlet } from "./MemoryObjectOutlets";
 import { MemoryOutlet } from "./MemoryOutlet";
 
 
