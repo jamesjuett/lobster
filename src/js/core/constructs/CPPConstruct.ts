@@ -342,34 +342,4 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
 
 
 
-export abstract class BasicCPPConstruct<ContextType extends TranslationUnitContext, ASTType extends ASTNode> extends CPPConstruct<ContextType, ASTType> {
 
-    public parent?: CPPConstruct;
-
-    public constructor(context: ContextType, ast: ASTType | undefined) {
-        super(context, ast);
-    }
-
-    public onAttach(parent: CPPConstruct) {
-        (<Mutable<this>>this).parent = parent;
-    }
-}
-
-export class InvalidConstruct extends BasicCPPConstruct<TranslationUnitContext, ASTNode> {
-    public readonly construct_type = "invalid_construct";
-
-    public readonly note: Note;
-    public readonly type: undefined;
-
-    public constructor(context: TranslationUnitContext, ast: ASTNode | undefined, errorFn: (construct: CPPConstruct) => Note, children?: readonly CPPConstruct[]) {
-        super(context, ast);
-        this.addNote(this.note = errorFn(this));
-        children?.forEach(child => this.attach(child));
-    }
-
-    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
-        return other.construct_type === this.construct_type
-            && other.note.id === this.note.id
-            && this.areChildrenSemanticallyEquivalent(other, equivalenceContext);
-    }
-}

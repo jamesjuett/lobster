@@ -1,7 +1,7 @@
 import { SimulationEvent } from "../../runtime/Simulation";
 import { PointerType, ArrayPointerType, Int, similarType, PointerToCompleteType as PointerToCompleteObjectType } from "../../compilation/types";
 import { ExpressionContext, ConstructDescription } from "../../compilation/contexts";
-import { SuccessfullyCompiled, RuntimeConstruct } from "../constructs";
+import { SuccessfullyCompiled, RuntimeConstruct } from "../CPPConstruct";
 import { CPPError } from "../../compilation/errors";
 import { assert } from "../../../util/util";
 import { CompiledExpression, TypedExpression, t_TypedExpression } from "./Expression";

@@ -1,12 +1,13 @@
-import { RuntimeConstruct } from "../core/constructs/constructs";
+import { RuntimeConstruct } from "../core/constructs/CPPConstruct";
 import { Project } from "../core/Project";
 import { Simulation } from "../core/runtime/Simulation";
 import { AsynchronousSimulationRunner } from "../core/runtime/simulationRunners";
 import { MessageResponses, listenTo, stopListeningTo, messageResponse, Message } from "../util/observe";
 import { assert, Mutable } from "../util/util";
-import { CheckpointsOutlet } from "./checkpointOutlets";
+import { CheckpointsOutlet } from "./CheckpointOutlets";
 import { ProjectEditor, CompilationOutlet, CompilationStatusOutlet } from "./editors";
-import { MemoryOutlet, SimulationOutlet } from "./simOutlets";
+import { SimulationOutlet } from "./simOutlets";
+import { MemoryOutlet } from "./memory/MemoryOutlet";
 
 export class InstantMemoryDiagramOutlet {
     

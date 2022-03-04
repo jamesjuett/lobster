@@ -1,6 +1,6 @@
 import { IntegralType, PointerType, sameType, ArithmeticType, isArithmeticType, isIntegralType, isPointerType, isBoundedArrayType, isPotentiallyCompleteClassType, AtomicType } from "../../compilation/types";
 import { ExpressionContext, ConstructDescription, SemanticContext, areSemanticallyEquivalent, areAllSemanticallyEquivalent } from "../../compilation/contexts";
-import { SuccessfullyCompiled, RuntimeConstruct } from "../constructs";
+import { SuccessfullyCompiled, RuntimeConstruct } from "../CPPConstruct";
 import { CPPError } from "../../compilation/errors";
 import { assertNever } from "../../../util/util";
 import { VCResultTypes, Expression, CompiledExpression, TypedExpression, t_TypedExpression } from "./Expression";
@@ -12,7 +12,7 @@ import { SimpleRuntimeExpression } from "./SimpleRuntimeExpression";
 import { BinaryOperatorExpression } from "./BinaryOperatorExpression";
 import { createExpressionFromAST, createRuntimeExpression } from "./expressions";
 import { selectOperatorOverload } from "./selectOperatorOverload";
-import { OperatorOverloadExpression } from "./NonMemberOperatorOverloadExpression";
+import { OperatorOverloadExpression } from "./OperatorOverloadExpression";
 import { usualArithmeticConversions, convertToPRValue } from "./ImplicitConversion";
 import { InputOperatorExpression } from "./InputOperatorExpression";
 import { OutputOperatorExpression } from "./OutputOperatorExpression";

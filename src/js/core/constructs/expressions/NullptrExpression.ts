@@ -1,8 +1,9 @@
 import { Int } from "../../compilation/types";
 import { ExpressionContext, ConstructDescription } from "../../compilation/contexts";
-import { SuccessfullyCompiled, RuntimeConstruct } from "../constructs";
+import { SuccessfullyCompiled, RuntimeConstruct } from "../CPPConstruct";
 import { Expression, t_TypedExpression } from "./Expression";
-import { ConstructOutlet, NullptrExpressionOutlet } from "../../../view/codeOutlets";
+import { NullptrExpressionOutlet } from "../../../view/constructs/ExpressionOutlets";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { CompiledTemporaryDeallocator } from "../TemporaryDeallocator";
 import { NullptrExpressionASTNode } from "../../../ast/ast_expressions";
 import { SimpleRuntimeExpression } from "./SimpleRuntimeExpression";

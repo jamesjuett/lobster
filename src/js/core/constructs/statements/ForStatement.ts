@@ -1,11 +1,11 @@
 import { ForStatementASTNode } from "../../../ast/ast_statements";
 import { asMutable, assert, Mutable } from "../../../util/util";
-import { ConstructOutlet, ForStatementOutlet } from "../../../view/codeOutlets";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { areSemanticallyEquivalent, BlockContext, createBlockContext, createLoopContext, SemanticContext } from "../../compilation/contexts";
 import { CPPError } from "../../compilation/errors";
 import { AnalyticConstruct, Predicates } from "../../../analysis/predicates";
 import { Bool, isType } from "../../compilation/types";
-import { SuccessfullyCompiled } from "../constructs";
+import { SuccessfullyCompiled } from "../CPPConstruct";
 import { CompiledExpression, Expression } from "../expressions/Expression";
 import { RuntimeExpression } from "../expressions/RuntimeExpression";
 import { createExpressionFromAST, createRuntimeExpression } from "../expressions/expressions";
@@ -17,6 +17,7 @@ import { ExpressionStatement, CompiledExpressionStatement, RuntimeExpressionStat
 import { NullStatement, CompiledNullStatement, RuntimeNullStatement } from "./NullStatement";
 import { CompiledStatement, Statement, RuntimeStatement } from "./Statement";
 import { createStatementFromAST, createRuntimeStatement } from "./statements";
+import { ForStatementOutlet } from "../../../view/constructs/StatementOutlets";
 
 // The ForStatement class contains additional comments intended
 // as a general tutorial included in the `core` README.md

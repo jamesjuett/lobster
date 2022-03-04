@@ -1,14 +1,15 @@
 import { CPPObject, TemporaryObject } from "../../runtime/objects";
 import { PointerType, BoundedArrayType, ArithmeticType, CompleteClassType } from "../../compilation/types";
 import { ExpressionContext, ConstructDescription } from "../../compilation/contexts";
-import { SuccessfullyCompiled, RuntimeConstruct } from "../constructs";
+import { SuccessfullyCompiled, RuntimeConstruct } from "../CPPConstruct";
 import { CPPError } from "../../compilation/errors";
 import { TemporaryObjectEntity } from "../../compilation/entities";
 import { Value } from "../../runtime/Value";
 import { assert, Mutable } from "../../../util/util";
 import { Expression, CompiledExpression, TypedExpression, t_TypedExpression, allWellTyped } from "./Expression";
 import { RuntimeExpression } from "./RuntimeExpression";
-import { ConstructOutlet, InitializerListOutlet as InitializerListExpressionOutlet } from "../../../view/codeOutlets";
+import { InitializerListOutlet as InitializerListExpressionOutlet } from "../../../view/constructs/ExpressionOutlets";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { CompiledTemporaryDeallocator } from "../TemporaryDeallocator";
 import { InitializerListExpressionASTNode } from "../../../ast/ast_expressions";
 import { createExpressionFromAST, createRuntimeExpression } from "./expressions";

@@ -6,7 +6,8 @@ import { BaseSubobjectEntity, FunctionEntity, MemberObjectEntity, MemberReferenc
 import { CPPError } from "../../../compilation/errors";
 import { AnalyticConstruct } from "../../../../analysis/predicates";
 import { AtomicType, CompleteClassType, FunctionType, isAtomicType, isBoundedArrayType, ReferenceType, VoidType } from "../../../compilation/types";
-import { BasicCPPConstruct, SuccessfullyCompiled } from "../../constructs";
+import { SuccessfullyCompiled } from "../../CPPConstruct";
+import { BasicCPPConstruct } from "../../BasicCPPConstruct";
 import { createMemberDeclarationFromAST, MemberDeclaration } from "../declarations";
 import { FunctionDeclaration } from "../function/FunctionDeclaration";
 import { FunctionDefinition } from "../function/FunctionDefinition";

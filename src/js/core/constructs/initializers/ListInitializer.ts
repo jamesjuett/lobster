@@ -1,12 +1,14 @@
 import { assertNever } from "../../../util/util";
-import { ArrayAggregateInitializerOutlet, ConstructOutlet } from "../../../view/codeOutlets";
+import { ArrayAggregateInitializerOutlet } from "../../../view/constructs/InitializerOutlet";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { TranslationUnitContext } from "../../compilation/contexts";
 import { ArraySubobjectEntity, ObjectEntity, ObjectEntityType, UnboundReferenceEntity } from "../../compilation/entities";
 import { CPPError } from "../../compilation/errors";
 import { Simulation } from "../../runtime/Simulation";
 import { CompiledTemporaryDeallocator } from "../TemporaryDeallocator";
 import { AtomicType, BoundedArrayType, CompleteClassType, CompleteObjectType, ReferenceType } from "../../compilation/types";
-import { InvalidConstruct, RuntimeConstruct, SuccessfullyCompiled } from "../constructs";
+import { RuntimeConstruct, SuccessfullyCompiled } from "../CPPConstruct";
+import { InvalidConstruct } from "../InvalidConstruct";
 import { CompiledExpression, Expression } from "../expressions/Expression";
 import { InitializerListExpression } from "../expressions/InitializerListExpression";
 import { ClassDirectInitializer, CompiledDirectInitializer, DirectInitializer, RuntimeDirectInitializer } from "./DirectInitializer";

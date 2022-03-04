@@ -1,6 +1,6 @@
 import { Mutable } from "../../../util/util";
 import { ExpressionType } from "../../compilation/types";
-import { RuntimeConstruct } from "../constructs";
+import { RuntimeConstruct } from "../CPPConstruct";
 import { RuntimePotentialFullExpression } from "../RuntimePotentialFullExpression";
 import { ValueCategory, CompiledExpression, VCResultTypes } from "./Expression";
 

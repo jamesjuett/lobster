@@ -1,5 +1,5 @@
 import { ExpressionType } from "../../compilation/types";
-import { RuntimeConstruct } from "../constructs";
+import { RuntimeConstruct } from "../CPPConstruct";
 import { assert } from "../../../util/util";
 import { ValueCategory, CompiledExpression } from "./Expression";
 import { RuntimeExpression } from "./RuntimeExpression";

@@ -1,9 +1,10 @@
 import { NullStatementASTNode } from "../../../ast/ast_statements";
-import { ConstructOutlet, NullStatementOutlet } from "../../../view/codeOutlets";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { SemanticContext } from "../../compilation/contexts";
 import { AnalyticConstruct } from "../../../analysis/predicates";
-import { CPPConstruct, SuccessfullyCompiled } from "../constructs";
+import { CPPConstruct, SuccessfullyCompiled } from "../CPPConstruct";
 import { Statement, RuntimeStatement } from "./Statement";
+import { NullStatementOutlet } from "../../../view/constructs/StatementOutlets";
 
 
 export class NullStatement extends Statement<NullStatementASTNode> {

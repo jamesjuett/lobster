@@ -1,5 +1,6 @@
 import { assertFalse, assertNever } from "../../../util/util";
-import { ArrayValueInitializerOutlet, AtomicValueInitializerOutlet, ClassValueInitializerOutlet, ConstructOutlet } from "../../../view/codeOutlets";
+import { ArrayValueInitializerOutlet, AtomicValueInitializerOutlet, ClassValueInitializerOutlet } from "../../../view/constructs/InitializerOutlet";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { TranslationUnitContext } from "../../compilation/contexts";
 import { ArraySubobjectEntity, FunctionEntity, ObjectEntity, UnboundReferenceEntity } from "../../compilation/entities";
 import { CPPError } from "../../compilation/errors";
@@ -8,7 +9,7 @@ import { Value } from "../../runtime/Value";
 import { Simulation } from "../../runtime/Simulation";
 import { CompiledTemporaryDeallocator } from "../TemporaryDeallocator";
 import { AtomicType, BoundedArrayType, CompleteClassType, CompleteObjectType, FunctionType, VoidType } from "../../compilation/types";
-import { RuntimeConstruct, SuccessfullyCompiled } from "../constructs";
+import { RuntimeConstruct, SuccessfullyCompiled } from "../CPPConstruct";
 import { overloadResolution } from "../../compilation/overloads";
 import { CompiledFunctionCall, FunctionCall, RuntimeFunctionCall } from "../FunctionCall";
 import { Initializer, RuntimeInitializer } from "./Initializer";

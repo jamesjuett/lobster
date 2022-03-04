@@ -1,7 +1,7 @@
 
 import { containsConstruct, findFirstConstruct } from "./analysis";
 import { DiscriminateUnion } from "../util/util";
-import { CPPConstruct } from "../core/constructs/constructs";
+import { CPPConstruct } from "../core/constructs/CPPConstruct";
 import { AnalyticDeclaration, AnalyticTypedDeclaration } from "../core/constructs/declarations/analytics";
 import { BaseSpecifier } from "../core/constructs/declarations/class/BaseSpecifier";
 import { FunctionDefinition } from "../core/constructs/declarations/function/FunctionDefinition";
@@ -13,7 +13,7 @@ import { VariableEntity } from "../core/compilation/entities";
 import { Expression, TypedExpression, ValueCategory } from "../core/constructs/expressions/Expression";
 import { AnalyticExpression, AnalyticTypedExpression } from "../core/constructs/expressions/expressions";
 import { t_OverloadableOperators } from "../core/constructs/expressions/selectOperatorOverload";
-import { OperatorOverloadExpression } from "../core/constructs/expressions/NonMemberOperatorOverloadExpression";
+import { OperatorOverloadExpression } from "../core/constructs/expressions/OperatorOverloadExpression";
 import { ImplicitConversion } from "../core/constructs/expressions/ImplicitConversion";
 import { NumericLiteralExpression } from "../core/constructs/expressions/NumericLiteralExpression";
 import { IdentifierExpression } from "../core/constructs/expressions/IdentifierExpression";

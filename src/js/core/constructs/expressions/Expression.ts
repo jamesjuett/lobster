@@ -1,12 +1,13 @@
 import type { AnalyticConstruct } from "../../../analysis/predicates";
 import { ExpressionASTNode } from "../../../ast/ast_expressions";
-import { ConstructOutlet, ExpressionOutlet } from "../../../view/codeOutlets";
+import { ExpressionOutlet } from "../../../view/constructs/ExpressionOutlets";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { areAllSemanticallyEquivalent, ConstructDescription, ExpressionContext, SemanticContext } from "../../compilation/contexts";
 import { FunctionEntity } from "../../compilation/entities";
 import { AtomicType, CompleteObjectType, ExpressionType, FunctionType, Type } from "../../compilation/types";
 import { CPPObject } from "../../runtime/objects";
 import { Value } from "../../runtime/Value";
-import { CPPConstruct, SuccessfullyCompiled } from "../constructs";
+import { CPPConstruct, SuccessfullyCompiled } from "../CPPConstruct";
 import { PotentialFullExpression } from "../PotentialFullExpression";
 import { CompiledTemporaryDeallocator } from "../TemporaryDeallocator";
 import { AnalyticExpression } from "./expressions";

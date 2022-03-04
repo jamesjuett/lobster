@@ -1,13 +1,14 @@
 import { AnalyticConstruct } from "../../../analysis/predicates";
 import { IdentifierExpressionASTNode } from "../../../ast/ast_expressions";
-import { ConstructOutlet, IdentifierOutlet } from "../../../view/codeOutlets";
+import { IdentifierOutlet } from "../../../view/constructs/ExpressionOutlets";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { ConstructDescription, ExpressionContext, SemanticContext } from "../../compilation/contexts";
 import { areEntitiesSemanticallyEquivalent, FunctionEntity, GlobalVariableEntity, LocalVariableEntity, MemberVariableEntity, runtimeObjectLookup } from "../../compilation/entities";
 import { entityLookup } from "./entityLookup";
 import { CPPError } from "../../compilation/errors";
 import { astToIdentifier, checkIdentifier, identifierToString, LexicalIdentifier } from "../../compilation/lexical";
 import { CompleteObjectType, FunctionType, peelReference, PotentiallyCompleteObjectType } from "../../compilation/types";
-import { RuntimeConstruct, SuccessfullyCompiled } from "../constructs";
+import { RuntimeConstruct, SuccessfullyCompiled } from "../CPPConstruct";
 import { CompiledTemporaryDeallocator } from "../TemporaryDeallocator";
 import { Expression, TypedExpression, t_TypedExpression, VCResultTypes } from "./Expression";
 import { RuntimeExpression } from "./RuntimeExpression";

@@ -6,7 +6,7 @@ import { CPPError } from "../../../compilation/errors";
 import { composeQualifiedName, getQualifiedName, QualifiedName } from "../../../compilation/lexical";
 import { AnalyticConstruct } from "../../../../analysis/predicates";
 import { covariantType, FunctionType } from "../../../compilation/types";
-import { SuccessfullyCompiled } from "../../constructs";
+import { SuccessfullyCompiled } from "../../CPPConstruct";
 import { OtherSpecifiers } from "../declarations";
 import { CompiledDeclarator, Declarator, TypedDeclarator } from "../Declarator";
 import { SimpleDeclaration } from "../SimpleDeclaration";

@@ -2,7 +2,7 @@ import { ExpressionContext, ConstructDescription, SemanticContext } from "../../
 import { AnythingConstructASTNode } from "../../../ast/ASTNode";
 import { CPPError } from "../../compilation/errors";
 import { Expression } from "./Expression";
-import { ConstructOutlet } from "../../../view/codeOutlets";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { AnalyticConstruct } from "../../../analysis/predicates";
 
 

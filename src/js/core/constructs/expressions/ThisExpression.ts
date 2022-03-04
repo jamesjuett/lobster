@@ -1,9 +1,10 @@
 import { PointerType, CompleteClassType } from "../../compilation/types";
 import { ExpressionContext, ConstructDescription, isMemberFunctionContext } from "../../compilation/contexts";
-import { SuccessfullyCompiled, RuntimeConstruct } from "../constructs";
+import { SuccessfullyCompiled, RuntimeConstruct } from "../CPPConstruct";
 import { CPPError } from "../../compilation/errors";
 import { Expression, t_TypedExpression } from "./Expression";
-import { ConstructOutlet, ThisExpressionOutlet } from "../../../view/codeOutlets";
+import { ThisExpressionOutlet } from "../../../view/constructs/ExpressionOutlets";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { CompiledTemporaryDeallocator } from "../TemporaryDeallocator";
 import { ThisExpressionASTNode } from "../../../ast/ast_expressions";
 import { SimpleRuntimeExpression } from "./SimpleRuntimeExpression";

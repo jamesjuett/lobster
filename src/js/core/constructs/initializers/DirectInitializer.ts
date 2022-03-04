@@ -1,5 +1,6 @@
 import { assert, assertNever, Mutable } from "../../../util/util";
-import { AtomicCopyInitializerOutlet, AtomicDirectInitializerOutlet, ClassCopyInitializerOutlet, ClassDirectInitializerOutlet, ConstructOutlet, ReferenceCopyInitializerOutlet, ReferenceDirectInitializerOutlet } from "../../../view/codeOutlets";
+import { AtomicCopyInitializerOutlet, AtomicDirectInitializerOutlet, ClassCopyInitializerOutlet, ClassDirectInitializerOutlet, ReferenceCopyInitializerOutlet, ReferenceDirectInitializerOutlet } from "../../../view/constructs/InitializerOutlet";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { TranslationUnitContext } from "../../compilation/contexts";
 import { FunctionEntity, ObjectEntity, ObjectEntityType, UnboundReferenceEntity } from "../../compilation/entities";
 import { CPPError } from "../../compilation/errors";
@@ -7,7 +8,7 @@ import { CPPObject } from "../../runtime/objects";
 import { Simulation } from "../../runtime/Simulation";
 import { CompiledTemporaryDeallocator } from "../TemporaryDeallocator";
 import { AtomicType, BoundedArrayType, Char, CompleteClassType, CompleteObjectType, FunctionType, referenceCompatible, referenceRelated, ReferenceType, ReferredType, sameType, VoidType } from "../../compilation/types";
-import { RuntimeConstruct, SuccessfullyCompiled } from "../constructs";
+import { RuntimeConstruct, SuccessfullyCompiled } from "../CPPConstruct";
 import { allWellTyped, CompiledExpression, Expression } from "../expressions/Expression";
 import { RuntimeExpression } from "../expressions/RuntimeExpression";
 import { createRuntimeExpression } from "../expressions/expressions";

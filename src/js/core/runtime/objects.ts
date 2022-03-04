@@ -3,7 +3,7 @@ import { Observable } from "../../util/observe";
 import { assert, Mutable, asMutable } from "../../util/util";
 import { Value, RawValueType } from "./Value";
 import { Memory } from "./Memory";
-import { RuntimeConstruct } from "../constructs/constructs";
+import { RuntimeConstruct } from "../constructs/CPPConstruct";
 import { CompiledClassDefinition } from "../constructs/declarations/class/ClassDefinition";
 import { ParameterDefinition } from "../constructs/declarations/function/ParameterDefinition";
 import { GlobalVariableDefinition, CompiledGlobalVariableDefinition } from "../constructs/declarations/variable/GlobalVariableDefinition";

@@ -6,7 +6,8 @@ import { CPPError, NoteHandler } from "../../compilation/errors";
 import { astToIdentifier, checkIdentifier, getUnqualifiedName, isQualifiedName, isUnqualifiedName, LexicalIdentifier, QualifiedName, UnqualifiedName } from "../../compilation/lexical";
 import { AnalyticConstruct } from "../../../analysis/predicates";
 import { ArrayOfUnknownBoundType, BoundedArrayType, FunctionType, PointerType, PotentialParameterType, ReferenceType, sameType, Type, VoidType } from "../../compilation/types";
-import { BasicCPPConstruct, SuccessfullyCompiled } from "../constructs";
+import { SuccessfullyCompiled } from "../CPPConstruct";
+import { BasicCPPConstruct } from "../BasicCPPConstruct";
 import { CompiledParameterDeclaration, ParameterDeclaration } from "./function/ParameterDeclaration";
 
 

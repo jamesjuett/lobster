@@ -1,11 +1,12 @@
 import { ArithmeticType, isArithmeticType, PotentiallyCompleteClassType } from "../../compilation/types";
 import { ExpressionContext, ConstructDescription } from "../../compilation/contexts";
-import { SuccessfullyCompiled, RuntimeConstruct } from "../constructs";
+import { SuccessfullyCompiled, RuntimeConstruct } from "../CPPConstruct";
 import { CPPError } from "../../compilation/errors";
 import { assertNever } from "../../../util/util";
 import { Expression, CompiledExpression, TypedExpression, t_TypedExpression } from "./Expression";
 import { RuntimeExpression } from "./RuntimeExpression";
-import { ConstructOutlet, InputOperatorExpressionOutlet } from "../../../view/codeOutlets";
+import { InputOperatorExpressionOutlet } from "../../../view/constructs/ExpressionOutlets";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { Predicates } from "../../../analysis/predicates";
 import { CompiledTemporaryDeallocator } from "../TemporaryDeallocator";
 import { ArithmeticBinaryOperatorExpressionASTNode } from "../../../ast/ast_expressions";

@@ -4,7 +4,8 @@ import { areEntitiesSemanticallyEquivalent, ClassEntity, CompleteClassEntity } f
 import { CPPError } from "../../../compilation/errors";
 import { astToIdentifier, checkIdentifier, identifierToString, LexicalIdentifier } from "../../../compilation/lexical";
 import { AnalyticConstruct } from "../../../../analysis/predicates";
-import { BasicCPPConstruct, SuccessfullyCompiled } from "../../constructs";
+import { SuccessfullyCompiled } from "../../CPPConstruct";
+import { BasicCPPConstruct } from "../../BasicCPPConstruct";
 
 
 

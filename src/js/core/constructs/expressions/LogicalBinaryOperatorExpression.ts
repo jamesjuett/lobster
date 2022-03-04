@@ -1,6 +1,6 @@
 import { isType, Bool, isPotentiallyCompleteClassType } from "../../compilation/types";
 import { ExpressionContext, ConstructDescription } from "../../compilation/contexts";
-import { SuccessfullyCompiled, RuntimeConstruct } from "../constructs";
+import { SuccessfullyCompiled, RuntimeConstruct } from "../CPPConstruct";
 import { CPPError } from "../../compilation/errors";
 import { Value, RawValueType } from "../../runtime/Value";
 import { Expression, CompiledExpression, TypedExpression, t_TypedExpression } from "./Expression";
@@ -11,7 +11,7 @@ import { LogicalBinaryOperatorExpressionASTNode, t_LogicalBinaryOperators } from
 import { BinaryOperatorExpression } from "./BinaryOperatorExpression";
 import { createExpressionFromAST, createRuntimeExpression } from "./expressions";
 import { selectOperatorOverload } from "./selectOperatorOverload";
-import { OperatorOverloadExpression } from "./NonMemberOperatorOverloadExpression";
+import { OperatorOverloadExpression } from "./OperatorOverloadExpression";
 import { standardConversion } from "./ImplicitConversion";
 
 

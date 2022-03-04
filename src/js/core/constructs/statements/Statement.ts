@@ -1,8 +1,10 @@
 import { StatementASTNode } from "../../../ast/ast_statements";
-import { ConstructOutlet, StatementOutlet } from "../../../view/codeOutlets";
+import { StatementOutlet } from "../../../view/constructs/StatementOutlets";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { BlockContext } from "../../compilation/contexts";
 import { RuntimeFunction } from "../../compilation/functions";
-import { BasicCPPConstruct, RuntimeConstruct, SuccessfullyCompiled } from "../constructs";
+import { RuntimeConstruct, SuccessfullyCompiled } from "../CPPConstruct";
+import { BasicCPPConstruct } from "../BasicCPPConstruct";
 import { Block } from "./Block";
 
 

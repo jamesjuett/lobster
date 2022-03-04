@@ -1,12 +1,13 @@
 import { CPPObject } from "../../runtime/objects";
 import { isType, Bool, ArithmeticType, Int, isArithmeticType, PointerToCompleteType as PointerToCompleteObjectType, isPointerToCompleteObjectType } from "../../compilation/types";
 import { ExpressionContext, ConstructDescription } from "../../compilation/contexts";
-import { SuccessfullyCompiled, RuntimeConstruct } from "../constructs";
+import { SuccessfullyCompiled, RuntimeConstruct } from "../CPPConstruct";
 import { CPPError } from "../../compilation/errors";
 import { Value } from "../../runtime/Value";
 import { Expression, CompiledExpression, TypedExpression, t_TypedExpression } from "./Expression";
 import { RuntimeExpression } from "./RuntimeExpression";
-import { ConstructOutlet, PostfixIncrementExpressionOutlet } from "../../../view/codeOutlets";
+import { PostfixIncrementExpressionOutlet } from "../../../view/constructs/ExpressionOutlets";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { Predicates } from "../../../analysis/predicates";
 import { CompiledTemporaryDeallocator } from "../TemporaryDeallocator";
 import { PostfixIncrementExpressionASTNode } from "../../../ast/ast_expressions";

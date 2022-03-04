@@ -1,7 +1,7 @@
 import { ExpressionType } from "../../compilation/types";
-import { SuccessfullyCompiled } from "../constructs";
+import { SuccessfullyCompiled } from "../CPPConstruct";
 import { ValueCategory, Expression, t_TypedExpression } from "./Expression";
-import { ConstructOutlet } from "../../../view/codeOutlets";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { CompiledTemporaryDeallocator } from "../TemporaryDeallocator";
 import { ExpressionContext } from "../../compilation/contexts";
 

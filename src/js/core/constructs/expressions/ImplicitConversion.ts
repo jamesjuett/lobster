@@ -1,11 +1,12 @@
 import { CompleteObjectType, AtomicType, IntegralType, PointerType, BoundedArrayType, isType, Bool, sameType, ArithmeticType, Int, Float, Double, similarType, subType, ArrayElemType, FloatingPointType, isCvConvertible, CompleteClassType, isAtomicType, isIntegralType, isPointerType, isBoundedArrayType, isCompleteClassType, isFloatingPointType, ExpressionType } from "../../compilation/types";
 import { ConstructDescription, SemanticContext, areSemanticallyEquivalent } from "../../compilation/contexts";
-import { SuccessfullyCompiled, RuntimeConstruct } from "../constructs";
+import { SuccessfullyCompiled, RuntimeConstruct } from "../CPPConstruct";
 import { Value } from "../../runtime/Value";
 import { assert } from "../../../util/util";
 import { VCResultTypes, ValueCategory, Expression, CompiledExpression, TypedExpression, SpecificTypedExpression, t_TypedExpression } from "./Expression";
 import { RuntimeExpression } from "./RuntimeExpression";
-import { ConstructOutlet, LValueToRValueOutlet, ArrayToPointerOutlet, TypeConversionOutlet, QualificationConversionOutlet, StreamToBoolOutlet } from "../../../view/codeOutlets";
+import { LValueToRValueOutlet, ArrayToPointerOutlet, TypeConversionOutlet, QualificationConversionOutlet, StreamToBoolOutlet } from "../../../view/constructs/TypeConversionOutlets";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { AnalyticConstruct, Predicates } from "../../../analysis/predicates";
 import { CompiledTemporaryDeallocator } from "../TemporaryDeallocator";
 import { checkForNullptrEquivalence, checkForZeroEquivalence } from "../../../analysis/semantic_equivalence";

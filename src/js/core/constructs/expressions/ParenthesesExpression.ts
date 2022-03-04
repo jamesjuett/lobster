@@ -1,9 +1,10 @@
 import { ExpressionType } from "../../compilation/types";
 import { ExpressionContext, ConstructDescription, SemanticContext, areSemanticallyEquivalent } from "../../compilation/contexts";
-import { SuccessfullyCompiled, RuntimeConstruct } from "../constructs";
+import { SuccessfullyCompiled, RuntimeConstruct } from "../CPPConstruct";
 import { ValueCategory, Expression, CompiledExpression, TypedExpression, t_TypedExpression } from "./Expression";
 import { RuntimeExpression } from "./RuntimeExpression";
-import { ConstructOutlet, ParenthesesOutlet } from "../../../view/codeOutlets";
+import { ParenthesesOutlet } from "../../../view/constructs/ExpressionOutlets";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { AnalyticConstruct } from "../../../analysis/predicates";
 import { CompiledTemporaryDeallocator } from "../TemporaryDeallocator";
 import { ParenthesesExpressionASTNode } from "../../../ast/ast_expressions";

@@ -1,17 +1,18 @@
 import { WhileStatementASTNode } from "../../../ast/ast_statements";
 import { asMutable, Mutable } from "../../../util/util";
-import { ConstructOutlet, WhileStatementOutlet } from "../../../view/codeOutlets";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { areSemanticallyEquivalent, BlockContext, createBlockContext, createLoopContext, SemanticContext } from "../../compilation/contexts";
 import { CPPError } from "../../compilation/errors";
 import { AnalyticConstruct, Predicates } from "../../../analysis/predicates";
 import { Bool, isType } from "../../compilation/types";
-import { SuccessfullyCompiled } from "../constructs";
+import { SuccessfullyCompiled } from "../CPPConstruct";
 import { CompiledExpression, Expression } from "../expressions/Expression";
 import { RuntimeExpression } from "../expressions/RuntimeExpression";
 import { createExpressionFromAST, createRuntimeExpression } from "../expressions/expressions";
 import { standardConversion } from "../expressions/ImplicitConversion";
 import { CompiledStatement, Statement, RuntimeStatement } from "./Statement";
 import { createStatementFromAST, createRuntimeStatement } from "./statements";
+import { WhileStatementOutlet } from "../../../view/constructs/StatementOutlets";
 
 
 export class WhileStatement extends Statement<WhileStatementASTNode> {

@@ -1,9 +1,10 @@
 import { CompleteObjectType, VoidType } from "../../compilation/types";
 import { ExpressionContext } from "../../compilation/contexts";
-import { SuccessfullyCompiled } from "../constructs";
+import { SuccessfullyCompiled } from "../CPPConstruct";
 import { ValueCategory, Expression, CompiledExpression, t_TypedExpression } from "./Expression";
 import { RuntimeExpression } from "./RuntimeExpression";
-import { ConstructOutlet, UnaryOperatorExpressionOutlet } from "../../../view/codeOutlets";
+import { UnaryOperatorExpressionOutlet } from "../../../view/constructs/ExpressionOutlets";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { CompiledTemporaryDeallocator } from "../TemporaryDeallocator";
 import { t_UnaryOperators, UnaryOperatorExpressionASTNode } from "../../../ast/ast_expressions";
 import { LogicalNotExpression } from "./LogicalNotExpression";

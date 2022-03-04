@@ -5,7 +5,8 @@ import { ClassEntity } from "../../../compilation/entities";
 import { getQualifiedName, getUnqualifiedName, LexicalIdentifier, QualifiedName } from "../../../compilation/lexical";
 import { AnalyticConstruct } from "../../../../analysis/predicates";
 import { PotentiallyCompleteClassType } from "../../../compilation/types";
-import { BasicCPPConstruct, SuccessfullyCompiled } from "../../constructs";
+import { SuccessfullyCompiled } from "../../CPPConstruct";
+import { BasicCPPConstruct } from "../../BasicCPPConstruct";
 
 
 

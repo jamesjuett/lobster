@@ -2,7 +2,7 @@ import { Observable } from "../../util/observe";
 import { RunnableProgram } from "../compilation/Program";
 import { Value } from "./Value";
 import { Memory } from "./Memory";
-import { RuntimeConstruct } from "../constructs/constructs";
+import { RuntimeConstruct } from "../constructs/CPPConstruct";
 import { RuntimeGlobalObjectAllocator } from "../constructs/GlobalObjectAllocator";
 import { CPPRandom, Mutable, escapeString, asMutable, assertNever, assert } from "../../util/util";
 import { DynamicObject, MainReturnObject } from "./objects";

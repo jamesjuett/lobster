@@ -1,10 +1,11 @@
 import { sameType, ArithmeticType, Int, Double, Bool, Char } from "../../compilation/types";
 import { ExpressionContext, ConstructDescription, SemanticContext } from "../../compilation/contexts";
-import { SuccessfullyCompiled, RuntimeConstruct } from "../constructs";
+import { SuccessfullyCompiled, RuntimeConstruct } from "../CPPConstruct";
 import { Value, RawValueType } from "../../runtime/Value";
 import { VCResultTypes, Expression, t_TypedExpression } from "./Expression";
 import { RuntimeExpression } from "./RuntimeExpression";
-import { ConstructOutlet, NumericLiteralOutlet } from "../../../view/codeOutlets";
+import { NumericLiteralOutlet } from "../../../view/constructs/ExpressionOutlets";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { AnalyticConstruct } from "../../../analysis/predicates";
 import { CompiledTemporaryDeallocator } from "../TemporaryDeallocator";
 import { NumericLiteralASTNode, parseNumericLiteralValueFromAST } from "../../../ast/ast_expressions";

@@ -1,7 +1,7 @@
 import { ClassDefinitionASTNode, FunctionDefinitionASTNode, LocalDeclarationASTNode, MemberDeclarationASTNode, MemberSimpleDeclarationASTNode, NonMemberSimpleDeclarationASTNode, TopLevelDeclarationASTNode } from "../../../ast/ast_declarations";
 import { assert } from "../../../util/util";
 import { BlockContext, isBlockContext, isClassContext, MemberSpecificationContext, TranslationUnitContext } from "../../compilation/contexts";
-import { InvalidConstruct } from "../constructs";
+import { InvalidConstruct } from "../InvalidConstruct";
 import { ClassDeclaration } from "./class/ClassDeclaration";
 import { ClassDefinition } from "./class/ClassDefinition";
 import { FriendDeclaration } from "./class/FriendDeclaration";

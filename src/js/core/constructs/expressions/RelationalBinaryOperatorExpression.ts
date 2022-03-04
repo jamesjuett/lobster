@@ -1,6 +1,6 @@
 import { Bool, sameType, ArithmeticType, isArithmeticType, isPointerType, isBoundedArrayType, isPotentiallyCompleteClassType, AtomicType } from "../../compilation/types";
 import { ExpressionContext, ConstructDescription, SemanticContext, areSemanticallyEquivalent } from "../../compilation/contexts";
-import { SuccessfullyCompiled, RuntimeConstruct } from "../constructs";
+import { SuccessfullyCompiled, RuntimeConstruct } from "../CPPConstruct";
 import { CPPError } from "../../compilation/errors";
 import { assertNever } from "../../../util/util";
 import { Expression, CompiledExpression, t_TypedExpression } from "./Expression";
@@ -13,7 +13,7 @@ import { SimpleRuntimeExpression } from "./SimpleRuntimeExpression";
 import { BinaryOperatorExpression } from "./BinaryOperatorExpression";
 import { createExpressionFromAST, createRuntimeExpression } from "./expressions";
 import { selectOperatorOverload } from "./selectOperatorOverload";
-import { OperatorOverloadExpression } from "./NonMemberOperatorOverloadExpression";
+import { OperatorOverloadExpression } from "./OperatorOverloadExpression";
 import { usualArithmeticConversions, convertToPRValue, IntegralToBooleanConversion, isIntegerLiteralZero, NullPointerConversion } from "./ImplicitConversion";
 import { PointerComparisonExpression } from "./PointerComparisonExpression";
 import { Value } from "../../runtime/Value";

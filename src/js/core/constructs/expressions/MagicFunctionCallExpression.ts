@@ -1,11 +1,11 @@
 import { ReferenceType, sameType, PeelReference, referenceCompatible, CompleteReturnType, Bool, CompleteObjectType, PotentialParameterType, VoidType } from "../../compilation/types";
 import { ExpressionContext, ConstructDescription } from "../../compilation/contexts";
-import { SuccessfullyCompiled, RuntimeConstruct } from "../constructs";
+import { SuccessfullyCompiled, RuntimeConstruct } from "../CPPConstruct";
 import { CPPError } from "../../compilation/errors";
 import { MAGIC_FUNCTION_NAMES } from "../../compilation/lexical";
 import { ValueCategory, Expression, CompiledExpression, t_TypedExpression } from "./Expression";
 import { RuntimeExpression } from "./RuntimeExpression";
-import { ConstructOutlet, MagicFunctionCallExpressionOutlet } from "../../../view/codeOutlets";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { CompiledTemporaryDeallocator } from "../TemporaryDeallocator";
 import { FunctionCallExpressionASTNode } from "../../../ast/ast_expressions";
 import { SimpleRuntimeExpression } from "./SimpleRuntimeExpression";
@@ -13,6 +13,7 @@ import { SimulationEvent } from "../../runtime/Simulation";
 import { Value } from "../../runtime/Value";
 import { createRuntimeExpression } from "./expressions";
 import { standardConversion } from "./ImplicitConversion";
+import { MagicFunctionCallExpressionOutlet } from "../../../view/constructs/ExpressionOutlets";
 
 
 

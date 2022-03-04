@@ -1,9 +1,10 @@
 import { BoundedArrayType, Char } from "../../compilation/types";
 import { ExpressionContext, ConstructDescription, SemanticContext } from "../../compilation/contexts";
-import { SuccessfullyCompiled, RuntimeConstruct } from "../constructs";
+import { SuccessfullyCompiled, RuntimeConstruct } from "../CPPConstruct";
 import { Expression, t_TypedExpression } from "./Expression";
 import { RuntimeExpression } from "./RuntimeExpression";
-import { ConstructOutlet, StringLiteralExpressionOutlet } from "../../../view/codeOutlets";
+import { StringLiteralExpressionOutlet } from "../../../view/constructs/ExpressionOutlets";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { AnalyticConstruct } from "../../../analysis/predicates";
 import { CompiledTemporaryDeallocator } from "../TemporaryDeallocator";
 import { StringLiteralASTNode } from "../../../ast/ast_expressions";

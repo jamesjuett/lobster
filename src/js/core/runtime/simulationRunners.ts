@@ -1,6 +1,6 @@
 import { Simulation, SimulationAction, STEP_FORWARD_ACTION } from "./Simulation";
 import { Mutable } from "../../util/util";
-import { setCPP_ANIMATIONS } from "../../view/CPP_ANIMATIONS";
+import { SET_ANIMATIONS } from "../../view/constructs/common";
 import { DirectInitializer, RuntimeDirectInitializer } from "../constructs/initializers/DirectInitializer";
 import { PassByReferenceParameterEntity, PassByValueParameterEntity } from "../compilation/entities";
 import { FunctionCall, RuntimeFunctionCall } from "../constructs/FunctionCall";
@@ -341,12 +341,12 @@ export class AsynchronousSimulationRunner {
         // if (top instanceof RuntimeFunctionCall && top.model.func.firstDeclaration.context.isLibrary) {
         
         if ((<any>top.model.context).isLibrary) {
-            setCPP_ANIMATIONS(false);
+            SET_ANIMATIONS(false);
         }
         await this.takeOneAction(STEP_FORWARD_ACTION, 0);
 
         if ((<any>top.model.context).isLibrary) {
-            setCPP_ANIMATIONS(false);
+            SET_ANIMATIONS(false);
         }
         // if (top instanceof RuntimeFunctionCall) {
             top = this.simulation.top();
@@ -359,7 +359,7 @@ export class AsynchronousSimulationRunner {
                 top = this.simulation.top();
             }
             
-        setCPP_ANIMATIONS(true);
+        SET_ANIMATIONS(true);
         
         // }
         // else {

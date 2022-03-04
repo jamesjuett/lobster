@@ -1,10 +1,11 @@
 import { AnalyticConstruct } from "../../../analysis/predicates";
 import { CommaASTNode, TernaryASTNode } from "../../../ast/ast_expressions";
-import { CommaExpressionOutlet, ConstructOutlet, TernaryExpressionOutlet } from "../../../view/codeOutlets";
+import { CommaExpressionOutlet, TernaryExpressionOutlet } from "../../../view/constructs/ExpressionOutlets";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { areSemanticallyEquivalent, ConstructDescription, ExpressionContext, SemanticContext } from "../../compilation/contexts";
 import { CPPError } from "../../compilation/errors";
 import { Bool, ExpressionType, isType, sameType, VoidType } from "../../compilation/types";
-import { RuntimeConstruct, SuccessfullyCompiled } from "../constructs";
+import { RuntimeConstruct, SuccessfullyCompiled } from "../CPPConstruct";
 import { CompiledTemporaryDeallocator } from "../TemporaryDeallocator";
 import { CompiledExpression, Expression, TypedExpression, t_TypedExpression, ValueCategory } from "./Expression";
 import { RuntimeExpression } from "./RuntimeExpression";

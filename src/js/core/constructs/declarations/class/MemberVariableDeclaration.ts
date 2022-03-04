@@ -4,7 +4,7 @@ import { MemberObjectEntity, MemberReferenceEntity, MemberVariableEntity, Object
 import { CPPError } from "../../../compilation/errors";
 import { AnalyticConstruct } from "../../../../analysis/predicates";
 import { CompleteObjectType, ReferenceType } from "../../../compilation/types";
-import { SuccessfullyCompiled } from "../../constructs";
+import { SuccessfullyCompiled } from "../../CPPConstruct";
 import { DefaultInitializer } from "../../initializers/DefaultInitializer";
 import { CompiledInitializer, Initializer } from "../../initializers/Initializer";
 import { OtherSpecifiers } from "../declarations";

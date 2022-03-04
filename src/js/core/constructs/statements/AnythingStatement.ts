@@ -1,5 +1,5 @@
 import { AnythingConstructASTNode } from "../../../ast/ASTNode";
-import { ConstructOutlet } from "../../../view/codeOutlets";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { BlockContext, SemanticContext } from "../../compilation/contexts";
 import { CPPError } from "../../compilation/errors";
 import { AnalyticConstruct } from "../../../analysis/predicates";

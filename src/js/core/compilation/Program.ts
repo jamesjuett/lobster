@@ -7,7 +7,7 @@ import { createLibraryContext, createTranslationUnitContext, ProgramContext, Tra
 import { ClassEntity, FunctionEntity, GlobalObjectEntity, selectOverloadedDefinition } from "./entities";
 import { CPPError, Note, NoteKind, NoteRecorder, SyntaxNote } from "./errors";
 import { NamedScope, NameLookupOptions, NamespaceScope } from "./scopes";
-import { CPPConstruct } from "../constructs/constructs";
+import { CPPConstruct } from "../constructs/CPPConstruct";
 import { ClassDefinition } from "../constructs/declarations/class/ClassDefinition";
 import { createTopLevelDeclarationFromAST, FunctionDefinitionGroup, TopLevelDeclaration } from "../constructs/declarations/declarations";
 import { CompiledFunctionDefinition, FunctionDefinition } from "../constructs/declarations/function/FunctionDefinition";

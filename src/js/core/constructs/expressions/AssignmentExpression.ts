@@ -1,11 +1,12 @@
 import { Simulation } from "../../runtime/Simulation";
 import { AtomicType, sameType, isAtomicType, isPotentiallyCompleteClassType, isPotentiallyCompleteArrayType } from "../../compilation/types";
 import { ExpressionContext, ConstructDescription, SemanticContext } from "../../compilation/contexts";
-import { SuccessfullyCompiled, RuntimeConstruct } from "../constructs";
+import { SuccessfullyCompiled, RuntimeConstruct } from "../CPPConstruct";
 import { CPPError } from "../../compilation/errors";
 import { Expression, CompiledExpression, TypedExpression, t_TypedExpression } from "./Expression";
 import { RuntimeExpression } from "./RuntimeExpression";
-import { ConstructOutlet, AssignmentExpressionOutlet } from "../../../view/codeOutlets";
+import { AssignmentExpressionOutlet } from "../../../view/constructs/ExpressionOutlets";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { AnalyticConstruct, Predicates } from "../../../analysis/predicates";
 import { CompiledTemporaryDeallocator } from "../TemporaryDeallocator";
 import { AssignmentExpressionASTNode } from "../../../ast/ast_expressions";
@@ -13,7 +14,7 @@ import { assignmentEquivalence } from "../../../analysis/semantic_equivalence";
 import { SimpleRuntimeExpression } from "./SimpleRuntimeExpression";
 import { createExpressionFromAST, createRuntimeExpression } from "./expressions";
 import { selectOperatorOverload } from "./selectOperatorOverload";
-import { OperatorOverloadExpression, InvalidOperatorOverloadExpression } from "./NonMemberOperatorOverloadExpression";
+import { OperatorOverloadExpression, InvalidOperatorOverloadExpression } from "./OperatorOverloadExpression";
 import { standardConversion } from "./ImplicitConversion";
 
 

@@ -1,6 +1,6 @@
 import { IdentifierASTNode } from "../../ast/ast_identifiers";
 import { assert } from "../../util/util";
-import { TranslationUnitConstruct } from "../constructs/constructs";
+import { TranslationUnitConstruct } from "../constructs/CPPConstruct";
 import { CPPError, NoteHandler } from "./errors";
 
 export const KEYWORDS = new Set([

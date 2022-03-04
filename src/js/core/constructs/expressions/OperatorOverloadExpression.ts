@@ -1,12 +1,12 @@
 import { ExpressionASTNode } from "../../../ast/ast_expressions";
 import { Mutable } from "../../../util/util";
-import { ConstructOutlet, MemberOperatorOverloadExpressionOutlet, NonMemberOperatorOverloadExpressionOutlet } from "../../../view/codeOutlets";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { ConstructDescription, ExpressionContext } from "../../compilation/contexts";
 import { FunctionEntity } from "../../compilation/entities";
 import { CPPError } from "../../compilation/errors";
 import { AtomicType, CompleteClassType, CompleteReturnType, FunctionType, PeelReference, peelReference, ReferenceType } from "../../compilation/types";
 import { CPPObject } from "../../runtime/objects";
-import { RuntimeConstruct, SuccessfullyCompiled } from "../constructs";
+import { RuntimeConstruct, SuccessfullyCompiled } from "../CPPConstruct";
 import { CompiledFunctionCall, FunctionCall, RuntimeFunctionCall, TypedFunctionCall } from "../FunctionCall";
 import { CompiledTemporaryDeallocator } from "../TemporaryDeallocator";
 import { allWellTyped, CompiledExpression, Expression, TypedExpression, ValueCategory, VCResultTypes } from "./Expression";
@@ -14,6 +14,7 @@ import { RuntimeExpression } from "./RuntimeExpression";
 import { createRuntimeExpression } from "./expressions";
 import { InvalidExpression } from "./InvalidExpression";
 import { t_OverloadableOperators } from "./selectOperatorOverload";
+import { NonMemberOperatorOverloadExpressionOutlet, MemberOperatorOverloadExpressionOutlet } from "../../../view/constructs/ExpressionOutlets";
 
 
 export class NonMemberOperatorOverloadExpression extends Expression<ExpressionASTNode> {

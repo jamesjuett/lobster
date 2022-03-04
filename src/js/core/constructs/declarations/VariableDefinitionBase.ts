@@ -3,7 +3,7 @@ import { areSemanticallyEquivalent, SemanticContext, TranslationUnitContext } fr
 import { areEntitiesSemanticallyEquivalent, VariableEntity } from "../../compilation/entities";
 import { AnalyticConstruct } from "../../../analysis/predicates";
 import { CompleteObjectType, ReferenceType } from "../../compilation/types";
-import { InvalidConstruct } from "../constructs";
+import { InvalidConstruct } from "../InvalidConstruct";
 import { Expression } from "../expressions/Expression";
 import { DefaultInitializer } from "../initializers/DefaultInitializer";
 import { DirectInitializer } from "../initializers/DirectInitializer";

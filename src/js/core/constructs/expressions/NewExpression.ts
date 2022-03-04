@@ -2,13 +2,14 @@ import { ArraySubobject, CPPObject, DynamicObject } from "../../runtime/objects"
 import { SimulationEvent } from "../../runtime/Simulation";
 import { AtomicType, PointerType, BoundedArrayType, isType, sameType, Int, ArrayElemType, CompleteClassType, isCompleteObjectType, Type, isPotentiallyCompleteArrayType, PotentiallyCompleteArrayType } from "../../compilation/types";
 import { ExpressionContext, ConstructDescription } from "../../compilation/contexts";
-import { SuccessfullyCompiled, RuntimeConstruct } from "../constructs";
+import { SuccessfullyCompiled, RuntimeConstruct } from "../CPPConstruct";
 import { CPPError } from "../../compilation/errors";
 import { NewObjectEntity, NewArrayEntity, DynamicLengthArrayNextElementEntity } from "../../compilation/entities";
 import { assertNever, assert, Mutable, asMutable } from "../../../util/util";
 import { VCResultTypes, Expression, CompiledExpression, t_TypedExpression } from "./Expression";
 import { RuntimeExpression } from "./RuntimeExpression";
-import { ConstructOutlet, NewExpressionOutlet, NewArrayExpressionOutlet } from "../../../view/codeOutlets";
+import { NewExpressionOutlet, NewArrayExpressionOutlet } from "../../../view/constructs/ExpressionOutlets";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { CompiledTemporaryDeallocator } from "../TemporaryDeallocator";
 import { CompiledInitializer, Initializer, RuntimeInitializer } from "../initializers/Initializer";
 import { ListInitializer } from "../initializers/ListInitializer";

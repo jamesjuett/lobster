@@ -1,9 +1,10 @@
 import { BlockASTNode } from "../../../ast/ast_statements";
-import { BlockOutlet, ConstructOutlet } from "../../../view/codeOutlets";
+import { BlockOutlet } from "../../../view/constructs/BlockOutlet";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { areAllSemanticallyEquivalent, areSemanticallyEquivalent, BlockContext, createBlockContext, FunctionContext, SemanticContext } from "../../compilation/contexts";
 import { RuntimeFunction } from "../../compilation/functions";
 import { AnalyticConstruct } from "../../../analysis/predicates";
-import { SuccessfullyCompiled } from "../constructs";
+import { SuccessfullyCompiled } from "../CPPConstruct";
 import { CompiledObjectDeallocator, createLocalDeallocator, ObjectDeallocator, RuntimeObjectDeallocator } from "../ObjectDeallocator";
 import { CompiledStatement, Statement, RuntimeStatement } from "./Statement";
 import { createStatementFromAST, AnalyticStatement, createRuntimeStatement } from "./statements";

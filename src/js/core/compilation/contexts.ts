@@ -1,6 +1,6 @@
 import { AccessSpecifier } from "../../ast/ast_declarations";
 import { asMutable, assert } from "../../util/util";
-import { CPPConstruct } from "../constructs/constructs";
+import { CPPConstruct } from "../constructs/CPPConstruct";
 import { RuntimeExpression } from "../constructs/expressions/RuntimeExpression";
 import { AnalyticConstruct } from "../../analysis/predicates";
 import { AtomicType, CompleteClassType, CompleteObjectType, ExpressionType, ReferenceType } from "./types";

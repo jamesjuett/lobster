@@ -5,7 +5,7 @@ import { GlobalObjectEntity } from "../../../compilation/entities";
 import { CPPError } from "../../../compilation/errors";
 import { getQualifiedName, QualifiedName } from "../../../compilation/lexical";
 import { CompleteObjectType, ReferenceType } from "../../../compilation/types";
-import { SuccessfullyCompiled } from "../../constructs";
+import { SuccessfullyCompiled } from "../../CPPConstruct";
 import { CompiledInitializer } from "../../initializers/Initializer";
 import { OtherSpecifiers } from "../declarations";
 import { CompiledDeclarator, Declarator, TypedDeclarator } from "../Declarator";

@@ -1,12 +1,13 @@
 import { ExpressionStatementASTNode } from "../../../ast/ast_statements";
-import { ConstructOutlet, ExpressionStatementOutlet } from "../../../view/codeOutlets";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { areSemanticallyEquivalent, BlockContext, SemanticContext } from "../../compilation/contexts";
 import { AnalyticConstruct } from "../../../analysis/predicates";
-import { CPPConstruct, SuccessfullyCompiled } from "../constructs";
+import { CPPConstruct, SuccessfullyCompiled } from "../CPPConstruct";
 import { CompiledExpression, Expression } from "../expressions/Expression";
 import { RuntimeExpression } from "../expressions/RuntimeExpression";
 import { createExpressionFromAST, createRuntimeExpression } from "../expressions/expressions";
 import { Statement, RuntimeStatement } from "./Statement";
+import { ExpressionStatementOutlet } from "../../../view/constructs/StatementOutlets";
 
 
 export class ExpressionStatement extends Statement<ExpressionStatementASTNode> {

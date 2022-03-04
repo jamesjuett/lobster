@@ -1,14 +1,14 @@
 import { AnalyticConstruct } from "../../../analysis/predicates";
 import { FunctionCallExpressionASTNode } from "../../../ast/ast_expressions";
 import { Mutable } from "../../../util/util";
-import { ConstructOutlet, FunctionCallExpressionOutlet } from "../../../view/codeOutlets";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { areAllSemanticallyEquivalent, areSemanticallyEquivalent, ConstructDescription, createExpressionContextWithParameterTypes, ExpressionContext, SemanticContext } from "../../compilation/contexts";
 import { FunctionEntity } from "../../compilation/entities";
 import { CPPError } from "../../compilation/errors";
 import { astToIdentifier, identifierToString, LOBSTER_MAGIC_FUNCTIONS, MAGIC_FUNCTION_NAMES } from "../../compilation/lexical";
 import { AtomicType, CompleteReturnType, FunctionType, isPotentiallyCompleteClassType, PeelReference, peelReference, ReferenceType } from "../../compilation/types";
 import { CPPObject } from "../../runtime/objects";
-import { RuntimeConstruct, SuccessfullyCompiled } from "../constructs";
+import { RuntimeConstruct, SuccessfullyCompiled } from "../CPPConstruct";
 import { CompiledFunctionCall, FunctionCall, RuntimeFunctionCall, TypedFunctionCall } from "../FunctionCall";
 import { CompiledTemporaryDeallocator } from "../TemporaryDeallocator";
 import { ArrowExpression, CompiledFunctionArrowExpression, RuntimeFunctionArrowExpression } from "./ArrowExpression";
@@ -19,7 +19,8 @@ import { AnalyticExpression, createExpressionFromAST, createRuntimeExpression } 
 import { CompiledFunctionIdentifierExpression, IdentifierExpression, RuntimeFunctionIdentifierExpression } from "./IdentifierExpression";
 import { MagicFunctionCallExpression } from "./MagicFunctionCallExpression";
 import { selectOperatorOverload } from "./selectOperatorOverload";
-import { InvalidOperatorOverloadExpression, OperatorOverloadExpression } from "./NonMemberOperatorOverloadExpression";
+import { InvalidOperatorOverloadExpression, OperatorOverloadExpression } from "./OperatorOverloadExpression";
+import { FunctionCallExpressionOutlet } from "../../../view/constructs/ExpressionOutlets";
 
 
 

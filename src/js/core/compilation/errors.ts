@@ -1,6 +1,6 @@
 import { StorageSpecifierKey, TypeSpecifierKey, SimpleTypeName } from "../../ast/ast_declarations";
 import { Mutable } from "../../util/util";
-import { TranslationUnitConstruct, CPPConstruct } from "../constructs/constructs";
+import { TranslationUnitConstruct, CPPConstruct } from "../constructs/CPPConstruct";
 import { VariableDefinition } from "../constructs/declarations/variable/common";
 import { IncompleteTypeMemberVariableDeclaration } from "../constructs/declarations/class/IncompleteTypeMemberVariableDeclaration";
 import { BaseSpecifier } from "../constructs/declarations/class/BaseSpecifier";

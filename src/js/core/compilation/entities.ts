@@ -1,6 +1,6 @@
 import { Observable } from "../../util/observe";
 import { asMutable, assert, assertFalse, assertNever, Mutable } from "../../util/util";
-import type { RuntimeConstruct } from "../constructs/constructs";
+import type { RuntimeConstruct } from "../constructs/CPPConstruct";
 import type { ClassDeclaration } from "../constructs/declarations/class/ClassDeclaration";
 import type { ClassDefinition } from "../constructs/declarations/class/ClassDefinition";
 import type { MemberVariableDeclaration } from "../constructs/declarations/class/MemberVariableDeclaration";

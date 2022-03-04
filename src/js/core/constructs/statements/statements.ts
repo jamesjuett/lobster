@@ -2,7 +2,7 @@ import { AnythingConstructASTNode } from "../../../ast/ASTNode";
 import { BlockASTNode, BreakStatementASTNode, ContinueStatementASTNode, DeclarationStatementASTNode, DoWhileStatementASTNode, ExpressionStatementASTNode, ForStatementASTNode, IfStatementASTNode, LabeledStatementASTNode, NullStatementASTNode, ReturnStatementASTNode, StatementASTNode, WhileStatementASTNode } from "../../../ast/ast_statements";
 import { BlockContext } from "../../compilation/contexts";
 import { RuntimeFunction } from "../../compilation/functions";
-import { RuntimeConstruct } from "../constructs";
+import { RuntimeConstruct } from "../CPPConstruct";
 import { AnythingStatement } from "./AnythingStatement";
 import { Block, CompiledBlock, RuntimeBlock } from "./Block";
 import { BreakStatement, CompiledBreakStatement, RuntimeBreakStatement } from "./BreakStatement";

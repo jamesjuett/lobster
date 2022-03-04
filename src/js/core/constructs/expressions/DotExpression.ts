@@ -1,6 +1,6 @@
 import { CompleteObjectType, FunctionType, peelReference, CompleteClassType, isPotentiallyCompleteClassType, isCompleteClassType, PotentiallyCompleteObjectType } from "../../compilation/types";
 import { ExpressionContext, ConstructDescription, createExpressionContextWithReceiverType, SemanticContext, areSemanticallyEquivalent } from "../../compilation/contexts";
-import { SuccessfullyCompiled, RuntimeConstruct } from "../constructs";
+import { SuccessfullyCompiled, RuntimeConstruct } from "../CPPConstruct";
 import { CPPError } from "../../compilation/errors";
 import { FunctionEntity, MemberVariableEntity, areEntitiesSemanticallyEquivalent } from "../../compilation/entities";
 import { entityLookup } from "./entityLookup";
@@ -8,7 +8,8 @@ import { assertFalse } from "../../../util/util";
 import { LexicalIdentifier, identifierToString, astToIdentifier } from "../../compilation/lexical";
 import { VCResultTypes, Expression, CompiledExpression, TypedExpression, t_TypedExpression } from "./Expression";
 import { RuntimeExpression } from "./RuntimeExpression";
-import { ConstructOutlet, DotExpressionOutlet } from "../../../view/codeOutlets";
+import { DotExpressionOutlet } from "../../../view/constructs/ExpressionOutlets";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { AnalyticConstruct, Predicates } from "../../../analysis/predicates";
 import { CompiledTemporaryDeallocator } from "../TemporaryDeallocator";
 import { DotExpressionASTNode } from "../../../ast/ast_expressions";

@@ -5,7 +5,7 @@ import { overloadResolution } from "../../compilation/overloads";
 import { DeclaredScopeEntry } from "../../compilation/scopes";
 import { CompleteClassType } from "../../compilation/types";
 import { allWellTyped, Expression, TypedExpression } from "./Expression";
-import { MemberOperatorOverloadExpression, NonMemberOperatorOverloadExpression } from "./NonMemberOperatorOverloadExpression";
+import { MemberOperatorOverloadExpression, NonMemberOperatorOverloadExpression } from "./OperatorOverloadExpression";
 
 
 

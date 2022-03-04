@@ -1,15 +1,17 @@
 import { DeclarationStatementASTNode } from "../../../ast/ast_statements";
 import { Mutable } from "../../../util/util";
-import { ConstructOutlet, DeclarationStatementOutlet } from "../../../view/codeOutlets";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { areAllSemanticallyEquivalent, BlockContext, SemanticContext } from "../../compilation/contexts";
 import { CPPError } from "../../compilation/errors";
 import { AnalyticConstruct } from "../../../analysis/predicates";
-import { CPPConstruct, InvalidConstruct, SuccessfullyCompiled } from "../constructs";
+import { CPPConstruct, SuccessfullyCompiled } from "../CPPConstruct";
+import { InvalidConstruct } from "../InvalidConstruct";
 import { AnalyticCompiledDeclaration } from "../declarations/analytics";
 import { ClassDefinition } from "../declarations/class/ClassDefinition";
 import { createLocalDeclarationFromAST, LocalDeclaration, LocalSimpleDeclaration } from "../declarations/declarations";
 import { FunctionDefinition } from "../declarations/function/FunctionDefinition";
 import { Statement, RuntimeStatement } from "./Statement";
+import { DeclarationStatementOutlet } from "../../../view/constructs/StatementOutlets";
 
 
 export class DeclarationStatement extends Statement<DeclarationStatementASTNode> {

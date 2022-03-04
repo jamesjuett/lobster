@@ -5,7 +5,8 @@ import { SemanticContext, TranslationUnitContext } from "../../compilation/conte
 import { CPPError } from "../../compilation/errors";
 import { AnalyticConstruct } from "../../../analysis/predicates";
 import { builtInTypes, isBuiltInTypeName, sameType, Type } from "../../compilation/types";
-import { BasicCPPConstruct, SuccessfullyCompiled } from "../constructs";
+import { SuccessfullyCompiled } from "../CPPConstruct";
+import { BasicCPPConstruct } from "../BasicCPPConstruct";
 
 
 

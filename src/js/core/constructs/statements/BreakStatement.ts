@@ -1,12 +1,13 @@
+import { AnalyticConstruct } from "../../../analysis/predicates";
 import { BreakStatementASTNode } from "../../../ast/ast_statements";
 import { assert } from "../../../util/util";
-import { BreakStatementOutlet, ConstructOutlet } from "../../../view/codeOutlets";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
+import { BreakStatementOutlet } from "../../../view/constructs/StatementOutlets";
 import { BlockContext, SemanticContext } from "../../compilation/contexts";
 import { CPPError } from "../../compilation/errors";
-import { AnalyticConstruct } from "../../../analysis/predicates";
-import { RuntimeConstruct, SuccessfullyCompiled } from "../constructs";
+import { RuntimeConstruct, SuccessfullyCompiled } from "../CPPConstruct";
 import { Expression } from "../expressions/Expression";
-import { Statement, RuntimeStatement } from "./Statement";
+import { RuntimeStatement, Statement } from "./Statement";
 
 
 export class BreakStatement extends Statement<BreakStatementASTNode> {

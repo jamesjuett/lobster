@@ -1,7 +1,8 @@
 import type { ASTNode } from "../../ast/ASTNode";
 import { asMutable, assert, Mutable } from "../../util/util";
-import type { CPPConstruct, SuccessfullyCompiled } from "./constructs";
-import { BasicCPPConstruct, RuntimeConstruct } from "./constructs";
+import type { CPPConstruct, SuccessfullyCompiled } from "./CPPConstruct";
+import { RuntimeConstruct } from "./CPPConstruct";
+import { BasicCPPConstruct } from "./BasicCPPConstruct";
 import type { SemanticContext, TranslationUnitContext } from "../compilation/contexts";
 import { areAllSemanticallyEquivalent } from "../compilation/contexts";
 import { CompiledFunctionDefinition } from "./declarations/function/FunctionDefinition";

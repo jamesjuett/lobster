@@ -1,6 +1,6 @@
 import { assertFalse } from "../../util/util";
 import { TemporaryObject } from "../runtime/objects";
-import { RuntimeConstruct, StackType } from "./constructs";
+import { RuntimeConstruct, StackType } from "./CPPConstruct";
 import { RuntimeTemporaryDeallocator } from "./TemporaryDeallocator";
 import { CompiledPotentialFullExpression } from "./PotentialFullExpression";
 

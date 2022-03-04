@@ -1,4 +1,4 @@
-import { CPPConstruct } from "../core/constructs/constructs";
+import { CPPConstruct } from "../core/constructs/CPPConstruct";
 import { Program, TranslationUnit } from "../core/compilation/Program";
 import { AnalyticExpression } from "../core/constructs/expressions/expressions";
 import { NumericLiteralExpression } from "../core/constructs/expressions/NumericLiteralExpression";

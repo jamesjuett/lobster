@@ -1,9 +1,10 @@
 import { AtomicType } from "../../compilation/types";
 import { ExpressionContext } from "../../compilation/contexts";
-import { SuccessfullyCompiled } from "../constructs";
+import { SuccessfullyCompiled } from "../CPPConstruct";
 import { Expression, CompiledExpression, TypedExpression, t_TypedExpression } from "./Expression";
 import { RuntimeExpression } from "./RuntimeExpression";
-import { ConstructOutlet, BinaryOperatorExpressionOutlet } from "../../../view/codeOutlets";
+import { BinaryOperatorExpressionOutlet } from "../../../view/constructs/ExpressionOutlets";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { CompiledTemporaryDeallocator } from "../TemporaryDeallocator";
 import { BinaryOperatorExpressionASTNode, t_ArithmeticBinaryOperators, t_BinaryOperators } from "../../../ast/ast_expressions";
 import { LogicalBinaryOperatorExpression } from "./LogicalBinaryOperatorExpression";

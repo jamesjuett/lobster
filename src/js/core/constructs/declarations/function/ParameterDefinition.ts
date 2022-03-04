@@ -1,6 +1,6 @@
 import { LocalObjectEntity, LocalReferenceEntity } from "../../../compilation/entities";
 import { CompleteParameterType, ReferenceType } from "../../../compilation/types";
-import { SuccessfullyCompiled } from "../../constructs";
+import { SuccessfullyCompiled } from "../../CPPConstruct";
 import { CompiledDeclarator, TypedDeclarator } from "../Declarator";
 import { CompiledStorageSpecifier } from "../StorageSpecifier";
 import { CompiledTypeSpecifier } from "../TypeSpecifier";

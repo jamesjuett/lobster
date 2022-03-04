@@ -4,7 +4,8 @@ import { asMutable } from "../../../util/util";
 import { SemanticContext, TranslationUnitContext } from "../../compilation/contexts";
 import { CPPError } from "../../compilation/errors";
 import { AnalyticConstruct } from "../../../analysis/predicates";
-import { BasicCPPConstruct, SuccessfullyCompiled } from "../constructs";
+import { SuccessfullyCompiled } from "../CPPConstruct";
+import { BasicCPPConstruct } from "../BasicCPPConstruct";
 
 
 

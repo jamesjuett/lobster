@@ -1,6 +1,6 @@
 import { ExpressionContext, ConstructDescription, SemanticContext } from "../../compilation/contexts";
 import { Expression } from "./Expression";
-import { ConstructOutlet } from "../../../view/codeOutlets";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { AnalyticConstruct } from "../../../analysis/predicates";
 import { ExpressionASTNode } from "../../../ast/ast_expressions";
 

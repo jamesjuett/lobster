@@ -1,16 +1,17 @@
 import { ReturnStatementASTNode } from "../../../ast/ast_statements";
 import { assertNever } from "../../../util/util";
-import { ConstructOutlet, ReturnStatementOutlet } from "../../../view/codeOutlets";
+import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { areSemanticallyEquivalent, BlockContext, SemanticContext } from "../../compilation/contexts";
 import { ReturnByReferenceEntity, ReturnObjectEntity } from "../../compilation/entities";
 import { CPPError } from "../../compilation/errors";
 import { AnalyticConstruct } from "../../../analysis/predicates";
 import { VoidType } from "../../compilation/types";
-import { SuccessfullyCompiled } from "../constructs";
+import { SuccessfullyCompiled } from "../CPPConstruct";
 import { CompiledExpression, Expression } from "../expressions/Expression";
 import { createExpressionFromAST } from "../expressions/expressions";
 import { CompiledDirectInitializer, DirectInitializer, RuntimeDirectInitializer } from "../initializers/DirectInitializer";
 import { Statement, RuntimeStatement } from "./Statement";
+import { ReturnStatementOutlet } from "../../../view/constructs/StatementOutlets";
 
 
 export class ReturnStatement extends Statement<ReturnStatementASTNode> {

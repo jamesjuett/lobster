@@ -1,7 +1,7 @@
 import { SimulationEvent } from "../../runtime/Simulation";
 import { PointerType, Bool, similarType, subType } from "../../compilation/types";
 import { ExpressionContext, ConstructDescription, SemanticContext } from "../../compilation/contexts";
-import { SuccessfullyCompiled, RuntimeConstruct } from "../constructs";
+import { SuccessfullyCompiled, RuntimeConstruct } from "../CPPConstruct";
 import { CPPError } from "../../compilation/errors";
 import { CompiledExpression, TypedExpression, t_TypedExpression } from "./Expression";
 import { RuntimeExpression } from "./RuntimeExpression";
