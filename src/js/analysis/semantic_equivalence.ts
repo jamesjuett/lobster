@@ -1,8 +1,13 @@
-import { areSemanticallyEquivalent, SemanticContext } from "../core/constructs";
-import { Expression } from "../core/expressionBase";
-import { ToBooleanConversion, AnalyticExpression, AssignmentExpression, CompoundAssignmentExpression, RelationalBinaryOperatorExpression, isIntegerLiteralZero, NullPointerConversion, PointerComparisonExpression, PointerToBooleanConversion } from "../core/expressions";
-import { Predicates } from "../core/predicates";
-import { AtomicType, PointerType } from "../core/types";
+import { areSemanticallyEquivalent, SemanticContext } from "../core/compilation/contexts";
+import { Expression } from "../core/constructs/expressions/Expression";
+import { AnalyticExpression } from "../core/constructs/expressions/expressions";
+import { ToBooleanConversion, isIntegerLiteralZero, NullPointerConversion, PointerToBooleanConversion } from "../core/constructs/expressions/ImplicitConversion";
+import { PointerComparisonExpression } from "../core/constructs/expressions/PointerComparisonExpression";
+import { RelationalBinaryOperatorExpression } from "../core/constructs/expressions/RelationalBinaryOperatorExpression";
+import { CompoundAssignmentExpression } from "../core/constructs/expressions/CompoundAssignmentExpression";
+import { AssignmentExpression } from "../core/constructs/expressions/AssignmentExpression";
+import { Predicates } from "./predicates";
+import { AtomicType, PointerType } from "../core/compilation/types";
 
 export function assignmentEquivalence(assn: AssignmentExpression, compound: CompoundAssignmentExpression, ec: SemanticContext) {
     let thisRhs = <AnalyticExpression>assn.rhs;

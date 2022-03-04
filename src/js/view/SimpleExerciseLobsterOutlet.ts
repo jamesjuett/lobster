@@ -1,11 +1,11 @@
 import { SimulationOutlet } from "./simOutlets";
 import { ProjectEditor, CompilationOutlet, CompilationStatusOutlet } from "./editors";
-import { Simulation } from "../core/Simulation";
+import { Simulation } from "../core/runtime/Simulation";
 import { MessageResponses, listenTo, stopListeningTo, messageResponse, Message } from "../util/observe";
 import { Mutable } from "../util/util";
-import { RuntimeConstruct } from "../core/constructs";
+import { RuntimeConstruct } from "../core/constructs/CPPConstruct";
 import { Project } from "../core/Project";
-import { CheckpointsOutlet } from "./checkpointOutlets";
+import { CheckpointsOutlet } from "./CheckpointOutlets";
 import { InstantMemoryDiagramOutlet } from "./InstantMemoryDiagramOutlet";
 
 

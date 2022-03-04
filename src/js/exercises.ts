@@ -1,10 +1,10 @@
 import { isEqual } from "lodash";
-import { CompilerNote, NoteKind } from "./core/errors";
-import { Predicates } from "./core/predicates";
-import { Program } from "./core/Program";
+import { CompilerNote, NoteKind } from "./core/compilation/errors";
+import { Predicates } from "./analysis/predicates";
+import { Program } from "./core/compilation/Program";
 import { COMPLETION_ALL_CHECKPOINTS, COMPLETION_LAST_CHECKPOINT, ExerciseCompletionPredicate, Project } from "./core/Project";
-import { Simulation } from "./core/Simulation";
-import { Int, isBoundedArrayOfType, isIntegralType, isPointerType, isType } from "./core/types";
+import { Simulation } from "./core/runtime/Simulation";
+import { Int, isBoundedArrayOfType, isIntegralType, isPointerType, isType } from "./core/compilation/types";
 import { findFirstConstruct, findConstructs, containsConstruct } from "./analysis/analysis";
 import { findLoopControlVars } from "./analysis/loops";
 import { Checkpoint, StaticAnalysisCheckpoint, OutputCheckpoint, outputComparator, IsCompiledCheckpoint, removeWhitespace, EndOfMainStateCheckpoint } from "./analysis/checkpoints";

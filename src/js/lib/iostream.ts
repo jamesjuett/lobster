@@ -1,12 +1,13 @@
 
-import { registerLibraryHeader, SourceFile } from "../core/Program";
-import { registerOpaqueExpression, OpaqueExpressionImpl, RuntimeOpaqueExpression, getLocal } from "../core/opaqueExpression";
-import { Int, CompleteClassType, Bool, VoidType } from "../core/types";
+import { registerLibraryHeader, SourceFile } from "../core/compilation/Program";
+import { registerOpaqueExpression, OpaqueExpressionImpl, RuntimeOpaqueExpression } from "../core/constructs/expressions/OpaqueExpression";
+import { Int, CompleteClassType, Bool, VoidType } from "../core/compilation/types";
 import { getDataPtr } from "./string";
-import { Value } from "../core/runtimeEnvironment";
-import { CPPObject } from "../core/objects";
-import { RuntimeExpression } from "../core/expressionBase";
-import { StandardInputStream } from "../core/streams";
+import { Value } from "../core/runtime/Value";
+import { CPPObject } from "../core/runtime/objects";
+import { RuntimeExpression } from "../core/constructs/expressions/RuntimeExpression";
+import { StandardInputStream } from "../core/compilation/streams";
+import { getLocal } from "../core/compilation/contexts";
 
 
 registerLibraryHeader("iostream",

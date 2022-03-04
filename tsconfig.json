@@ -1,18 +1,18 @@
 {
     "include": [
-      "./src/js/core/*.ts",
+      "./src/js/core/**/*.ts",
       "./src/js/lib/*.ts",
       "./src/js/ast/*.ts",
       "./src/js/parse/*.ts",
       "./src/js/test/*.ts",
       "./src/js/analysis/*.ts",
-      "./src/js/view/*.ts",
+      "./src/js/view/**/*.ts",
       "./src/js/frontend/*.ts",
       "./src/js/util/*.ts",
       "./src/js/main.ts",
       "src/js/embedded_exercises.ts",
       "src/js/ExerciseSpecification.ts"
-, "src/js/ast/ASTNode.ts", "src/js/ast/ast_expressions.ts"    ],
+    ],
     "exclude": [
       "*node_modules*"
     ],

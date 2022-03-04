@@ -1,8 +1,8 @@
 
-import {Program, SourceFile} from "../core/Program";
-import { Simulation, SimulationEvent } from "../core/Simulation";
+import {Program, SourceFile} from "../core/compilation/Program";
+import { Simulation, SimulationEvent } from "../core/runtime/Simulation";
 import { assert, Mutable } from "../util/util";
-import { SynchronousSimulationRunner } from "../core/simulationRunners";
+import { SynchronousSimulationRunner } from "../core/runtime/simulationRunners";
 import { Line } from "@svgdotjs/svg.js";
 
 interface VerificationStatus {

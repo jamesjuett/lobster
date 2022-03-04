@@ -1,5 +1,5 @@
 import assign from "lodash/assign";
-import { Type } from "../core/types";
+import { Type } from "../core/compilation/types";
 import { encode } from "he";
 
 export type Mutable<T> = { -readonly [P in keyof T]: T[P] };

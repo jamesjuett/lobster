@@ -1,4 +1,4 @@
-import { Program, SourceFile, SourceReference } from "../core/Program";
+import { Program, SourceFile, SourceReference } from "../core/compilation/Program";
 import CodeMirror from 'codemirror';
 import 'codemirror/lib/codemirror.css';
 import '../../css/lobster.css';
@@ -9,7 +9,7 @@ import 'codemirror/keymap/sublime.js'
 // import '../../styles/components/_codemirror.css';
 import { assert, Mutable, asMutable } from "../util/util";
 import { Observable, messageResponse, Message, addListener, MessageResponses, listenTo, removeListener, stopListeningTo } from "../util/observe";
-import { Note, SyntaxNote, NoteKind } from "../core/errors";
+import { Note, SyntaxNote, NoteKind } from "../core/compilation/errors";
 import { Project } from "../core/Project";
 
 /**

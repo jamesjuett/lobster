@@ -1,14 +1,11 @@
-import { registerLibraryHeader, SourceFile } from "../core/Program";
-import { MemberSubobject, CPPObject } from "../core/objects";
-import { Int, Char, PointerType, BoundedArrayType, CompleteObjectType, ReferenceType, CompleteClassType, ArrayPointerType, Size_t, VoidType, PotentiallyCompleteClassType, Bool, isArrayPointerType, Double, ArrayElemType, AtomicType, ArithmeticType } from "../core/types";
-import { runtimeObjectLookup, VariableEntity, LocalVariableEntity, LocalObjectEntity, LocalReferenceEntity } from "../core/entities";
-import { Value } from "../core/runtimeEnvironment";
-import { SimulationEvent } from "../core/Simulation";
-import { registerOpaqueExpression, RuntimeOpaqueExpression, OpaqueExpressionImpl, lookupTypeInContext, getLocal } from "../core/opaqueExpression";
-import { ExpressionContext, isClassContext } from "../core/constructs";
+import { ExpressionContext, getLocal, isClassContext } from "../core/compilation/contexts";
+import { registerLibraryHeader, SourceFile } from "../core/compilation/Program";
+import { RuntimeExpression } from "../core/constructs/expressions/RuntimeExpression";
+import { OpaqueExpressionImpl, registerOpaqueExpression, RuntimeOpaqueExpression } from "../core/constructs/expressions/OpaqueExpression";
+import { CPPObject, MemberSubobject } from "../core/runtime/objects";
+import { Value } from "../core/runtime/Value";
+import { ArithmeticType, ArrayPointerType, AtomicType, BoundedArrayType, CompleteClassType, Int, VoidType } from "../core/compilation/types";
 import { assert } from "../util/util";
-import { Expression, RuntimeExpression } from "../core/expressionBase";
-import { nth } from "lodash";
 
 
 

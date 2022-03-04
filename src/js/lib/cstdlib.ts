@@ -1,9 +1,10 @@
 
-import { registerLibraryHeader, SourceFile } from "../core/Program";
-import { registerOpaqueExpression, OpaqueExpressionImpl, RuntimeOpaqueExpression, getLocal } from "../core/opaqueExpression";
-import { Int, CompleteClassType, Bool, VoidType } from "../core/types";
+import { registerLibraryHeader, SourceFile } from "../core/compilation/Program";
+import { registerOpaqueExpression, OpaqueExpressionImpl, RuntimeOpaqueExpression } from "../core/constructs/expressions/OpaqueExpression";
+import { Int, CompleteClassType, Bool, VoidType } from "../core/compilation/types";
 import { getDataPtr } from "./string";
-import { Value } from "../core/runtimeEnvironment";
+import { Value } from "../core/runtime/Value";
+import { getLocal } from "../core/compilation/contexts";
 
 
 registerLibraryHeader("cstdlib",
