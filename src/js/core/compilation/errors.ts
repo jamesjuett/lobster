@@ -400,6 +400,9 @@ export const CPPError = {
             },
             multiple_def: function (def: FunctionDefinition, prevDef: FunctionDefinition) {
                 return new CompilerNote(def, NoteKind.ERROR, "declaration.func.multiple_def", `The function ${def.name} cannot be defined more than once.`);
+            },
+            non_member_func_const: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.non_member_func_const", `This function is not a member function, thus cannot be const-qualified.`);
             }
         },
         variable: {

@@ -318,6 +318,10 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
             return;
         }
 
+        if (postfix.const && !this.context.containingClass) {
+            notes.addNote(CPPError.declaration.func.non_member_func_const(this));
+        }
+
         // TODO clean up error immediately above and get rid of yucky cast below
         return new FunctionType(type, <PotentialParameterType[]>paramTypes, this.context.containingClass?.type.cvQualified(!!postfix.const));
     }
