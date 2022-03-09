@@ -318,7 +318,9 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
             return;
         }
 
-        if (postfix.const && !this.context.containingClass) {
+        // If the function name is a string type(Array type for out-of-line definition)
+        // and it is not in a class(containingClass == undefined). It is a non-member function
+        if (postfix.const && (typeof(this.name) == "string" && !this.context.containingClass)) {
             notes.addNote(CPPError.declaration.func.non_member_func_const(this));
         }
 
