@@ -611,6 +611,12 @@ export const CPPError = {
         symbol_mismatch: function (construct: TranslationUnitConstruct, newEntity: DeclaredEntity) {
             return new CompilerNote(construct, NoteKind.ERROR, "declaration.symbol_mismatch", `Cannot redeclare ${newEntity.name} as a different kind of symbol.`);
         },
+        missing_name: function (construct: TranslationUnitConstruct) {
+            return new CompilerNote(construct, NoteKind.ERROR, "declaration.missing_name", `Unable to determine the name of the declared entity.`);
+        },
+        qualified_name_prohibited: function (construct: TranslationUnitConstruct) {
+            return new CompilerNote(construct, NoteKind.ERROR, "declaration.qualified_name_prohibited", "A qualified name (i.e. using ::) is not allowed in this declaration.");
+        },
         member : {
             incomplete_type_declaration_prohibited: function (construct: IncompleteTypeMemberVariableDeclaration) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.member.incomplete_type_declaration_prohibited", `Because the type ${construct.type} is incomplete, declaring a member variable with that type is not allowed.`);
