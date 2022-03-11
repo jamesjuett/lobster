@@ -21,6 +21,7 @@ export class MemberVariableDeclaration extends VariableDefinitionBase<MemberSpec
 
     public readonly type: CompleteObjectType | ReferenceType;
     public readonly declaredEntity: MemberVariableEntity;
+    public readonly isDeclaredEntityValid: boolean;
 
     public constructor(context: MemberSpecificationContext, ast: MemberSimpleDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers, type: CompleteObjectType | ReferenceType) {
@@ -37,6 +38,7 @@ export class MemberVariableDeclaration extends VariableDefinitionBase<MemberSpec
 
         if (entityOrError instanceof MemberObjectEntity || entityOrError instanceof MemberReferenceEntity) {
             this.declaredEntity = entityOrError;
+            this.isDeclaredEntityValid = true;
 
             // No need to "register" the member declaration here as we might "register" a local
             // variable definition with its containing function, since they will be accounted
@@ -44,6 +46,7 @@ export class MemberVariableDeclaration extends VariableDefinitionBase<MemberSpec
         }
         else {
             this.addNote(entityOrError);
+            this.isDeclaredEntityValid = false;
         }
     }
 

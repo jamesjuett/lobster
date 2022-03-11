@@ -172,7 +172,14 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
 
         // Identify member objects and member references
         memberDeclarations.forEach(decl => {
+
+            
+            
             if (decl.construct_type === "member_variable_declaration") {
+                // Only record entities for valid entities
+                if (!decl.isDeclaredEntityValid) {
+                    return;
+                }
 
                 addMemberEntity(this.memberVariableEntities, decl.declaredEntity);
 

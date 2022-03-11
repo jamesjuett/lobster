@@ -25,6 +25,7 @@ export class LocalVariableDefinition extends VariableDefinitionBase<BlockContext
 
     public readonly type: VariableDefinitionType;
     public readonly declaredEntity: LocalObjectEntity | LocalReferenceEntity;
+    public readonly isDeclaredEntityValid: boolean;
 
     // public static predicate() : (decl: LocalVariableDefinition) => decl is TypedLocalVariableDefinition<T> {
     //     return <(decl: CPPConstruct) => decl is TypedLocalVariableDefinition<T>>((decl) => decl instanceof LocalVariableDefinition);
@@ -52,11 +53,13 @@ export class LocalVariableDefinition extends VariableDefinitionBase<BlockContext
 
         if (entityOrError instanceof LocalObjectEntity || entityOrError instanceof LocalReferenceEntity) {
             this.declaredEntity = entityOrError;
+            this.isDeclaredEntityValid = true;
             context.blockLocals.registerLocalVariable(this.declaredEntity);
             context.functionLocals.registerLocalVariable(this.declaredEntity);
         }
         else {
             this.addNote(entityOrError);
+            this.isDeclaredEntityValid = false;
         }
     }
 

@@ -172,7 +172,7 @@ export function createFunctionDeclarationFromDefinitionAST(ast: FunctionDefiniti
     if (declarator.name && isQualifiedName(declarator.name)) {
         let prevEntity = context.program.getLinkedFunctionEntity(declarator.name);
         if (prevEntity) {
-            return prevEntity.firstDeclaration;
+            return prevEntity.overloads.firstDeclaration;
         }
     }
 
