@@ -45,8 +45,6 @@ export function overloadResolution<T extends FunctionType>(candidates: readonly 
         if (argTypes.length !== candidateParamTypes.length) {
             notes.push(CPPError.param.numParams(candidate.firstDeclaration));
         }
-
-        // TODO: add back in with member functions
         else if (candidate.isMemberFunction && receiverType?.isConst && !candidate.type.receiverType?.isConst) {
             notes.push(CPPError.param.thisConst(candidate.firstDeclaration, receiverType));
         }

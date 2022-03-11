@@ -85,9 +85,11 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
         }
 
         if (this.name && isQualifiedName(this.name)) {
-            let le = this.context.program.getLinkedFunctionEntity(this.name);
-            if (le && isClassContext(le.firstDeclaration.context)) {
-                let className = le.firstDeclaration.context.containingClass.name;
+            const le = this.context.program.getLinkedFunctionEntity(this.name);
+            const firstOverload = le.overloads[0];
+            const firstDeclaration = firstOverload.firstDeclaration;
+            if (le && isClassContext(firstDeclaration.context)) {
+                let className = firstDeclaration.context.containingClass.name;
                 className = className.replace(/<.*>/g, ""); // remove template parameters
                 if (getUnqualifiedName(this.name) === className) {
                     (<Mutable<this>>this).hasConstructorName = true;

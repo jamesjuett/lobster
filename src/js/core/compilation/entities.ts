@@ -143,11 +143,13 @@ export class FunctionOverloadGroup {
     public readonly declarationKind = "function";
 
     public readonly name: string;
+    public readonly qualifiedName: QualifiedName;
     private readonly _overloads: FunctionEntity[];
     public readonly overloads: readonly FunctionEntity[];
 
     public constructor(overloads: readonly FunctionEntity[]) {
         this.name = overloads[0].name;
+        this.qualifiedName = overloads[0].qualifiedName;
         this.overloads = this._overloads = overloads.slice();
     }
 

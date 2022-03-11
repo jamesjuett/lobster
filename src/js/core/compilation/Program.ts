@@ -4,7 +4,7 @@ import { TranslationUnitAST } from "../../ast/ast_program";
 import { parse as cpp_parse } from "../../parse/cpp_parser";
 import { asMutable, assert, assertFalse, Mutable } from "../../util/util";
 import { createLibraryContext, createTranslationUnitContext, ProgramContext, TranslationUnitContext } from "./contexts";
-import { ClassEntity, FunctionEntity, GlobalObjectEntity, selectOverloadedDefinition } from "./entities";
+import { ClassEntity, FunctionEntity, FunctionOverloadGroup, GlobalObjectEntity, selectOverloadedDefinition } from "./entities";
 import { CPPError, Note, NoteKind, NoteRecorder, SyntaxNote } from "./errors";
 import { NamedScope, NameLookupOptions, NamespaceScope } from "./scopes";
 import { CPPConstruct } from "../constructs/CPPConstruct";
@@ -44,13 +44,14 @@ export class Program {
 
     private readonly functionCalls: readonly FunctionCall[] = [];
 
-    public readonly linkedObjectDefinitions: { [index: string]: GlobalVariableDefinition | undefined } = {};
-    public readonly linkedFunctionDefinitions: { [index: string]: FunctionDefinitionGroup | undefined } = {};
-    public readonly linkedClassDefinitions: { [index: string]: ClassDefinition | undefined } = {};
+    private readonly linkedObjectDefinitions: { [index: string]: GlobalVariableDefinition | undefined } = {};
+    private readonly linkedFunctionDefinitions: { [index: string]: FunctionDefinitionGroup | undefined } = {};
+    private readonly linkedClassDefinitions: { [index: string]: ClassDefinition | undefined } = {};
 
-    public readonly linkedObjectEntities: readonly GlobalObjectEntity[] = [];
-    public readonly linkedFunctionEntities: readonly FunctionEntity[] = [];
-    public readonly linkedClassEntities: readonly ClassEntity[] = [];
+    // Maps from entity ID to entity
+    private readonly linkedObjectEntities: { [index: number]: GlobalObjectEntity } = {};
+    private readonly linkedFunctionEntities: { [index: number]: FunctionEntity } = {};
+    private readonly linkedClassEntities: { [index: number]: ClassEntity } = {};
 
     public readonly notes = new NoteRecorder();
 
@@ -89,13 +90,13 @@ export class Program {
         // Note that "multiple definition" errors are handled when the definitions
         // are registered with the program, so we don't have to take care of them
         // here and thus don't even call "link" if there was a previous definition.
-        this.linkedObjectEntities.forEach(le =>
+        Object.values(this.linkedObjectEntities).forEach(le =>
             le.definition ?? le.link(this.linkedObjectDefinitions[le.qualifiedName.str])
         );
-        this.linkedFunctionEntities.forEach(le =>
+        Object.values(this.linkedFunctionEntities).forEach(le =>
             le.definition ?? le.link(this.linkedFunctionDefinitions[le.qualifiedName.str])
         );
-        this.linkedClassEntities.forEach(le =>
+        Object.values(this.linkedClassEntities).forEach(le =>
             le.definition ?? le.link(this.linkedClassDefinitions[le.qualifiedName.str])
         );
 
@@ -130,23 +131,23 @@ export class Program {
     }
 
     public registerGlobalObjectEntity(entity: GlobalObjectEntity) {
-        asMutable(this.linkedObjectEntities).push(entity);
+        this.linkedObjectEntities[entity.entityId] = entity;
     }
 
     public registerFunctionEntity(entity: FunctionEntity) {
-        asMutable(this.linkedFunctionEntities).push(entity);
+        this.linkedFunctionEntities[entity.entityId] = entity;
     }
 
     public registerClassEntity(entity: ClassEntity) {
-        asMutable(this.linkedClassEntities).push(entity);
+        this.linkedClassEntities[entity.entityId] = entity;
     }
 
     public getLinkedFunctionEntity(qualifiedName: QualifiedName) {
-        return this.linkedFunctionEntities.find(le => le.qualifiedName.str === qualifiedName.str);
+        return new FunctionOverloadGroup(Object.values(this.linkedFunctionEntities).filter(le => le.qualifiedName.str === qualifiedName.str))
     }
 
     public getLinkedObjectEntity(qualifiedName: QualifiedName) {
-        return this.linkedObjectEntities.find(le => le.qualifiedName.str === qualifiedName.str);
+        return Object.values(this.linkedObjectEntities).find(le => le.qualifiedName.str === qualifiedName.str);
     }
 
     public registerGlobalObjectDefinition(qualifiedName: QualifiedName, def: GlobalVariableDefinition) {
