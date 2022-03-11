@@ -1,6 +1,8 @@
-import { ClassDefinitionASTNode, FunctionDefinitionASTNode, LocalDeclarationASTNode, MemberDeclarationASTNode, MemberSimpleDeclarationASTNode, NonMemberSimpleDeclarationASTNode, TopLevelDeclarationASTNode } from "../../../ast/ast_declarations";
+import { ClassDefinitionASTNode, FunctionDefinitionASTNode, LocalDeclarationASTNode, MemberDeclarationASTNode, MemberSimpleDeclarationASTNode, NonMemberSimpleDeclarationASTNode, SimpleDeclarationASTNode, TopLevelDeclarationASTNode } from "../../../ast/ast_declarations";
 import { assert } from "../../../util/util";
 import { BlockContext, isBlockContext, isClassContext, MemberSpecificationContext, TranslationUnitContext } from "../../compilation/contexts";
+import { CPPError } from "../../compilation/errors";
+import { isQualifiedName } from "../../compilation/lexical";
 import { InvalidConstruct } from "../InvalidConstruct";
 import { ClassDeclaration } from "./class/ClassDeclaration";
 import { ClassDefinition } from "./class/ClassDefinition";
@@ -9,7 +11,7 @@ import { IncompleteTypeMemberVariableDeclaration } from "./class/IncompleteTypeM
 import { MemberVariableDeclaration } from "./class/MemberVariableDeclaration";
 import { Declarator } from "./Declarator";
 import { FunctionDeclaration } from "./function/FunctionDeclaration";
-import { createFunctionDeclarationFromDefinitionAST, FunctionDefinition } from "./function/FunctionDefinition";
+import { FunctionDefinition } from "./function/FunctionDefinition";
 import { TypedefDeclaration } from "./misc/TypedefDeclaration";
 import { UnknownBoundArrayDeclaration } from "./misc/UnknownBoundArrayDeclaration";
 import { UnknownTypeDeclaration } from "./misc/UnknownTypeDeclaration";
@@ -189,7 +191,7 @@ export function createLocalSimpleDeclarationFromAST(ast: NonMemberSimpleDeclarat
 
 const MemberDeclarationConstructsMap = {
     "simple_member_declaration": (ast: MemberSimpleDeclarationASTNode, context: MemberSpecificationContext) => createMemberSimpleDeclarationFromAST(ast, context),
-    "function_definition": (ast: FunctionDefinitionASTNode, context: MemberSpecificationContext) => createFunctionDeclarationFromDefinitionAST(ast, context)
+    "function_definition": (ast: FunctionDefinitionASTNode, context: MemberSpecificationContext) => createMemberFunctionDeclarationFromDefinitionAST(ast, context)
     // Note: function_definition includes ctor and dtor definitions
 };
 
@@ -262,6 +264,34 @@ export function createMemberSimpleDeclarationFromAST(ast: MemberSimpleDeclaratio
 
         return declaration;
     });
+}
+
+export function createMemberFunctionDeclarationFromDefinitionAST(ast: FunctionDefinitionASTNode, context: TranslationUnitContext) {
+
+    // Need to create TypeSpecifier first to get the base type for the declarators
+    const typeSpec = TypeSpecifier.createFromAST(ast.specs.typeSpecs, context);
+    const baseType = typeSpec.baseType;
+    const storageSpec = StorageSpecifier.createFromAST(ast.specs.storageSpecs, context);
+
+    const declarator = Declarator.createFromAST(ast.declarator, context, baseType);
+    const declaredType = declarator.type;
+
+    if (!declarator.name) {
+        return new InvalidConstruct(context, ast, CPPError.declaration.missing_name);
+    }
+    
+    if (!declaredType?.isFunctionType()) {
+        return new InvalidConstruct(context, ast, CPPError.declaration.func.definition_non_function_type);
+    }
+    
+    const declAST: SimpleDeclarationASTNode = {
+        construct_type: "simple_declaration",
+        declarators: [ast.declarator],
+        specs: ast.specs,
+        source: ast.declarator.source
+    };
+
+    return new FunctionDeclaration(context, declAST, typeSpec, storageSpec, declarator, ast.specs, declaredType);
 }
 
 
