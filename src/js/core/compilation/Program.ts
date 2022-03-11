@@ -143,7 +143,10 @@ export class Program {
     }
 
     public getLinkedFunctionEntity(qualifiedName: QualifiedName) {
-        return new FunctionOverloadGroup(Object.values(this.linkedFunctionEntities).filter(le => le.qualifiedName.str === qualifiedName.str))
+        const overloads = Object.values(this.linkedFunctionEntities).filter(le => le.qualifiedName.str === qualifiedName.str);
+        return overloads.length > 0
+            ? new FunctionOverloadGroup(overloads)
+            : undefined;
     }
 
     public getLinkedObjectEntity(qualifiedName: QualifiedName) {
