@@ -148,6 +148,7 @@ export class FunctionOverloadGroup {
     public readonly overloads: readonly FunctionEntity[];
 
     public constructor(overloads: readonly FunctionEntity[]) {
+        assert(overloads.length > 0, "Can not create a function overload group with no functions.");
         this.name = overloads[0].name;
         this.qualifiedName = overloads[0].qualifiedName;
         this.overloads = this._overloads = overloads.slice();
