@@ -2,13 +2,13 @@ import { AccessSpecifier, ClassDefinitionASTNode, FunctionDefinitionASTNode, Mem
 import { parseFunctionDefinition } from "../../../../parse/cpp_parser_util";
 import { asMutable, assert, Mutable } from "../../../../util/util";
 import { ClassContext, createClassContext, createImplicitContext, createMemberSpecificationContext, MemberSpecificationContext, SemanticContext, TranslationUnitContext } from "../../../compilation/contexts";
-import { BaseSubobjectEntity, FunctionEntity, MemberObjectEntity, MemberReferenceEntity, MemberVariableEntity, ReceiverEntity } from "../../../compilation/entities";
+import { BaseSubobjectEntity, CPPEntity, FunctionEntity, MemberObjectEntity, MemberReferenceEntity, MemberVariableEntity, ReceiverEntity } from "../../../compilation/entities";
 import { CPPError } from "../../../compilation/errors";
 import { AnalyticConstruct } from "../../../../analysis/predicates";
 import { AtomicType, CompleteClassType, FunctionType, isAtomicType, isBoundedArrayType, ReferenceType, VoidType } from "../../../compilation/types";
 import { SuccessfullyCompiled } from "../../CPPConstruct";
 import { BasicCPPConstruct } from "../../BasicCPPConstruct";
-import { createMemberDeclarationFromAST, MemberDeclaration, MemberSimpleDeclaration } from "../declarations";
+import { MemberDeclaration, MemberSimpleDeclaration } from "../declarations";
 import { FunctionDeclaration } from "../function/FunctionDeclaration";
 import { FunctionDefinition } from "../function/FunctionDefinition";
 import { TypeSpecifier } from "../TypeSpecifier";
@@ -174,13 +174,13 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         memberDeclarations.forEach(decl => {
             if (decl.construct_type === "member_variable_declaration") {
 
-                asMutable(this.memberVariableEntities).push(decl.declaredEntity);
+                addMemberEntity(this.memberVariableEntities, decl.declaredEntity);
 
                 if (decl.declaredEntity instanceof MemberObjectEntity) {
-                    asMutable(this.memberObjectEntities).push(decl.declaredEntity);
+                    addMemberEntity(this.memberObjectEntities, decl.declaredEntity);
                 }
                 else {
-                    asMutable(this.memberReferenceEntities).push(decl.declaredEntity);
+                    addMemberEntity(this.memberReferenceEntities, decl.declaredEntity);
                 }
 
                 // It's possible we have multiple declarations with the same name (if so,
@@ -194,7 +194,7 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
             else if (decl.construct_type === "function_declaration") {
                 // Note that only identifying function declarations and NOT definitions
                 // in here is intentional
-                asMutable(this.memberFunctionEntities).push(decl.declaredEntity);
+                addMemberEntity(this.memberFunctionEntities, decl.declaredEntity);
             }
         });
 
@@ -740,4 +740,10 @@ function createMemberFunctionDeclarationFromDefinitionAST(ast: FunctionDefinitio
     };
 
     return new FunctionDeclaration(context, declAST, typeSpec, storageSpec, declarator, ast.specs, declaredType);
+}
+
+function addMemberEntity<T extends CPPEntity>(entities: readonly T[], new_entity: T) {
+    if (!entities.find(ent => ent.entityId === new_entity.entityId)) {
+        asMutable(entities).push(new_entity);
+    }
 }
