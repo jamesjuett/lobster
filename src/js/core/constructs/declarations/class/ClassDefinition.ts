@@ -646,7 +646,7 @@ export interface CompiledClassDefinition<T extends CompleteClassType = CompleteC
 
 const MemberDeclarationConstructsMap = {
     "simple_member_declaration": (ast: MemberSimpleDeclarationASTNode, context: MemberSpecificationContext) => createMemberSimpleDeclarationFromAST(ast, context),
-    "function_definition": (ast: FunctionDefinitionASTNode, context: MemberSpecificationContext) => createMemberFunctionDeclarationFromDefinitionAST(ast, context)
+    "function_definition": (ast: FunctionDefinitionASTNode, context: MemberSpecificationContext) => createMemberFunctionDeclarationFromInlineDefinitionAST(ast, context)
     // Note: function_definition includes ctor and dtor definitions
 };
 
@@ -721,14 +721,11 @@ function createMemberSimpleDeclarationFromAST(ast: MemberSimpleDeclarationASTNod
     });
 }
 
-function createMemberFunctionDeclarationFromDefinitionAST(ast: FunctionDefinitionASTNode, context: TranslationUnitContext) {
+function createMemberFunctionDeclarationFromInlineDefinitionAST(ast: FunctionDefinitionASTNode, context: TranslationUnitContext) {
 
-    // Need to create TypeSpecifier first to get the base type for the declarators
     const typeSpec = TypeSpecifier.createFromAST(ast.specs.typeSpecs, context);
-    const baseType = typeSpec.baseType;
     const storageSpec = StorageSpecifier.createFromAST(ast.specs.storageSpecs, context);
-
-    const declarator = Declarator.createFromAST(ast.declarator, context, baseType);
+    const declarator = Declarator.createFromAST(ast.declarator, context, typeSpec.baseType);
     const declaredType = declarator.type;
 
     if (!declarator.name) {
