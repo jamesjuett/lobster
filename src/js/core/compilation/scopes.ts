@@ -70,17 +70,21 @@ export class Scope {
 
         // No previous declaration for this name
         if (!existingEntity) {
+            this.entities[entityName] = <any>newEntity; // HACK. <any> cast - this broke with TS 4.4.4
             this.variableEntityCreated(newEntity);
-            return this.entities[entityName] = <any>newEntity; // HACK. <any> cast - this broke with TS 4.4.4
+            newEntity.setSuccessfullyDeclared();
+            return newEntity;
         }
 
         // If there is an existing class entity, it may be displaced and effectively hidden.
         if (existingEntity.declarationKind === "class") {
             // Note: because a class entity cannot displace another class entity, we can
             // assume that there is no hidden class entity already
+            this.entities[entityName] = <any>newEntity; // HACK. <any> cast - this broke with TS 4.4.4
             this.hiddenClassEntities[entityName] = existingEntity;
             this.variableEntityCreated(newEntity);
-            return this.entities[entityName] = <any>newEntity; // HACK. <any> cast - this broke with TS 4.4.4
+            newEntity.setSuccessfullyDeclared();
+            return newEntity;
         }
 
         // Previous declaration for this name, but different kind of symbol
@@ -90,6 +94,11 @@ export class Scope {
 
         // Previous declaration of variable with same name, attempt to merge
         let entityOrError = newEntity.mergeInto(existingEntity);
+
+        // If we didn't get an error, make sure the entity is marked as successfully declared
+        if (!(entityOrError instanceof CompilerNote)) {
+            entityOrError.setSuccessfullyDeclared();
+        }
 
         // If we got the new entity back, it means it was added to the scope for the first time
         if (entityOrError === newEntity) {
@@ -119,7 +128,7 @@ export class Scope {
         // No previous declaration for this name
         if (!existingEntity) {
             this.entities[entityName] = new FunctionOverloadGroup([newEntity]);
-            // this.functionEntityCreated(newEntity);
+            newEntity.setSuccessfullyDeclared();
             return newEntity;
         }
 
@@ -129,7 +138,7 @@ export class Scope {
             // assume that there is no hidden class entity already
             this.hiddenClassEntities[entityName] = existingEntity;
             this.entities[entityName] = new FunctionOverloadGroup([newEntity]);
-            // this.functionEntityCreated(newEntity);
+            newEntity.setSuccessfullyDeclared();
             return newEntity;
         }
 
@@ -141,15 +150,14 @@ export class Scope {
         // Function overload group of previously existing functions, attempt to merge
         let entityOrError = newEntity.mergeInto(existingEntity);
 
-        // If we got the new entity back, it means it was added to the scope for the first time
-        // if (entityOrError === newEntity) {
-        //     this.functionEntityCreated(newEntity);
-        // }
+        // If we didn't get an error, make sure the entity is marked as successfully declared
+        if (!(entityOrError instanceof CompilerNote)) {
+            entityOrError.setSuccessfullyDeclared();
+        }
+
         return entityOrError;
     }
 
-    // protected functionEntityCreated(newEntity: FunctionEntity) {
-    // }
     /** Attempts to declare a class in this scope. TODO docs: this documentation is out of date
      * @param newEntity - The class being declared.
      * @returns Either the entity that was added, or an existing one already there, assuming it was compatible.
@@ -162,8 +170,10 @@ export class Scope {
 
         // No previous declaration for this name
         if (!existingEntity) {
+            this.entities[entityName] = newEntity;
             this.classEntityCreated(newEntity);
-            return this.entities[entityName] = newEntity;
+            newEntity.setSuccessfullyDeclared();
+            return newEntity;
         }
 
         // Previous declaration for this name, but different kind of symbol
@@ -176,6 +186,11 @@ export class Scope {
         // a multiple definition error), or they will generate an error.
         // There was a previous class declaration, attempt to merge
         let entityOrError = newEntity.mergeInto(existingEntity);
+        
+        // If we didn't get an error, make sure the entity is marked as successfully declared
+        if (!(entityOrError instanceof CompilerNote)) {
+            entityOrError.setSuccessfullyDeclared();
+        }
 
         // If we got the new entity back, it means it was added to the scope for the first time
         if (entityOrError === newEntity) {

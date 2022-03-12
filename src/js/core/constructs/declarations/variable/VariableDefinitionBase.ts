@@ -21,7 +21,6 @@ export abstract class VariableDefinitionBase<ContextType extends TranslationUnit
 
     public abstract readonly type: VariableDefinitionType;
     public abstract readonly declaredEntity: VariableEntity;
-    public abstract readonly isDeclaredEntityValid: boolean;
 
     private setInitializer(init: Initializer) {
         assert(!this.initializer); // should only be called once

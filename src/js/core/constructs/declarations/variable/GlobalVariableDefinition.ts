@@ -21,7 +21,6 @@ export class GlobalVariableDefinition extends VariableDefinitionBase<Translation
 
     public readonly type: VariableDefinitionType;
     public readonly declaredEntity!: GlobalObjectEntity<CompleteObjectType>; // TODO definite assignment assertion can be removed when global references are supported
-    public readonly isDeclaredEntityValid: boolean;
 
     public readonly qualifiedName: QualifiedName;
 
@@ -36,7 +35,6 @@ export class GlobalVariableDefinition extends VariableDefinitionBase<Translation
 
         if (type.isReferenceType()) {
             this.addNote(CPPError.lobster.unsupported_feature(this, "globally scoped references"));
-            this.isDeclaredEntityValid = false;
             return;
         }
 
@@ -47,11 +45,9 @@ export class GlobalVariableDefinition extends VariableDefinitionBase<Translation
         if (entityOrError instanceof GlobalObjectEntity) {
             this.declaredEntity = entityOrError;
             this.context.translationUnit.program.registerGlobalObjectDefinition(this.declaredEntity.qualifiedName, this);
-            this.isDeclaredEntityValid = true;
         }
         else {
             this.addNote(entityOrError);
-            this.isDeclaredEntityValid = false;
         }
 
     }

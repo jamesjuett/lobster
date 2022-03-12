@@ -20,7 +20,6 @@ export class FunctionDeclaration extends SimpleDeclaration {
 
     public readonly type: FunctionType;
     public readonly declaredEntity: FunctionEntity;
-    public readonly isDeclaredEntityValid: boolean;
     public readonly qualifiedName: QualifiedName;
     public readonly initializer: undefined;
 
@@ -112,7 +111,6 @@ export class FunctionDeclaration extends SimpleDeclaration {
             if (otherSpecs.virtual) { // use otherSpecs here since this.isVirtual depends on being a member fn
                 this.addNote(CPPError.declaration.ctor.virtual_prohibited(this));
             }
-            this.isDeclaredEntityValid = false;
 
         }
         else {
@@ -129,11 +127,9 @@ export class FunctionDeclaration extends SimpleDeclaration {
                     }
                 }
                 this.declaredEntity = actualDeclaredEntity;
-                this.isDeclaredEntityValid = true;
             }
             else {
                 this.addNote(entityOrError);
-                this.isDeclaredEntityValid = false;
             }
         }
 

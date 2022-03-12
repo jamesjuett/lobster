@@ -177,7 +177,7 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
             
             if (decl.construct_type === "member_variable_declaration") {
                 // Only record entities for valid entities
-                if (!decl.isDeclaredEntityValid) {
+                if (!decl.declaredEntity.isSuccessfullyDeclared) {
                     return;
                 }
 

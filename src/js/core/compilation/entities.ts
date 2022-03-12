@@ -99,9 +99,14 @@ export type DeclarationKind = "variable" | "function" | "class";
 abstract class DeclaredEntityBase<T extends Type = Type> extends NamedEntity<T> {
 
     public abstract readonly declarationKind: DeclarationKind;
+    public readonly isSuccessfullyDeclared: boolean = false;
 
     public constructor(type: T, name: string) {
         super(type, name);
+    }
+
+    public setSuccessfullyDeclared() {
+        asMutable(this).isSuccessfullyDeclared = true;
     }
 
 };
