@@ -1009,7 +1009,7 @@ export class FunctionEntity<T extends FunctionType = FunctionType> extends Decla
             }
 
             // check return type
-            if (!this.type.sameReturnType(overload.declaration.type)) {
+            if (!this.type.sameReturnType(overload.type)) {
                 this.declarations.forEach((decl) => decl.addNote(CPPError.link.func.returnTypesMatch(decl, this)));
                 return;
             }

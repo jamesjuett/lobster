@@ -54,8 +54,8 @@ export abstract class SimpleDeclaration<ContextType extends TranslationUnitConte
         this.name = getUnqualifiedName(declarator.name);
 
         if (otherSpecs.virtual) {
-            if (declarator.type?.isFunctionType() && isClassContext(context)) {
-                // ok, it's a member function
+            if (declarator.type?.isFunctionType() && !storageSpec.static && isClassContext(context)) {
+                // ok, it's a non-static member function
             }
             else {
                 this.addNote(CPPError.declaration.virtual_prohibited(this));

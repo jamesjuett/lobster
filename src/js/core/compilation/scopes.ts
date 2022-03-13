@@ -336,6 +336,7 @@ export class Scope {
 }
 
 export class BlockScope extends Scope {
+    
 }
 
 

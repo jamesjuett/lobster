@@ -20,6 +20,8 @@ import { t_OverloadableOperators } from "../constructs/expressions/selectOperato
 import { CPPObject } from "../runtime/objects";
 import { SourceReference } from "./Program";
 import { CompleteObjectType, ReferenceType, CompleteClassType, Type, AtomicType, PotentiallyCompleteArrayType, PotentiallyCompleteClassType, FunctionType, VoidType, PointerType, ExpressionType, sameType, PotentialParameterType, PotentialReturnType, IncompleteObjectType, BoundedArrayType } from "./types";
+import { getQualifiedNameBase, QualifiedName } from "./lexical";
+import { DeclaratorName } from "../constructs/declarations/Declarator";
 
 export enum NoteKind {
     ERROR = "error",
@@ -269,6 +271,29 @@ export const CPPError = {
             return new CompilerNote(construct, NoteKind.ERROR, "class_def.dtor_def", "Sorry, but for now Lobster only supports destructors that are defined inline. (i.e. You need a body.)");
         }
     },
+    declarator: {
+        name : {
+            qualified_prefix_not_found: function (decl_name: DeclaratorName, prefix: QualifiedName) {
+                return new CompilerNote(decl_name, NoteKind.ERROR, "declarator.name.qualified_prefix_not_found", `Unable to find a declaration for the qualified prefix ${prefix.str} to match this function definition.`);
+            },
+            qualified_invalid_prefix: function (decl_name: DeclaratorName, prefix: QualifiedName) {
+                return new CompilerNote(decl_name, NoteKind.ERROR, "declarator.name.qualified_invalid_prefix", `The prefix ${prefix.str} is invalid because it is not a class, namespace, or enumeration.`);
+            },
+            qualified_incomplete_type_prefix: function (decl_name: DeclaratorName, prefix: QualifiedName) {
+                return new CompilerNote(decl_name, NoteKind.ERROR, "declarator.name.qualified_incomplete_type_prefix", `The prefix ${prefix.str} is invalid because the class it refers to is incomplete at this point.`);
+            },
+        }
+    },
+    definition: {
+        func : {
+            no_declaration: function (def: FunctionDefinition) {
+                return new CompilerNote(def, NoteKind.ERROR, "declaration.func.no_declaration", `Unable to find any previous declaration of ${def.name} to match this function definition.`);
+            },
+        },
+        symbol_mismatch: (newEntity: DeclaredEntity) => (construct: TranslationUnitConstruct) => {
+            return new CompilerNote(construct, NoteKind.ERROR, "definition.symbol_mismatch", `Cannot define ${newEntity.name} as a different kind of symbol than its previous definition.`);
+        },
+    },
     declaration: {
         ctor: {
             copy: {
@@ -400,7 +425,7 @@ export const CPPError = {
             },
             multiple_def: function (def: FunctionDefinition, prevDef: FunctionDefinition) {
                 return new CompilerNote(def, NoteKind.ERROR, "declaration.func.multiple_def", `The function ${def.name} cannot be defined more than once.`);
-            }
+            },
         },
         variable: {
             multiple_def: function (def: VariableDefinition | ParameterDefinition, prevDef: VariableDefinition | ParameterDefinition) {
