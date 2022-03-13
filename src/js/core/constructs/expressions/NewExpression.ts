@@ -31,7 +31,7 @@ export function createNewExpressionFromAST(ast: NewExpressionASTNode, context: E
     let baseType = typeSpec.baseType;
 
     // Create declarator and determine declared type
-    let declarator = Declarator.createFromAST(ast.declarator ?? {}, context, baseType);
+    let declarator = Declarator.createFromAST(ast.declarator, context, baseType);
     let createdType = declarator.type;
 
     if (createdType && isPotentiallyCompleteArrayType(createdType)) {

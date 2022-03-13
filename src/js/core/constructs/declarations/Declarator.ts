@@ -33,8 +33,8 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
 
     public readonly parameters?: readonly ParameterDeclaration[]; // defined if this is a declarator of function type
 
-    public static createFromAST(ast: DeclaratorASTNode, context: TranslationUnitContext, baseType: Type | undefined) {
-        const declarator_name = DeclaratorName.createFromAST(ast, context);
+    public static createFromAST(ast: DeclaratorASTNode | undefined, context: TranslationUnitContext, baseType: Type | undefined) {
+        const declarator_name = ast && DeclaratorName.createFromAST(ast, context);
 
         if (declarator_name?.isQualifiedDeclaratorName()) {
             context = createQualifiedContext(context, declarator_name.qualifiedPrefixContext);
@@ -49,20 +49,20 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
      * Since declarators are largely about processing an AST, it doesn't make much sense to create
      * one without an AST.
      */
-    private constructor(context: TranslationUnitContext, ast: DeclaratorASTNode, declarator_name: DeclaratorName | undefined, baseType: Type | undefined) {
+    private constructor(context: TranslationUnitContext, ast: DeclaratorASTNode | undefined, declarator_name: DeclaratorName | undefined, baseType: Type | undefined) {
         super(context, ast);
         this.baseType = baseType;
 
         this.declaratorName = declarator_name;
         this.name = declarator_name?.name;
 
-        if (ast.pureVirtual) { this.isPureVirtual = true; }
-        if (ast.override) { this.isOverride = true; }
+        if (ast?.pureVirtual) { this.isPureVirtual = true; }
+        if (ast?.override) { this.isOverride = true; }
 
         this.determineNameAndType(ast);
     }
 
-    private determineNameAndType(ast: DeclaratorASTNode) {
+    private determineNameAndType(ast: DeclaratorASTNode | undefined) {
 
         let type: Type;
 
