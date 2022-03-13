@@ -414,6 +414,6 @@ export class ClassScope extends NamedScope {
             return parentMember;
         }
 
-        // returns undefined
+        return undefined;
     }
 }
