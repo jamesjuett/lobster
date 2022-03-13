@@ -43,7 +43,7 @@ export class Scope {
     private readonly typeEntities: { [index: string]: ClassEntity | undefined; } = {};
 
     public readonly translationUnit: TranslationUnit;
-    public readonly parent?: Scope;
+    public readonly parents: readonly Scope[];
     public readonly name?: string;
     public readonly children: { [index: string]: NamedScope | undefined; } = {};
 
@@ -51,7 +51,7 @@ export class Scope {
         // This assertion is no longer always true due to out-of-line function definitions
         // assert(!parent || translationUnit === parent.translationUnit);
         this.translationUnit = translationUnit;
-        this.parent = parent;
+        this.parents = parent ? [parent] : [];
     }
 
     public addChild(child: NamedScope) {
@@ -229,9 +229,9 @@ export class Scope {
         let ent = this.entities[name];
 
         // If we don't have an entity in this scope and we didn't specify we
-        // wanted an own entity, look in parent scope (if there is one)
-        if (!ent && !options.noParent && this.parent) {
-            return this.parent.lookup(name, Object.assign({}, options));
+        // wanted an own entity, look in parent scopes (if there are any)
+        if (!ent && !options.noParent && this.parents.length > 0) {
+            return this.parentLookup(name, options)
         }
 
         // If we didn't find anything, return undefined
@@ -254,7 +254,7 @@ export class Scope {
                 viable = ent.overloads.filter((cand) => {
 
                     // Check that parameter types match
-                    if (!cand.type.sameParamTypes(paramTypes))
+                    if (cand.type.sameParamTypes(paramTypes)) {
                         if (receiverType) {
                             // if receiver type is defined, candidate must also have
                             // a receiver and the presence/absence of const must match
@@ -265,7 +265,10 @@ export class Scope {
                             // if no receiver type is defined, candidate must not have a receiver
                             return !cand.type.receiverType;
                         }
-                    return cand.type.sameParamTypes(paramTypes);
+                    }
+                    else {
+                        return false;
+                    }
                 });
 
                 if (viable.length > 0) {
@@ -307,13 +310,28 @@ export class Scope {
         }
     }
 
+    protected parentLookup(name: UnqualifiedName, options: NameLookupOptions = { kind: "normal" }): DeclaredScopeEntry | undefined {
+        for(let i = 0; i < this.parents.length; ++i) {
+            const res = this.parents[i].lookup(name, Object.assign({}, options));
+            if (res) {
+                return res;
+            }
+        }
+        return undefined; // no parents yielded a result
+    }
+
     public availableVars(): VariableEntity[] {
         let vars: VariableEntity[] = [];
         Object.values(this.entities).forEach(
             entity => entity?.declarationKind === "variable" && vars.push(entity)
         );
-        return this.parent ? vars.concat(this.parent.availableVars()) : vars;
+        return vars.concat(...this.parents.map(parent => parent.availableVars()));
+    }
 
+    public createAlternateParentProxy(newParent: Scope) {
+        let proxy = Object.create(this);
+        proxy.parent = newParent;
+        return proxy;
     }
 }
 
@@ -364,12 +382,6 @@ export class ClassScope extends NamedScope {
         this.base = base;
     }
 
-    public createAlternateParentProxy(newParent: Scope) {
-        let proxy = Object.create(this);
-        proxy.parent = newParent;
-        return proxy;
-    }
-
     protected variableEntityCreated(newEntity: VariableEntity) {
         super.variableEntityCreated(newEntity);
         // TODO: add linkage when static members are implemented
@@ -397,7 +409,7 @@ export class ClassScope extends NamedScope {
             return baseMember;
         }
 
-        let parentMember = this.parent && !options.noParent && this.parent.lookup(name, Object.assign({}, options, { noBase: true }));
+        let parentMember = this.parents.length > 0 && !options.noParent && this.parentLookup(name, Object.assign({}, options, { noBase: true }));
         if (parentMember) {
             return parentMember;
         }
