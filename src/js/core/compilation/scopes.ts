@@ -2,7 +2,7 @@ import { CompilerNote } from "./errors";
 import { UnqualifiedName } from "./lexical";
 import { TranslationUnit } from "./Program";
 import { CompleteClassType, PotentialParameterType } from "./types";
-import { assert } from "../../util/util";
+import { asMutable, assert } from "../../util/util";
 import { CPPError } from "./errors";
 import { VariableEntity, FunctionEntity, ClassEntity, FunctionOverloadGroup, GlobalObjectEntity } from "./entities";
 
@@ -328,9 +328,9 @@ export class Scope {
         return vars.concat(...this.parents.map(parent => parent.availableVars()));
     }
 
-    public createAlternateParentProxy(newParent: Scope) {
-        let proxy = Object.create(this);
-        proxy.parent = newParent;
+    public createAlternateParentsProxy(new_parents: readonly Scope[]) {
+        let proxy = <Scope>Object.create(this);
+        asMutable(proxy).parents = new_parents;
         return proxy;
     }
 }
