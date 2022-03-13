@@ -545,7 +545,7 @@ class PreprocessedSource {
 
         // If this line wasn't part of any of the includes, just return a regular source reference to the original
         // source file associated with this translation unit
-        return new SourceReference(this.primarySourceFile, line - lineOffset + 1, column, start && start - offset, end && end - offset);
+        return new SourceReference(this.primarySourceFile, line - lineOffset + (this.numLines == line ? 0 : 1), column, start && start - offset, end && end - offset);
     }
 
 }
