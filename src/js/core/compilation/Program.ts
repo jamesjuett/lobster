@@ -110,7 +110,7 @@ export class Program {
         }
 
         (<Mutable<this>>this).staticObjectAllocator = new GlobalObjectAllocator(this.context, this.staticObjects);
-        
+
         if (this.mainFunction) {
             // Map from definitions to entities below to avoid any duplicates
             // (this.linkedObjectEntities might have duplicates)
@@ -124,7 +124,7 @@ export class Program {
 
         // let assertDecl = <FunctionDeclaration>createDeclarationFromAST(cpp_parse("void assert(bool);", {startRule: "declaration"}), intrinsicsTU.context)[0];
         // let functionContext = createFunctionContext(intrinsicsTU.context, assertDecl.declaredEntity);
-        // let assertDef = new FunctionDefinition(this.context, assertDecl, 
+        // let assertDef = new FunctionDefinition(this.context, assertDecl,
         //     )
 
     }
@@ -187,8 +187,8 @@ export class Program {
      * this is important since the code attempting to register the duplicate defintion can instead
      * use the existing one, to avoid multiple instances of identical definitions. If there was a
      * conflict, returns the newly added definition.
-     * @param qualifiedName 
-     * @param def 
+     * @param qualifiedName
+     * @param def
      */
     public registerClassDefinition(qualifiedName: QualifiedName, def: ClassDefinition) {
         let prevDef = this.linkedClassDefinitions[qualifiedName.str];
@@ -272,7 +272,7 @@ export interface RunnableProgram extends CompiledProgram {
 }
 
 export class SimpleProgram extends Program {
-    
+
     public constructor(source: string) {
         super([new SourceFile("main.cpp", source)], new Set<string>(["main.cpp"]));
     }
@@ -291,7 +291,8 @@ export class SourceFile {
 
     public constructor(name: string, text: string, isLibrary: boolean = false) {
         this.name = name;
-        this.text = text;
+        // add a newline to the EOF
+        this.text = text + "\n";
         this.isLibrary = isLibrary;
     }
 
@@ -691,7 +692,7 @@ export class TranslationUnit {
             let sourceRef = this.getSourceReferenceForAST(declAST);
             let topLevelContext = sourceRef.sourceFile.isLibrary
                 ? createLibraryContext(this.context) : this.context;
-            
+
             let declsOrFuncDef = createTopLevelDeclarationFromAST(declAST, topLevelContext);
             if (Array.isArray(declsOrFuncDef)) {
                 declsOrFuncDef.forEach(decl => {
@@ -804,7 +805,7 @@ const LIBRARY_FILES : {[index:string]: SourceFile} = {
           initializer_list(const initializer_list<bool> &other)
            : begin(other.begin), end(other.end) {}
         };
-        
+
     `, true)
 }
 
