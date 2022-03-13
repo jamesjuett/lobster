@@ -29,6 +29,16 @@ export function createImplicitContext<ContextType extends ProgramContext>(contex
     return Object.assign({}, context, { implicit: true });
 }
 
+export function createQualifiedContext(occuring_context: TranslationUnitContext, qualified_prefix_context: TranslationUnitContext) {
+    return Object.assign({}, qualified_prefix_context, {
+        contextualScope: qualified_prefix_context.contextualScope.createAlternateParentsProxy([
+            qualified_prefix_context.contextualScope,
+            occuring_context.contextualScope
+        ]),
+        translationUnit: occuring_context.translationUnit
+    });
+}
+
 
 export interface TranslationUnitContext extends ProgramContext {
     readonly translationUnit: TranslationUnit;
@@ -141,13 +151,6 @@ export function createClassContext(
 
 export function isMemberSpecificationContext(context: TranslationUnitContext) : context is MemberSpecificationContext {
     return isClassContext(context) && !!(context as MemberSpecificationContext).accessLevel;
-}
-
-export function createOutOfLineFunctionDefinitionContext(declarationContext: MemberSpecificationContext, newParent: TranslationUnitContext) {
-    return Object.assign({}, declarationContext, {
-        contextualScope: declarationContext.contextualScope.createAlternateParentProxy(newParent.contextualScope),
-        translationUnit: newParent.translationUnit
-    });
 }
 
 export interface MemberSpecificationContext extends ClassContext {
