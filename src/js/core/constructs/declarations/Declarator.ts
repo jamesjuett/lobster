@@ -273,8 +273,10 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
             return;
         }
 
-        // TODO clean up error immediately above and get rid of yucky cast below
-        return new FunctionType(type, <PotentialParameterType[]>paramTypes, this.context.containingClass?.type.cvQualified(!!postfix.const));
+        const receiverType = this.context.containingClass?.type.cvQualified(!!postfix.const);
+
+        // TODO get rid of yucky cast below
+        return new FunctionType(type, <PotentialParameterType[]>paramTypes, receiverType);
     }
     
     public isUnqualifiedDeclarator() : this is UnqualifiedDeclarator {
