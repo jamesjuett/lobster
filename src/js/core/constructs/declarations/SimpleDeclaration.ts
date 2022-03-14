@@ -3,7 +3,7 @@ import { assert } from "../../../util/util";
 import { isClassContext, TranslationUnitContext } from "../../compilation/contexts";
 import { CPPEntity } from "../../compilation/entities";
 import { CPPError } from "../../compilation/errors";
-import { getUnqualifiedName, isQualifiedName } from "../../compilation/lexical";
+import { getUnqualifiedName, isQualifiedName, UnqualifiedName } from "../../compilation/lexical";
 import { Type } from "../../compilation/types";
 import { SuccessfullyCompiled } from "../CPPConstruct";
 import { BasicCPPConstruct } from "../BasicCPPConstruct";
@@ -22,7 +22,7 @@ export abstract class SimpleDeclaration<ContextType extends TranslationUnitConte
     public readonly otherSpecifiers: OtherSpecifiers;
 
     public abstract readonly type?: Type;
-    public readonly name: string;
+    public readonly name: UnqualifiedName;
 
     public readonly initializer?: Initializer;
     public abstract readonly declaredEntity?: CPPEntity;
@@ -44,7 +44,7 @@ export abstract class SimpleDeclaration<ContextType extends TranslationUnitConte
         // This also prevents a variety of other silly issues, e.g. trying to
         // put a definition for some function from some other class inside a class
         // (i.e. you can't use a qualified name to go defining some random other thing)
-        if (isQualifiedName(declarator.name)) {
+        if (declarator.isQualifiedDeclarator()) {
             this.addNote(CPPError.declaration.qualified_name_prohibited(this));
         }
 

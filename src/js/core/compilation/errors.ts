@@ -331,8 +331,17 @@ export const CPPError = {
             virtual_prohibited: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.virtual_prohibited", "A constructor may not be declared as virtual.");
             },
+            pure_virtual_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.pure_virtual_prohibited", "A constructor may not be declared as pure virtual.");
+            },
+            override_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.override_prohibited", "A constructor may not be declared with the override keyword.");
+            },
             previous_declaration: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.previous_declaration", `Re-declaration of a constructor is not allowed (a previous declaration of a constructor with the same parameter types exists).`);
+            },
+            static_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.static_prohibited", `A constructor may not be declared as a static member function.`);
             },
         },
         dtor: {
@@ -357,9 +366,15 @@ export const CPPError = {
             no_destructor_temporary: function (construct: TranslationUnitConstruct, entity: TemporaryObjectEntity) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.no_destructor_temporary", "This expression creates a temporary object of type " + entity.type + " that needs to be destroyed, but I can't find a destructor for the " + entity.type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor.");
             },
+            const_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.const_prohibited", "A destructor is not allowed to have a const specification.");
+            },
             return_type_prohibited: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.return_type_prohibited", "A destructor is not allowed to specify a return type.");
-            }
+            },
+            static_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.static_prohibited", `A destructor may not be declared as a static member function.`);
+            },
             // TODO Add warning for non-virtual destructor if derived classes exist
         },
         // no_type : function(construct: TranslationUnitConstruct) {
@@ -398,6 +413,18 @@ export const CPPError = {
             },
             void_param: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.void_param", "Function parameters may not have void type.");
+            },
+            static_member_const_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.static_member_const_prohibited", "A static member function may not be const (there is no receiver object or this pointer for a static member function, so the const has nothing to apply to).");
+            },
+            static_member_virtual_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.static_member_virtual_prohibited", "A static member function may not be virtual (there is no receiver object or this pointer for a static member function, so there is no concept of dynamic binding or virtual functions).");
+            },
+            static_member_pure_virtual_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.static_member_pure_virtual_prohibited", "A static member function may not be pure virtual (there is no receiver object or this pointer for a static member function, so there is no concept of dynamic binding or virtual functions).");
+            },
+            static_member_override_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.static_member_override_prohibited", "A static member function may not be override (there is no receiver object or this pointer for a static member function, so there is no concept of overriding or virtual functions).");
             },
             op_member: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.op_member", "This operator must be overloaded as a non-static member function.");

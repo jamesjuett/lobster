@@ -1935,6 +1935,10 @@ export class FunctionType<ReturnType extends PotentialReturnType = PotentialRetu
             && this.receiverType?.isVolatile == other.receiverType?.isVolatile;
     }
 
+    public discardedReceiverType() {
+        return new FunctionType(this.returnType, this.paramTypes);
+    }
+
     public typeString(excludeBase: boolean, varname: string, decorated: boolean = false) {
         return this.returnType.typeString(excludeBase, varname + this.paramStrType, decorated);
     }

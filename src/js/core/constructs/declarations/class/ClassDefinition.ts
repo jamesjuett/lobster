@@ -319,10 +319,11 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
             parseFunctionDefinition(src),
             this.implicitPublicContext);
         this.attach(iddc);
-        let declEntity = iddc.declaration.declaredEntity;
-        assert(declEntity.returnsVoid());
-        (<Mutable<this>>this).defaultConstructor = declEntity;
-        asMutable(this.constructors).push(declEntity);
+        let definedEntity = iddc.definedEntity;
+        assert(definedEntity);
+        assert(definedEntity.returnsVoid());
+        (<Mutable<this>>this).defaultConstructor = definedEntity;
+        asMutable(this.constructors).push(definedEntity);
     }
 
 
@@ -375,15 +376,16 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
             parseFunctionDefinition(src),
             this.implicitPublicContext);
         this.attach(idcc);
-        let declEntity = idcc.declaration.declaredEntity;
-        assert(declEntity.returnsVoid()); // check cast above with assertion
+        let definedEntity = idcc.definedEntity;
+        assert(definedEntity); // check cast above with assertion
+        assert(definedEntity.returnsVoid()); // check cast above with assertion
         if (refParamCanBeConst) {
-            (<Mutable<this>>this).constCopyConstructor = declEntity;
+            (<Mutable<this>>this).constCopyConstructor = definedEntity;
         }
         else {
-            (<Mutable<this>>this).nonConstCopyConstructor = declEntity;
+            (<Mutable<this>>this).nonConstCopyConstructor = definedEntity;
         }
-        asMutable(this.constructors).push(declEntity);
+        asMutable(this.constructors).push(definedEntity);
     }
 
 
@@ -479,9 +481,10 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
             parseFunctionDefinition(src),
             this.implicitPublicContext);
         this.attach(idd);
-        let declEntity = idd.declaration.declaredEntity;
-        assert(declEntity.returnsVoid());
-        (<Mutable<this>>this).destructor = declEntity;
+        let definedEntity = idd.definedEntity;
+        assert(definedEntity);
+        assert(definedEntity.returnsVoid());
+        (<Mutable<this>>this).destructor = definedEntity;
     }
 
     //     compileDeclaration : function(){
