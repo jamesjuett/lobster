@@ -142,17 +142,6 @@ export class Program {
         this.linkedClassEntities[entity.entityId] = entity;
     }
 
-    public getLinkedFunctionEntity(qualifiedName: QualifiedName) {
-        const overloads = Object.values(this.linkedFunctionEntities).filter(le => le.qualifiedName.str === qualifiedName.str);
-        return overloads.length > 0
-            ? new FunctionOverloadGroup(overloads)
-            : undefined;
-    }
-
-    public getLinkedObjectEntity(qualifiedName: QualifiedName) {
-        return Object.values(this.linkedObjectEntities).find(le => le.qualifiedName.str === qualifiedName.str);
-    }
-
     public registerGlobalObjectDefinition(qualifiedName: QualifiedName, def: GlobalVariableDefinition) {
         if (!this.linkedObjectDefinitions[qualifiedName.str]) {
             this.linkedObjectDefinitions[qualifiedName.str] = def;
