@@ -36,7 +36,7 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
     public static createFromAST(ast: DeclaratorASTNode | undefined, context: TranslationUnitContext, baseType: Type | undefined) {
         const declarator_name = ast && DeclaratorName.createFromAST(ast, context);
 
-        if (declarator_name?.isQualifiedDeclaratorName()) {
+        if (declarator_name?.isQualifiedDeclaratorName() && declarator_name.qualifiedPrefixContext) {
             context = createQualifiedContext(context, declarator_name.qualifiedPrefixContext);
         }
 
@@ -355,6 +355,13 @@ export class DeclaratorName extends BasicCPPConstruct<TranslationUnitContext, AS
         
         if (isQualifiedName(name)) {
             const name_prefix = getQualifiedNameBase(name);
+
+            // Handle cases like ::somename
+            if (name_prefix.components.length === 0) {
+                this.qualifiedPrefixContext = context.translationUnit.context;
+                return 
+            }
+
             const prefix_namespace = context.translationUnit.qualifiedLookup(name_prefix);
 
             if (!prefix_namespace) {
@@ -405,7 +412,7 @@ export interface UnqualifiedDeclaratorName extends DeclaratorName {
 
 export interface QualifiedDeclaratorName extends DeclaratorName {
     readonly name: QualifiedName;
-    readonly qualifiedPrefixContext: TranslationUnitContext;
+    readonly qualifiedPrefixContext?: TranslationUnitContext;
 }
 
 
