@@ -379,8 +379,8 @@ export class DeclaratorName extends BasicCPPConstruct<TranslationUnitContext, AS
         if (isClassContext(effective_context)) {
             let className = effective_context.containingClass.name;
             className = className.replace(/<.*>/g, ""); // remove template parameters
-            this.isConstructorName = this.name === effective_context.containingClass.name;
-            this.isConstructorName = this.name === effective_context.containingClass.name;
+            this.isConstructorName = this.name === className;
+            this.isDestructorName = this.name === "~"+className;
         }
     }
 

@@ -111,7 +111,7 @@ function createTopLevelSimpleDeclarationFromAST(ast: NonMemberSimpleDeclarationA
             declaration = new VoidDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs);
         }
         else if (declaredType.isFunctionType()) {
-            declaration = new FunctionDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
+            declaration = FunctionDeclaration.create(context, ast, typeSpec, storageSpec, declarator, ast.specs);
         }
         else if (declaredType.isArrayOfUnknownBoundType()) {
             // TODO: it may be possible to determine the bound from the initializer
@@ -171,7 +171,7 @@ export function createLocalSimpleDeclarationFromAST(ast: NonMemberSimpleDeclarat
             declaration = new VoidDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs);
         }
         else if (declaredType.isFunctionType()) {
-            declaration = new FunctionDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
+            declaration = FunctionDeclaration.create(context, ast, typeSpec, storageSpec, declarator, ast.specs);
         }
         else if (declaredType.isArrayOfUnknownBoundType()) {
             // TODO: it may be possible to determine the bound from the initializer

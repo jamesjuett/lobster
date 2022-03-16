@@ -1241,7 +1241,7 @@ int main() {
                 if (output.indexOf("frogrd") !== -1) {
                     let strcpyFn = findFirstConstruct(project.program, Predicates.byFunctionName("strcpy"));
                     if (strcpyFn) {
-                        project.addNote(new CompilerNote(strcpyFn.declaration.declarator, NoteKind.STYLE, "hint_strcpy_null_char",
+                        project.addNote(new CompilerNote(strcpyFn.declarator, NoteKind.STYLE, "hint_strcpy_null_char",
                             `Hint: It looks like you're quite close to the right answer! Check out the simulation output. What gets printed? How does that relate to the placement of the null characters in memory?`));
                     }
                     return false;

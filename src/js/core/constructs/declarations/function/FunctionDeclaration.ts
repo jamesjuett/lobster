@@ -19,8 +19,8 @@ export abstract class FunctionDeclaration extends SimpleDeclaration {
     public readonly construct_type = "function_declaration";
 
     public abstract readonly type: FunctionType;
-    public abstract readonly declaredEntity: FunctionEntity;
     public abstract readonly qualifiedName: QualifiedName;
+    public abstract readonly declaredEntity: FunctionEntity;
     public readonly initializer: undefined;
 
     public readonly parameterDeclarations: readonly ParameterDeclaration[];
@@ -34,11 +34,11 @@ export abstract class FunctionDeclaration extends SimpleDeclaration {
     public abstract readonly isStatic: boolean;
     
 
-    public create(context: ClassContext, ast: SimpleDeclarationASTNode | undefined, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+    public static create(context: ClassContext, ast: SimpleDeclarationASTNode | undefined, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers) : MemberFunctionDeclaration;
-    public create(context: TranslationUnitContext, ast: SimpleDeclarationASTNode | undefined, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+    public static create(context: TranslationUnitContext, ast: SimpleDeclarationASTNode | undefined, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers) : NonMemberFunctionDeclaration | MemberFunctionDeclaration;
-    public create(context: TranslationUnitContext, ast: SimpleDeclarationASTNode | undefined, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
+    public static create(context: TranslationUnitContext, ast: SimpleDeclarationASTNode | undefined, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
         declarator: Declarator, otherSpecs: OtherSpecifiers) : NonMemberFunctionDeclaration | MemberFunctionDeclaration {
 
         if (isClassContext(context)) {
@@ -202,7 +202,9 @@ export class MemberFunctionDeclaration extends FunctionDeclaration {
         // If it's named as a destructor, we discard static here to make sure
         // we enter the member function case below.
         if (this.isDestructor) {
-            this.notes.addNote(CPPError.declaration.ctor.static_prohibited(this));
+            if (storageSpec.static) {
+                this.notes.addNote(CPPError.declaration.dtor.static_prohibited(this));
+            }
             this.isStatic = false;
         }
         else {

@@ -106,7 +106,7 @@ export class Program {
                 (<Mutable<this>>this).mainFunction = mainLookup.definitions[0];
             }
             else {
-                mainLookup.definitions.forEach(mainDef => this.addNote(CPPError.link.main_multiple_def(mainDef.declaration)));
+                mainLookup.definitions.forEach(mainDef => this.addNote(CPPError.link.main_multiple_def(mainDef)));
             }
         }
 
@@ -172,11 +172,9 @@ export class Program {
         else {
             // Already some definitions for functions with this same name. Check if there's
             // a conflicting overload that violates ODR
-            let conflictingDef = selectOverloadedDefinition(prevDef.definitions, def.declaration.type);
+            let conflictingDef = selectOverloadedDefinition(prevDef.definitions, def.type);
             if (conflictingDef) {
-                if (!def.declaration.isMemberFunction || def.isOutOfLineMemberFunctionDefinition) {
-                    this.addNote(CPPError.link.multiple_def(def, qualifiedName.str));
-                }
+                this.addNote(CPPError.link.multiple_def(def, qualifiedName.str));
                 // else ignore inline member functions with conflicting definitions
                 // those errors would be caught in the check for conflicting class definitions
             }

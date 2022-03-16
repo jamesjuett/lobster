@@ -1213,7 +1213,7 @@ function convLen(args: readonly Expression[]) {
  * the provided function type. (Note there's no consideration of function names here.)
  */
 export function selectOverloadedDefinition(overloadGroup: readonly FunctionDefinition[], type: FunctionType) {
-    return overloadGroup.find(func => type.sameSignature(func.declaration.type));
+    return overloadGroup.find(func => type.sameSignature(func.type));
 }
 
 

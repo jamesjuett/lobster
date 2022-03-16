@@ -25,6 +25,7 @@ import { setInitializerFromAST } from "../variable/common";
 import { FriendDeclaration } from "./FriendDeclaration";
 import { IncompleteTypeMemberVariableDeclaration } from "./IncompleteTypeMemberVariableDeclaration";
 import { MemberVariableDeclaration } from "./MemberVariableDeclaration";
+import { overloadResolution } from "../../../compilation/overloads";
 
 
 
@@ -144,7 +145,7 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
         // Phase 2: Go back through and compile member function definitions, and let the
         // class know about them
         functionDefsToCompile.forEach(([defAST, memberSpecContext, decl]) => {
-            classDef.attachInlineFunctionDefinition(FunctionDefinition.createFromAST(defAST, memberSpecContext, decl));
+            classDef.attachInlineFunctionDefinition(FunctionDefinition.createInlineMemberFunctionDefinition(defAST, memberSpecContext, decl));
         });
 
         return classDef;
@@ -319,11 +320,11 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
             parseFunctionDefinition(src),
             this.implicitPublicContext);
         this.attach(iddc);
-        let definedEntity = iddc.definedEntity;
-        assert(definedEntity);
-        assert(definedEntity.returnsVoid());
-        (<Mutable<this>>this).defaultConstructor = definedEntity;
-        asMutable(this.constructors).push(definedEntity);
+        let declaredEntity = iddc.declaration?.declaredEntity;
+        assert(declaredEntity);
+        assert(declaredEntity.returnsVoid());
+        (<Mutable<this>>this).defaultConstructor = declaredEntity;
+        asMutable(this.constructors).push(declaredEntity);
     }
 
 
@@ -376,25 +377,30 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
             parseFunctionDefinition(src),
             this.implicitPublicContext);
         this.attach(idcc);
-        let definedEntity = idcc.definedEntity;
-        assert(definedEntity); // check cast above with assertion
-        assert(definedEntity.returnsVoid()); // check cast above with assertion
+        let declaredEntity = idcc.declaration?.declaredEntity;
+        assert(declaredEntity); // check cast above with assertion
+        assert(declaredEntity.returnsVoid()); // check cast above with assertion
         if (refParamCanBeConst) {
-            (<Mutable<this>>this).constCopyConstructor = definedEntity;
+            (<Mutable<this>>this).constCopyConstructor = declaredEntity;
         }
         else {
-            (<Mutable<this>>this).nonConstCopyConstructor = definedEntity;
+            (<Mutable<this>>this).nonConstCopyConstructor = declaredEntity;
         }
-        asMutable(this.constructors).push(definedEntity);
+        asMutable(this.constructors).push(declaredEntity);
     }
 
 
     public lookupAssignmentOperator(requireConstParam: boolean, isReceiverConst: boolean) {
-        return this.context.contextualScope.lookup("operator=", {
-            kind: "exact", noParent: true, noBase: true,
-            paramTypes: [this.type.cvQualified(requireConstParam)],
-            receiverType: this.type.cvQualified(isReceiverConst)
+        let lookupResult = this.context.contextualScope.lookup("operator=", {
+            kind: "normal", noParent: true, noBase: true
         });
+        if (lookupResult?.declarationKind === "function") {
+            return overloadResolution(
+                lookupResult.overloads,
+                [this.type.cvQualified(requireConstParam)],
+                this.type.cvQualified(isReceiverConst)
+            );
+        }
     }
 
     private createImplicitlyDefinedCopyAssignmentOperatorIfAppropriate() {
@@ -481,10 +487,10 @@ export class ClassDefinition extends BasicCPPConstruct<ClassContext, ClassDefini
             parseFunctionDefinition(src),
             this.implicitPublicContext);
         this.attach(idd);
-        let definedEntity = idd.definedEntity;
-        assert(definedEntity);
-        assert(definedEntity.returnsVoid());
-        (<Mutable<this>>this).destructor = definedEntity;
+        let declaredEntity = idd.declaration?.declaredEntity;
+        assert(declaredEntity);
+        assert(declaredEntity.returnsVoid());
+        (<Mutable<this>>this).destructor = declaredEntity;
     }
 
     //     compileDeclaration : function(){
@@ -701,7 +707,7 @@ function createMemberSimpleDeclarationFromAST(ast: MemberSimpleDeclarationASTNod
             declaration = new VoidDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs);
         }
         else if (declaredType.isFunctionType()) {
-            declaration = new FunctionDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs, declaredType);
+            declaration = FunctionDeclaration.create(context, ast, typeSpec, storageSpec, declarator, ast.specs);
         }
         else if (declaredType.isArrayOfUnknownBoundType()) {
             // TODO: it may be possible to determine the bound from the initializer
@@ -724,7 +730,7 @@ function createMemberSimpleDeclarationFromAST(ast: MemberSimpleDeclarationASTNod
     });
 }
 
-function createMemberFunctionDeclarationFromInlineDefinitionAST(ast: FunctionDefinitionASTNode, context: TranslationUnitContext) {
+function createMemberFunctionDeclarationFromInlineDefinitionAST(ast: FunctionDefinitionASTNode, context: MemberSpecificationContext) {
 
     const typeSpec = TypeSpecifier.createFromAST(ast.specs.typeSpecs, context);
     const storageSpec = StorageSpecifier.createFromAST(ast.specs.storageSpecs, context);
@@ -746,7 +752,7 @@ function createMemberFunctionDeclarationFromInlineDefinitionAST(ast: FunctionDef
         source: ast.declarator.source
     };
 
-    return new FunctionDeclaration(context, declAST, typeSpec, storageSpec, declarator, ast.specs, declaredType);
+    return FunctionDeclaration.create(context, declAST, typeSpec, storageSpec, declarator, ast.specs);
 }
 
 function addMemberEntity<T extends CPPEntity>(entities: readonly T[], new_entity: T) {

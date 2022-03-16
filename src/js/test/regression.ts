@@ -1057,6 +1057,7 @@ int main() {
             {line: 5, id: "declaration.ctor.return_type_prohibited"},
             {line: 6, id: "declaration.missing_type_specifier"},
             {line: 7, id: "declaration.ctor.return_type_prohibited"},
+            {line: 7, id: "declaration.ctor.previous_declaration"},
             {line: 8, id: "declaration.ctor.return_type_prohibited"},
             {line: 8, id: "declaration.ctor.previous_declaration"},
             {line: 9, id: "declaration.missing_type_specifier"},

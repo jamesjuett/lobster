@@ -21,7 +21,7 @@ import { CPPObject } from "../runtime/objects";
 import { SourceReference } from "./Program";
 import { CompleteObjectType, ReferenceType, CompleteClassType, Type, AtomicType, PotentiallyCompleteArrayType, PotentiallyCompleteClassType, FunctionType, VoidType, PointerType, ExpressionType, sameType, PotentialParameterType, PotentialReturnType, IncompleteObjectType, BoundedArrayType } from "./types";
 import { getQualifiedNameBase, QualifiedName } from "./lexical";
-import { DeclaratorName } from "../constructs/declarations/Declarator";
+import { Declarator, DeclaratorName } from "../constructs/declarations/Declarator";
 
 export enum NoteKind {
     ERROR = "error",
@@ -286,11 +286,14 @@ export const CPPError = {
     },
     definition: {
         func : {
-            no_declaration: function (def: FunctionDefinition) {
-                return new CompilerNote(def, NoteKind.ERROR, "declaration.func.no_declaration", `Unable to find any previous declaration of ${def.name} to match this function definition.`);
+            no_declaration: function (declarator: Declarator) {
+                return new CompilerNote(declarator, NoteKind.ERROR, "declaration.func.no_declaration", `Unable to find any previous declaration of ${declarator.name} to match this function definition.`);
+            },
+            static_member_const_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "definition.func.static_member_const_prohibited", "This definition signature matches to a previously declared static member function, which prohibits a trailing const qualification.");
             },
         },
-        symbol_mismatch: (newEntity: DeclaredEntity) => (construct: TranslationUnitConstruct) => {
+        symbol_mismatch: function (construct: TranslationUnitConstruct, newEntity: DeclaredEntity) {
             return new CompilerNote(construct, NoteKind.ERROR, "definition.symbol_mismatch", `Cannot define ${newEntity.name} as a different kind of symbol than its previous definition.`);
         },
     },
