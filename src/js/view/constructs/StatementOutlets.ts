@@ -94,11 +94,7 @@ export class DeclarationStatementOutlet extends StatementOutlet<RuntimeDeclarati
         declarationElem.addClass("codeInstance");
         declarationElem.addClass("declaration");
 
-        // TODO: add support for other kinds of declarations that aren't variable definitions
-        let declarations = this.construct.declarations;
-        if (!allLocalVariableDefinitions(declarations)) {
-            return;
-        }
+        const declarations = this.construct.declarations;
 
         // Non-null assertion below because type specifier's baseType must be defined if
         // the declarator of this variable definition got created.
