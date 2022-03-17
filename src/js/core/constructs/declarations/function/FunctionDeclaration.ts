@@ -83,7 +83,17 @@ export class NonMemberFunctionDeclaration extends FunctionDeclaration {
         this.isStatic = !!storageSpec.static;
 
         assert(declarator.type?.isFunctionType())
-        this.type = declarator.type;
+
+        if (declarator.isUnqualifiedDeclarator()) {
+            this.type = declarator.type;
+        }
+        else {
+            // If the declarator had a qualified name, this is a malformed declaration
+            // and an error will have been added by SimpleDeclaration already. this.name
+            // will already have been adjusted to only the unqualified name, but a receiver
+            // type may be present on the declarator function type. We'll remove that here.
+            this.type = new FunctionType(declarator.type.returnType, declarator.type.paramTypes, undefined);
+        }
         this.qualifiedName = getQualifiedName(this.name);
 
         this.declaredEntity = new FunctionEntity(this.type, this);
