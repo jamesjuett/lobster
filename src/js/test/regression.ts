@@ -1381,6 +1381,87 @@ int main() {
 
 
 
+    // ---------- Qualified Declarator Names Test ----------
+    
+    new SingleTranslationUnitTest(
+      "Qualified Declarator Names Test",
+`class Other {
+  
+};
+
+class Test {
+  
+  int mem1; // allowed
+  void func(); // allowed
+  int ::mem2; // not allowed
+  int Test::mem3; // not allowed
+  int Other::mem4; // not allowed
+  
+  int Test::mem1; // not allowed even though declared above  
+  void Test::func(); // not allowed even though declared above
+  
+  double Test::get_pi() {
+    return 3.14;
+  }
+};
+
+int main() {
+  int ::a; // not allowed
+  void ::b(); // not allowed
+  
+  void Test::local_func(); // not allowed
+  local_func(); // declaration above discards the Test::
+  
+  // All of the errors above are noted, but the compiler
+  // recovers and declares the members anyway.
+  Test t; 
+  t.mem1;
+  t.mem2;
+  t.mem3;
+  t.mem4;
+  t.func();
+  t.get_pi();
+  t.blah; // random name, should cause error
+} 
+
+void local_func() {
+  // Test::local_func() with discarded Test::
+  // will link to this.
+}
+
+int ::c;
+int Test::d; 
+
+void Test::func() {
+  // links to Test::func() declared above
+}
+
+int Fake::something; // not allowed
+`,
+      [
+          new NoteVerifier([
+            { "line": 9, "id": "declaration.qualified_name_prohibited" },
+            { "line": 10, "id": "declaration.qualified_name_prohibited" },
+            { "line": 10, "id": "declarator.name.qualified_incomplete_type_prefix" },
+            { "line": 11, "id": "declaration.qualified_name_prohibited" },
+            { "line": 13, "id": "declarator.name.qualified_incomplete_type_prefix" },
+            { "line": 13, "id": "declaration.prev_member" },
+            { "line": 13, "id": "declaration.qualified_name_prohibited" },
+            { "line": 14, "id": "declaration.qualified_name_prohibited" },
+            { "line": 14, "id": "declarator.name.qualified_incomplete_type_prefix" },
+            { "line": 16, "id": "declarator.name.qualified_incomplete_type_prefix" },
+            { "line": 16, "id": "declaration.qualified_name_prohibited" },
+            { "line": 22, "id": "declaration.qualified_name_prohibited" },
+            { "line": 23, "id": "declaration.qualified_name_prohibited" },
+            { "line": 25, "id": "declaration.qualified_name_prohibited" },
+            { "line": 37, "id": "expr.dot.no_such_member" },
+            { "line": 45, "id": "declaration.qualified_name_prohibited" },
+            { "line": 46, "id": "declaration.qualified_name_prohibited" },
+            { "line": 52, "id": "declaration.qualified_name_prohibited" },
+            { "line": 52, "id": "declarator.name.qualified_prefix_not_found" },
+          ])
+      ]
+    );
 
 
 
