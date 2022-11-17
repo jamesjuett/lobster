@@ -1,11 +1,11 @@
 import { isType, Bool, isPotentiallyCompleteClassType } from "../../compilation/types";
-import { ExpressionContext, ConstructDescription } from "../../compilation/contexts";
+import { ExpressionContext, ConstructDescription, SemanticContext } from "../../compilation/contexts";
 import { SuccessfullyCompiled, RuntimeConstruct } from "../CPPConstruct";
 import { CPPError } from "../../compilation/errors";
 import { Value, RawValueType } from "../../runtime/Value";
 import { Expression, CompiledExpression, TypedExpression, t_TypedExpression } from "./Expression";
 import { RuntimeExpression } from "./RuntimeExpression";
-import { Predicates } from "../../../analysis/predicates";
+import { AnalyticConstruct, Predicates } from "../../../analysis/predicates";
 import { CompiledTemporaryDeallocator } from "../TemporaryDeallocator";
 import { LogicalBinaryOperatorExpressionASTNode, t_LogicalBinaryOperators } from "../../../ast/ast_expressions";
 import { BinaryOperatorExpression } from "./BinaryOperatorExpression";
@@ -75,6 +75,12 @@ export class LogicalBinaryOperatorExpression extends BinaryOperatorExpression<Lo
     // }
     public describeEvalResult(depth: number): ConstructDescription {
         throw new Error("Method not implemented.");
+    }
+
+    public override isSemanticallyEquivalent_impl(other: AnalyticConstruct, ec: SemanticContext): boolean {
+        return other.construct_type === this.construct_type
+            && other.operator === this.operator
+            && (this.areChildrenSemanticallyEquivalent(other, ec) || other.areChildrenSemanticallyEquivalent(this, ec));
     }
 
 }

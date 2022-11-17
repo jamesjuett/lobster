@@ -244,7 +244,7 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
             return;
         }
 
-        let paramDeclarations = postfix.args.map((argAST) => ParameterDeclaration.createFromAST(argAST, this.context));
+        let paramDeclarations = postfix.args.map((argAST, i) => ParameterDeclaration.createFromAST(argAST, i, this.context));
         (<Mutable<this>>this).parameters = paramDeclarations;
         this.attachAll(paramDeclarations);
 
