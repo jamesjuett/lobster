@@ -70,10 +70,7 @@ export abstract class CPPEntity<T extends Type = Type> {
 
     //TODO: function for isOdrUsed()?
 
-    public isSemanticallyEquivalent(other: CPPEntity, equivalenceContext: SemanticContext): boolean {
-        return sameType(other.type, this.type);
-        // TODO semantic equivalence
-    }
+    public abstract isSemanticallyEquivalent(other: CPPEntity, equivalenceContext: SemanticContext): boolean;
 }
 
 export function areEntitiesSemanticallyEquivalent(entity: CPPEntity | undefined, other: CPPEntity | undefined, equivalenceContext: SemanticContext) {
@@ -206,11 +203,12 @@ abstract class VariableEntityBase<T extends ObjectEntityType = ObjectEntityType>
 export class LocalObjectEntity<T extends CompleteObjectType = CompleteObjectType> extends VariableEntityBase<T> implements ObjectEntity<T> {
     public readonly variableKind = "object";
     public readonly variableLocation = "local";
-    public readonly isParameter: boolean;
 
     public readonly firstDeclaration: LocalVariableDefinition | ParameterDefinition;
     public readonly declarations: readonly LocalVariableDefinition[] | readonly ParameterDefinition[];
     public readonly definition: LocalVariableDefinition | ParameterDefinition;
+
+    private readonly _isParameter: boolean;
 
     public constructor(type: T, def: LocalVariableDefinition | ParameterDefinition, isParameter: boolean = false) {
         super(type, def.name);
@@ -218,7 +216,7 @@ export class LocalObjectEntity<T extends CompleteObjectType = CompleteObjectType
         this.declarations = <readonly LocalVariableDefinition[] | readonly ParameterDefinition[]>[def];
         this.definition = def;
 
-        this.isParameter = isParameter;
+        this._isParameter = isParameter;
     }
 
     public toString() {
@@ -235,6 +233,10 @@ export class LocalObjectEntity<T extends CompleteObjectType = CompleteObjectType
         return rtConstruct.containingRuntimeFunction.stackFrame!.localObjectLookup(this);
     }
 
+    public isParameter() : this is LocalObjectParameterEntity<T> {
+        return this._isParameter;
+    }
+
     public isTyped<NarrowedT extends CompleteObjectType>(predicate: (t:CompleteObjectType) => t is NarrowedT) : this is LocalObjectEntity<NarrowedT>;
     public isTyped<NarrowedT extends Type>(predicate: (t:Type) => t is NarrowedT) : this is never;
     public isTyped<NarrowedT extends CompleteObjectType>(predicate: (t:CompleteObjectType) => t is NarrowedT) : this is LocalObjectEntity<NarrowedT> {
@@ -242,19 +244,44 @@ export class LocalObjectEntity<T extends CompleteObjectType = CompleteObjectType
     }
 
     public describe() {
-        return { name: this.name, message: `the ${this.isParameter ? "parameter" : "local variable"} ${this.name}` };
+        return { name: this.name, message: `the ${this._isParameter ? "parameter" : "local variable"} ${this.name}` };
     }
+
+    public override isSemanticallyEquivalent(other: CPPEntity, equivalenceContext: SemanticContext): boolean {
+        
+        if (!(other instanceof LocalObjectEntity)) {
+            return false;
+        }
+
+        if (!sameType(other.type, this.type)) {
+            return false;
+        }
+        
+        // Parameters must match another parameter in the same position
+        if (this.isParameter() || other.isParameter()) {
+            return this.isParameter() && other.isParameter() && this.firstDeclaration.position === other.firstDeclaration.position;
+        }
+
+        return true;
+    }
+};
+
+export interface LocalObjectParameterEntity<T extends CompleteObjectType = CompleteObjectType> extends LocalObjectEntity<T> {
+    readonly firstDeclaration: ParameterDefinition;
+    readonly declarations: readonly ParameterDefinition[];
+    readonly definition: ParameterDefinition;
 };
 
 export class LocalReferenceEntity<T extends ReferenceType = ReferenceType> extends VariableEntityBase<T> implements BoundReferenceEntity<T>, UnboundReferenceEntity<T> {
     public readonly variableKind = "reference";
     public readonly variableLocation = "local";
-    public readonly isParameter: boolean;
 
     public readonly firstDeclaration: LocalVariableDefinition | ParameterDefinition;
     public readonly declarations: readonly LocalVariableDefinition[] | readonly ParameterDefinition[];
     public readonly definition: LocalVariableDefinition | ParameterDefinition;
     public readonly name: string;
+
+    private readonly _isParameter: boolean;
 
     public constructor(type: T, def: LocalVariableDefinition | ParameterDefinition, isParameter: boolean = false) {
         super(type, def.name);
@@ -263,7 +290,7 @@ export class LocalReferenceEntity<T extends ReferenceType = ReferenceType> exten
         this.declarations = <readonly LocalVariableDefinition[] | readonly ParameterDefinition[]>[def];
         this.definition = def;
 
-        this.isParameter = isParameter;
+        this._isParameter = isParameter;
     }
 
     public mergeInto(existingEntity: VariableEntity) {
@@ -280,6 +307,10 @@ export class LocalReferenceEntity<T extends ReferenceType = ReferenceType> exten
         return rtConstruct.containingRuntimeFunction.stackFrame!.localReferenceLookup<X>(this);
     }
 
+    public isParameter() : this is LocalReferenceParameterEntity<T> {
+        return this._isParameter;
+    }
+
     public isTyped<NarrowedT extends ReferenceType>(predicate: (t:ReferenceType) => t is NarrowedT) : this is LocalReferenceEntity<NarrowedT>;
     public isTyped<NarrowedT extends Type>(predicate: (t:Type) => t is NarrowedT) : this is never;
     public isTyped<NarrowedT extends ReferenceType>(predicate: (t:ReferenceType) => t is NarrowedT) : this is LocalReferenceEntity<NarrowedT> {
@@ -287,8 +318,33 @@ export class LocalReferenceEntity<T extends ReferenceType = ReferenceType> exten
     }
 
     public describe() {
-        return { name: this.name, message: `the ${this.isParameter ? "reference parameter" : "reference"} ${this.name}` };
+        return { name: this.name, message: `the ${this._isParameter ? "reference parameter" : "reference"} ${this.name}` };
     }
+
+    public override isSemanticallyEquivalent(other: CPPEntity, equivalenceContext: SemanticContext): boolean {
+        
+        if (!(other instanceof LocalObjectEntity)) {
+            return false;
+        }
+
+        if (!sameType(other.type, this.type)) {
+            return false;
+        }
+        
+        // Parameters must match another parameter in the same position
+        if (this.isParameter() || other.isParameter()) {
+            return this.isParameter() && other.isParameter() && this.firstDeclaration.position === other.firstDeclaration.position;
+        }
+
+        return true;
+    }
+};
+
+export interface LocalReferenceParameterEntity<T extends ReferenceType = ReferenceType> extends LocalReferenceEntity<T> {
+
+    readonly firstDeclaration: ParameterDefinition;
+    readonly declarations: readonly ParameterDefinition[];
+    readonly definition: ParameterDefinition;
 };
 
 export class GlobalObjectEntity<T extends CompleteObjectType = CompleteObjectType> extends VariableEntityBase<T> {
@@ -351,6 +407,14 @@ export class GlobalObjectEntity<T extends CompleteObjectType = CompleteObjectTyp
 
     public describe() {
         return { name: this.name, message: "the variable " + this.name };
+    }
+
+    public override isSemanticallyEquivalent(other: CPPEntity, equivalenceContext: SemanticContext): boolean {
+        
+        // Globals have stricter rules and must have the same name
+        return other instanceof GlobalObjectEntity
+            && sameType(other.type, this.type)
+            && other.name === this.name;
     }
 };
 
@@ -419,6 +483,10 @@ export class ReturnObjectEntity<T extends CompleteObjectType = CompleteObjectTyp
         // TODO: add info about which function? would need to be specified when the return value is created
         return { name: "[return]", message: "the return object" };
     }
+
+    public isSemanticallyEquivalent(other: CPPEntity, equivalenceContext: SemanticContext): boolean {
+        return other instanceof ReturnObjectEntity && sameType(other.type, this.type);
+    }
 };
 
 export class ReturnByReferenceEntity<T extends ReferenceType = ReferenceType> extends CPPEntity<T> implements UnboundReferenceEntity<T> {
@@ -439,6 +507,10 @@ export class ReturnByReferenceEntity<T extends ReferenceType = ReferenceType> ex
     public describe() {
         // TODO: add info about which function? would need to be specified when the return value is created
         return { name: "[&return]", message: "the object returned by reference" };
+    }
+
+    public isSemanticallyEquivalent(other: CPPEntity, equivalenceContext: SemanticContext): boolean {
+        return other instanceof ReturnObjectEntity && sameType(other.type, this.type);
     }
 };
 
@@ -521,6 +593,9 @@ export class PassByValueParameterEntity<T extends CompleteObjectType = CompleteO
         }
     }
 
+    public isSemanticallyEquivalent(other: CPPEntity, equivalenceContext: SemanticContext): boolean {
+        return other instanceof PassByValueParameterEntity && sameType(other.type, this.type) && areEntitiesSemanticallyEquivalent(other.calledFunction, this.calledFunction, equivalenceContext);
+    }
 };
 
 export class PassByReferenceParameterEntity<T extends ReferenceType = ReferenceType> extends CPPEntity<T> implements UnboundReferenceEntity<T> {
@@ -558,6 +633,10 @@ export class PassByReferenceParameterEntity<T extends ReferenceType = ReferenceT
             return { name: `Parameter #${this.num + 1}`, message: `Parameter #${this.num + 1} of the called function` };
         }
     }
+
+    public isSemanticallyEquivalent(other: CPPEntity, equivalenceContext: SemanticContext): boolean {
+        return other instanceof PassByReferenceParameterEntity && sameType(other.type, this.type) && areEntitiesSemanticallyEquivalent(other.calledFunction, this.calledFunction, equivalenceContext);
+    }
 };
 
 export class ReceiverEntity extends CPPEntity<CompleteClassType> implements ObjectEntity<CompleteClassType> {
@@ -589,6 +668,10 @@ export class ReceiverEntity extends CPPEntity<CompleteClassType> implements Obje
             return {name: "*this", message: "the receiver of this call (i.e. *this)"};
         // }
     }
+
+    public isSemanticallyEquivalent(other: CPPEntity, equivalenceContext: SemanticContext): boolean {
+        return other instanceof ReceiverEntity && sameType(other.type, this.type);
+    }
 };
 
 
@@ -617,6 +700,10 @@ export class NewObjectEntity<T extends NewObjectType = NewObjectType> extends CP
         return {name: "a new heap object", message: "the dynamically allocated object (of type "+this.type+") created by new"};
     }
 
+    public isSemanticallyEquivalent(other: CPPEntity, equivalenceContext: SemanticContext): boolean {
+        return other instanceof NewObjectEntity && sameType(other.type, this.type);
+    }
+
 };
 
 export class NewArrayEntity<T extends PotentiallyCompleteArrayType = PotentiallyCompleteArrayType> extends CPPEntity<T> {
@@ -642,6 +729,9 @@ export class NewArrayEntity<T extends PotentiallyCompleteArrayType = Potentially
         return {name: "a new dynamically sized array", message: "the dynamically allocated/sized array (of element type "+this.type+") created by new"};
     }
 
+    public isSemanticallyEquivalent(other: CPPEntity, equivalenceContext: SemanticContext): boolean {
+        return other instanceof NewArrayEntity && sameType(other.type, this.type);
+    }
 };
 
 export class ArraySubobjectEntity<T extends ArrayElemType = ArrayElemType> extends CPPEntity<T> implements ObjectEntity<T> {
@@ -672,6 +762,10 @@ export class ArraySubobjectEntity<T extends ArrayElemType = ArrayElemType> exten
             name: arrDesc.name + "[" + this.index + "]",
             message: "element " + this.index + " of " + arrDesc.message
         };
+    }
+
+    public isSemanticallyEquivalent(other: CPPEntity, equivalenceContext: SemanticContext): boolean {
+        return other instanceof ArraySubobjectEntity && sameType(other.type, this.type) && areEntitiesSemanticallyEquivalent(other.arrayEntity, this.arrayEntity, equivalenceContext);
     }
 }
 
@@ -708,6 +802,10 @@ export class DynamicLengthArrayNextElementEntity<T extends ArrayElemType = Array
             message: "the next element of " + arrDesc.message + " to be initialized"
         };
     }
+
+    public isSemanticallyEquivalent(other: CPPEntity, equivalenceContext: SemanticContext): boolean {
+        return other instanceof DynamicLengthArrayNextElementEntity && sameType(other.type, this.type) && areEntitiesSemanticallyEquivalent(other.arrayEntity, this.arrayEntity, equivalenceContext);
+    }
 }
 
 export class BaseSubobjectEntity extends CPPEntity<CompleteClassType> implements ObjectEntity<CompleteClassType> {
@@ -738,6 +836,10 @@ export class BaseSubobjectEntity extends CPPEntity<CompleteClassType> implements
             name: "the " + this.type.className + " base class of " + this.containingEntity.describe().name,
             message: "the " + this.type.className + " base class subobject of " + this.containingEntity.describe()
         };
+    }
+
+    public isSemanticallyEquivalent(other: CPPEntity, equivalenceContext: SemanticContext): boolean {
+        return other instanceof BaseSubobjectEntity && sameType(other.type, this.type) && areEntitiesSemanticallyEquivalent(other.containingEntity, this.containingEntity, equivalenceContext);
     }
 }
 
@@ -799,6 +901,9 @@ export class MemberObjectEntity<T extends CompleteObjectType = CompleteObjectTyp
         return predicate(this.type);
     }
 
+    public isSemanticallyEquivalent(other: CPPEntity, equivalenceContext: SemanticContext): boolean {
+        return other instanceof MemberObjectEntity && sameType(other.type, this.type);
+    }
 }
 
 export class MemberReferenceEntity<T extends ReferenceType = ReferenceType> extends MemberVariableEntityBase<T> implements BoundReferenceEntity<T>, UnboundReferenceEntity<T> {
@@ -822,6 +927,9 @@ export class MemberReferenceEntity<T extends ReferenceType = ReferenceType> exte
         return predicate(this.type);
     }
 
+    public isSemanticallyEquivalent(other: CPPEntity, equivalenceContext: SemanticContext): boolean {
+        return other instanceof MemberReferenceEntity && sameType(other.type, this.type);
+    }
 };
 
 export class TemporaryObjectEntity<T extends CompleteObjectType = CompleteObjectType> extends CPPEntity<T> implements ObjectEntity<T> {
@@ -871,6 +979,9 @@ export class TemporaryObjectEntity<T extends CompleteObjectType = CompleteObject
         return { name: this.name, message: this.name }; // TOOD: eventually change implementation when I remove name
     }
 
+    public isSemanticallyEquivalent(other: CPPEntity, equivalenceContext: SemanticContext): boolean {
+        return other instanceof TemporaryObjectEntity && sameType(other.type, this.type);
+    }
 }
 
 
@@ -1070,6 +1181,15 @@ export class FunctionEntity<T extends FunctionType = FunctionType> extends Decla
             message: `the ${this.name} function`
         };
     }
+
+    public isSemanticallyEquivalent(other: CPPEntity, equivalenceContext: SemanticContext): boolean {
+        return other instanceof FunctionEntity && sameType(other.type, this.type)
+            && other.isMemberFunction === this.isMemberFunction
+            && other.isVirtual === this.isVirtual
+            && other.isPureVirtual === this.isPureVirtual
+            && other.isConstructor === this.isConstructor
+            && other.isDestructor === this.isDestructor;
+    }
 }
 
 export class ClassEntity extends DeclaredEntityBase<PotentiallyCompleteClassType> {
@@ -1162,6 +1282,10 @@ export class ClassEntity extends DeclaredEntityBase<PotentiallyCompleteClassType
             name: this.name,
             message: `the ${this.name} function`
         };
+    }
+
+    public isSemanticallyEquivalent(other: CPPEntity, equivalenceContext: SemanticContext): boolean {
+        return other instanceof ClassEntity && sameType(other.type, this.type);
     }
 }
 

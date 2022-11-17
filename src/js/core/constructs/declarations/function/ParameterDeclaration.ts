@@ -36,9 +36,10 @@ export class ParameterDeclaration extends BasicCPPConstruct<TranslationUnitConte
     public readonly name?: string; // parameter declarations need not provide a name
     public readonly type?: PotentialParameterType;
     public readonly declaredEntity?: LocalObjectEntity | LocalReferenceEntity;
+    public readonly position: number;
 
     public constructor(context: TranslationUnitContext, ast: ParameterDeclarationASTNode, typeSpec: TypeSpecifier, storageSpec: StorageSpecifier,
-        declarator: Declarator, otherSpecs: OtherSpecifiers) {
+        declarator: Declarator, otherSpecs: OtherSpecifiers, position: number) {
 
         super(context, ast);
 
@@ -46,6 +47,7 @@ export class ParameterDeclaration extends BasicCPPConstruct<TranslationUnitConte
         this.attach(this.storageSpecifier = storageSpec);
         this.attach(this.declarator = declarator);
         this.otherSpecifiers = otherSpecs;
+        this.position = position;
 
         this.name = declarator.name && getUnqualifiedName(declarator.name);
 
@@ -78,7 +80,7 @@ export class ParameterDeclaration extends BasicCPPConstruct<TranslationUnitConte
 
     }
 
-    public static createFromAST(ast: ParameterDeclarationASTNode, context: TranslationUnitContext): ParameterDeclaration {
+    public static createFromAST(ast: ParameterDeclarationASTNode, position: number, context: TranslationUnitContext): ParameterDeclaration {
 
         let storageSpec = StorageSpecifier.createFromAST(ast.specs.storageSpecs, context);
 
@@ -88,7 +90,7 @@ export class ParameterDeclaration extends BasicCPPConstruct<TranslationUnitConte
         // Compile declarator for each parameter (of the function-type argument itself)
         let declarator = Declarator.createFromAST(ast.declarator, context, typeSpec.baseType);
 
-        return new ParameterDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs);
+        return new ParameterDeclaration(context, ast, typeSpec, storageSpec, declarator, ast.specs, position);
     }
 
     public isPotentialParameterDefinition(): this is ParameterDefinition {
