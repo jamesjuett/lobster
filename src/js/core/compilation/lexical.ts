@@ -95,6 +95,13 @@ export function composeQualifiedName(prefix: LexicalIdentifier, name: LexicalIde
     };
 }
 
+export function parseQualifiedName(qualified_string: string) : QualifiedName {
+    return {
+        components: qualified_string.split("::"),
+        str: qualified_string,
+    };
+}
+
 export type UnqualifiedName = string;
 
 export type QualifiedName = {
