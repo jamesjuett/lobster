@@ -1,6 +1,6 @@
 {
     "name": "lobster-vis",
-    "version": "1.0.17",
+    "version": "1.0.19",
     "description": "A C++ Program Visualization Tool",
     "main": "dist/lobster.js",
     "types": "dist/lobster.d.ts",
@@ -51,6 +51,7 @@
     "scripts": {
         "build": "webpack --config webpack.config.js",
         "copy-to-backend": "cp -r public/* ../lobster-backend/public",
-        "test": "TS_NODE_FILES=true mocha -r ts-node/register 'src/test/**/*.spec.ts'"
+        "test": "TS_NODE_FILES=true mocha -r ts-node/register 'src/test/**/*.spec.ts'",
+        "prepublish": "tsc"
     }
 }

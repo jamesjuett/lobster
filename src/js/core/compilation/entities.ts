@@ -329,7 +329,7 @@ export class LocalReferenceEntity<T extends ReferenceType = ReferenceType> exten
 
     public override isSemanticallyEquivalent(other: CPPEntity, equivalenceContext: SemanticContext): boolean {
         
-        if (!(other instanceof LocalObjectEntity)) {
+        if (!(other instanceof LocalReferenceEntity)) {
             return false;
         }
 
@@ -516,7 +516,7 @@ export class ReturnByReferenceEntity<T extends ReferenceType = ReferenceType> ex
     }
 
     public isSemanticallyEquivalent(other: CPPEntity, equivalenceContext: SemanticContext): boolean {
-        return other instanceof ReturnObjectEntity && sameType(other.type, this.type);
+        return other instanceof ReturnByReferenceEntity && sameType(other.type, this.type);
     }
 };
 
