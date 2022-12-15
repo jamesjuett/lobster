@@ -2,7 +2,7 @@ import { CompilerNote } from "./errors";
 import { UnqualifiedName } from "./lexical";
 import { TranslationUnit } from "./Program";
 import { CompleteClassType, PotentialParameterType } from "./types";
-import { assert } from "../../util/util";
+import { asMutable, assert } from "../../util/util";
 import { CPPError } from "./errors";
 import { VariableEntity, FunctionEntity, ClassEntity, FunctionOverloadGroup, GlobalObjectEntity } from "./entities";
 
@@ -43,7 +43,7 @@ export class Scope {
     private readonly typeEntities: { [index: string]: ClassEntity | undefined; } = {};
 
     public readonly translationUnit: TranslationUnit;
-    public readonly parent?: Scope;
+    public readonly parents: readonly Scope[];
     public readonly name?: string;
     public readonly children: { [index: string]: NamedScope | undefined; } = {};
 
@@ -51,7 +51,7 @@ export class Scope {
         // This assertion is no longer always true due to out-of-line function definitions
         // assert(!parent || translationUnit === parent.translationUnit);
         this.translationUnit = translationUnit;
-        this.parent = parent;
+        this.parents = parent ? [parent] : [];
     }
 
     public addChild(child: NamedScope) {
@@ -70,17 +70,21 @@ export class Scope {
 
         // No previous declaration for this name
         if (!existingEntity) {
+            this.entities[entityName] = <any>newEntity; // HACK. <any> cast - this broke with TS 4.4.4
             this.variableEntityCreated(newEntity);
-            return this.entities[entityName] = <any>newEntity; // HACK. <any> cast - this broke with TS 4.4.4
+            newEntity.setSuccessfullyDeclared();
+            return newEntity;
         }
 
         // If there is an existing class entity, it may be displaced and effectively hidden.
         if (existingEntity.declarationKind === "class") {
             // Note: because a class entity cannot displace another class entity, we can
             // assume that there is no hidden class entity already
+            this.entities[entityName] = <any>newEntity; // HACK. <any> cast - this broke with TS 4.4.4
             this.hiddenClassEntities[entityName] = existingEntity;
             this.variableEntityCreated(newEntity);
-            return this.entities[entityName] = <any>newEntity; // HACK. <any> cast - this broke with TS 4.4.4
+            newEntity.setSuccessfullyDeclared();
+            return newEntity;
         }
 
         // Previous declaration for this name, but different kind of symbol
@@ -90,6 +94,11 @@ export class Scope {
 
         // Previous declaration of variable with same name, attempt to merge
         let entityOrError = newEntity.mergeInto(existingEntity);
+
+        // If we didn't get an error, make sure the entity is marked as successfully declared
+        if (!(entityOrError instanceof CompilerNote)) {
+            entityOrError.setSuccessfullyDeclared();
+        }
 
         // If we got the new entity back, it means it was added to the scope for the first time
         if (entityOrError === newEntity) {
@@ -119,7 +128,7 @@ export class Scope {
         // No previous declaration for this name
         if (!existingEntity) {
             this.entities[entityName] = new FunctionOverloadGroup([newEntity]);
-            // this.functionEntityCreated(newEntity);
+            newEntity.setSuccessfullyDeclared();
             return newEntity;
         }
 
@@ -129,7 +138,7 @@ export class Scope {
             // assume that there is no hidden class entity already
             this.hiddenClassEntities[entityName] = existingEntity;
             this.entities[entityName] = new FunctionOverloadGroup([newEntity]);
-            // this.functionEntityCreated(newEntity);
+            newEntity.setSuccessfullyDeclared();
             return newEntity;
         }
 
@@ -141,15 +150,14 @@ export class Scope {
         // Function overload group of previously existing functions, attempt to merge
         let entityOrError = newEntity.mergeInto(existingEntity);
 
-        // If we got the new entity back, it means it was added to the scope for the first time
-        // if (entityOrError === newEntity) {
-        //     this.functionEntityCreated(newEntity);
-        // }
+        // If we didn't get an error, make sure the entity is marked as successfully declared
+        if (!(entityOrError instanceof CompilerNote)) {
+            entityOrError.setSuccessfullyDeclared();
+        }
+
         return entityOrError;
     }
 
-    // protected functionEntityCreated(newEntity: FunctionEntity) {
-    // }
     /** Attempts to declare a class in this scope. TODO docs: this documentation is out of date
      * @param newEntity - The class being declared.
      * @returns Either the entity that was added, or an existing one already there, assuming it was compatible.
@@ -162,8 +170,10 @@ export class Scope {
 
         // No previous declaration for this name
         if (!existingEntity) {
+            this.entities[entityName] = newEntity;
             this.classEntityCreated(newEntity);
-            return this.entities[entityName] = newEntity;
+            newEntity.setSuccessfullyDeclared();
+            return newEntity;
         }
 
         // Previous declaration for this name, but different kind of symbol
@@ -176,6 +186,11 @@ export class Scope {
         // a multiple definition error), or they will generate an error.
         // There was a previous class declaration, attempt to merge
         let entityOrError = newEntity.mergeInto(existingEntity);
+        
+        // If we didn't get an error, make sure the entity is marked as successfully declared
+        if (!(entityOrError instanceof CompilerNote)) {
+            entityOrError.setSuccessfullyDeclared();
+        }
 
         // If we got the new entity back, it means it was added to the scope for the first time
         if (entityOrError === newEntity) {
@@ -214,9 +229,9 @@ export class Scope {
         let ent = this.entities[name];
 
         // If we don't have an entity in this scope and we didn't specify we
-        // wanted an own entity, look in parent scope (if there is one)
-        if (!ent && !options.noParent && this.parent) {
-            return this.parent.lookup(name, Object.assign({}, options));
+        // wanted an own entity, look in parent scopes (if there are any)
+        if (!ent && !options.noParent && this.parents.length > 0) {
+            return this.parentLookup(name, options)
         }
 
         // If we didn't find anything, return undefined
@@ -239,7 +254,7 @@ export class Scope {
                 viable = ent.overloads.filter((cand) => {
 
                     // Check that parameter types match
-                    if (!cand.type.sameParamTypes(paramTypes))
+                    if (cand.type.sameParamTypes(paramTypes)) {
                         if (receiverType) {
                             // if receiver type is defined, candidate must also have
                             // a receiver and the presence/absence of const must match
@@ -250,7 +265,10 @@ export class Scope {
                             // if no receiver type is defined, candidate must not have a receiver
                             return !cand.type.receiverType;
                         }
-                    return cand.type.sameParamTypes(paramTypes);
+                    }
+                    else {
+                        return false;
+                    }
                 });
 
                 if (viable.length > 0) {
@@ -292,17 +310,33 @@ export class Scope {
         }
     }
 
+    protected parentLookup(name: UnqualifiedName, options: NameLookupOptions = { kind: "normal" }): DeclaredScopeEntry | undefined {
+        for(let i = 0; i < this.parents.length; ++i) {
+            const res = this.parents[i].lookup(name, Object.assign({}, options));
+            if (res) {
+                return res;
+            }
+        }
+        return undefined; // no parents yielded a result
+    }
+
     public availableVars(): VariableEntity[] {
         let vars: VariableEntity[] = [];
         Object.values(this.entities).forEach(
             entity => entity?.declarationKind === "variable" && vars.push(entity)
         );
-        return this.parent ? vars.concat(this.parent.availableVars()) : vars;
+        return vars.concat(...this.parents.map(parent => parent.availableVars()));
+    }
 
+    public createAlternateParentsProxy(new_parents: readonly Scope[]) {
+        let proxy = <Scope>Object.create(this);
+        asMutable(proxy).parents = new_parents;
+        return proxy;
     }
 }
 
 export class BlockScope extends Scope {
+    
 }
 
 
@@ -349,12 +383,6 @@ export class ClassScope extends NamedScope {
         this.base = base;
     }
 
-    public createAlternateParentProxy(newParent: Scope) {
-        let proxy = Object.create(this);
-        proxy.parent = newParent;
-        return proxy;
-    }
-
     protected variableEntityCreated(newEntity: VariableEntity) {
         super.variableEntityCreated(newEntity);
         // TODO: add linkage when static members are implemented
@@ -382,11 +410,11 @@ export class ClassScope extends NamedScope {
             return baseMember;
         }
 
-        let parentMember = this.parent && !options.noParent && this.parent.lookup(name, Object.assign({}, options, { noBase: true }));
+        let parentMember = this.parents.length > 0 && !options.noParent && this.parentLookup(name, Object.assign({}, options, { noBase: true }));
         if (parentMember) {
             return parentMember;
         }
 
-        // returns undefined
+        return undefined;
     }
 }

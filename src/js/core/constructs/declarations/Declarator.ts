@@ -1,13 +1,14 @@
+import { AnalyticConstruct } from "../../../analysis/predicates";
+import { ASTNode } from "../../../ast/ASTNode";
 import { DeclaratorASTNode, FunctionPostfixDeclaratorASTNode } from "../../../ast/ast_declarators";
 import { parseNumericLiteralValueFromAST } from "../../../ast/ast_expressions";
-import { asMutable, assertNever, Mutable } from "../../../util/util";
-import { isClassContext, SemanticContext, TranslationUnitContext } from "../../compilation/contexts";
+import { assertNever, Mutable } from "../../../util/util";
+import { createQualifiedContext, isClassContext, SemanticContext, TranslationUnitContext } from "../../compilation/contexts";
 import { CPPError, NoteHandler } from "../../compilation/errors";
-import { astToIdentifier, checkIdentifier, getUnqualifiedName, isQualifiedName, isUnqualifiedName, LexicalIdentifier, QualifiedName, UnqualifiedName } from "../../compilation/lexical";
-import { AnalyticConstruct } from "../../../analysis/predicates";
+import { astToIdentifier, checkIdentifier, getQualifiedNameBase, isQualifiedName, isUnqualifiedName, LexicalIdentifier, QualifiedName, UnqualifiedName } from "../../compilation/lexical";
 import { ArrayOfUnknownBoundType, BoundedArrayType, FunctionType, PointerType, PotentialParameterType, ReferenceType, sameType, Type, VoidType } from "../../compilation/types";
-import { SuccessfullyCompiled } from "../CPPConstruct";
 import { BasicCPPConstruct } from "../BasicCPPConstruct";
+import { SuccessfullyCompiled } from "../CPPConstruct";
 import { CompiledParameterDeclaration, ParameterDeclaration } from "./function/ParameterDeclaration";
 
 
@@ -22,20 +23,24 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
     public readonly construct_type = "declarator";
 
     public readonly name?: UnqualifiedName | QualifiedName;
-    public readonly type?: Type;
+    public readonly declaratorName?: DeclaratorName;
 
+    public readonly type?: Type;
     public readonly baseType?: Type;
 
     public readonly isPureVirtual?: true;
     public readonly isOverride?: true;
 
-    public readonly hasConstructorName: boolean = false;
-    public readonly hasDestructorName: boolean = false;
-
     public readonly parameters?: readonly ParameterDeclaration[]; // defined if this is a declarator of function type
 
     public static createFromAST(ast: DeclaratorASTNode | undefined, context: TranslationUnitContext, baseType: Type | undefined) {
-        return new Declarator(context, ast, baseType);
+        const declarator_name = ast && DeclaratorName.createFromAST(ast, context);
+
+        if (declarator_name?.isQualifiedDeclaratorName() && declarator_name.qualifiedPrefixContext) {
+            context = createQualifiedContext(context, declarator_name.qualifiedPrefixContext);
+        }
+
+        return new Declarator(context, ast, declarator_name, baseType);
     }
 
     /**
@@ -44,70 +49,20 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
      * Since declarators are largely about processing an AST, it doesn't make much sense to create
      * one without an AST.
      */
-    private constructor(context: TranslationUnitContext, ast: DeclaratorASTNode | undefined, baseType: Type | undefined) {
+    private constructor(context: TranslationUnitContext, ast: DeclaratorASTNode | undefined, declarator_name: DeclaratorName | undefined, baseType: Type | undefined) {
         super(context, ast);
         this.baseType = baseType;
 
-        if (!ast) {
-            this.type = this.baseType;
-            return;
-        }
+        this.declaratorName = declarator_name;
+        this.name = declarator_name?.name;
 
-        // let isMember = isA(this.parent, Declarations.Member);
-        if (ast.pureVirtual) { this.isPureVirtual = true; }
-        if (ast.override) { this.isOverride = true; }
+        if (ast?.pureVirtual) { this.isPureVirtual = true; }
+        if (ast?.override) { this.isOverride = true; }
 
         this.determineNameAndType(ast);
     }
 
-    private determineNameAndType(ast: DeclaratorASTNode) {
-
-        let findName: DeclaratorASTNode | undefined = ast;
-        let n: LexicalIdentifier;
-        while (findName) {
-            if (findName.name) {
-                n = astToIdentifier(findName.name);
-                if (isUnqualifiedName(n)) {
-                    n = n.replace(/<.*>/g, ""); // remove template parameters
-                }
-                else {
-                    let newComponents = n.components.map(component => component.replace(/<.*>/g, ""));
-                    n = {
-                        components: newComponents,
-                        str: newComponents.join("::")
-                    };
-                }
-                asMutable(this).name = n;
-                checkIdentifier(this, n, this.notes);
-                break;
-            }
-            findName = findName.pointer || findName.reference || findName.sub;
-        }
-
-        if (this.name && isQualifiedName(this.name)) {
-            let le = this.context.program.getLinkedFunctionEntity(this.name);
-            if (le && isClassContext(le.firstDeclaration.context)) {
-                let className = le.firstDeclaration.context.containingClass.name;
-                className = className.replace(/<.*>/g, ""); // remove template parameters
-                if (getUnqualifiedName(this.name) === className) {
-                    (<Mutable<this>>this).hasConstructorName = true;
-                }
-                else if (getUnqualifiedName(this.name) === "~" + className) {
-                    (<Mutable<this>>this).hasDestructorName = true;
-                }
-            }
-        }
-
-        if (this.name && isClassContext(this.context)) {
-            let className = this.context.containingClass.name;
-            className = className.replace(/<.*>/g, ""); // remove template parameters
-            if (this.name === className) {
-                (<Mutable<this>>this).hasConstructorName = true;
-            }
-            else if (this.name === "~" + className) {
-                (<Mutable<this>>this).hasDestructorName = true;
-            }
-        }
+    private determineNameAndType(ast: DeclaratorASTNode | undefined) {
 
         let type: Type;
 
@@ -117,10 +72,10 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
         if (this.baseType) {
             type = this.baseType;
         }
-        else if (this.hasConstructorName) {
+        else if (this.declaratorName?.isConstructorName) {
             type = VoidType.VOID;
         }
-        else if (this.hasDestructorName) {
+        else if (this.declaratorName?.isDestructorName) {
             type = VoidType.VOID;
         }
         else {
@@ -318,8 +273,18 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
             return;
         }
 
-        // TODO clean up error immediately above and get rid of yucky cast below
-        return new FunctionType(type, <PotentialParameterType[]>paramTypes, this.context.containingClass?.type.cvQualified(!!postfix.const));
+        const receiverType = this.context.containingClass?.type.cvQualified(!!postfix.const);
+
+        // TODO get rid of yucky cast below
+        return new FunctionType(type, <PotentialParameterType[]>paramTypes, receiverType);
+    }
+    
+    public isUnqualifiedDeclarator() : this is UnqualifiedDeclarator {
+        return !!this.declaratorName?.isUnqualifiedDeclaratorName();
+    }
+
+    public isQualifiedDeclarator() : this is QualifiedDeclarator {
+        return !!this.declaratorName?.isQualifiedDeclaratorName();
     }
 
 }
@@ -328,6 +293,129 @@ export interface TypedDeclarator<T extends Type> extends Declarator {
     type: T;
 }
 
+export interface UnqualifiedDeclarator extends Declarator {
+    readonly name: UnqualifiedName;
+    readonly declaratorName: UnqualifiedDeclaratorName;
+}
+
+export interface QualifiedDeclarator extends Declarator {
+    readonly name: QualifiedName;
+    readonly declaratorName: QualifiedDeclaratorName;
+}
+
 export interface CompiledDeclarator<T extends Type = Type> extends TypedDeclarator<T>, SuccessfullyCompiled {
     readonly parameters?: readonly CompiledParameterDeclaration[]; // defined if this is a declarator of function type
+}
+
+
+function findDeclaratorName(ast: DeclaratorASTNode) {
+    
+    let findName: DeclaratorASTNode | undefined = ast;
+    let n: LexicalIdentifier;
+    while (findName) {
+        if (findName.name) {
+            n = astToIdentifier(findName.name);
+            if (isUnqualifiedName(n)) {
+                n = n.replace(/<.*>/g, ""); // remove template parameters
+            }
+            else {
+                let newComponents = n.components.map(component => component.replace(/<.*>/g, ""));
+                n = {
+                    components: newComponents,
+                    str: newComponents.join("::")
+                };
+            }
+            return n;
+        }
+        findName = findName.pointer || findName.reference || findName.sub;
+    }
+
+}
+
+export class DeclaratorName extends BasicCPPConstruct<TranslationUnitContext, ASTNode> {
+
+    public readonly construct_type = "declarator_name";
+
+    public readonly name: UnqualifiedName | QualifiedName;
+    public readonly qualifiedPrefixContext?: TranslationUnitContext;
+
+    public readonly isConstructorName: boolean = false;
+    public readonly isDestructorName: boolean = false;
+
+    public static createFromAST(ast: DeclaratorASTNode, context: TranslationUnitContext) {
+        const name = findDeclaratorName(ast);
+        return name ? new DeclaratorName(context, ast, name) : undefined;
+    }
+
+    private constructor(context: TranslationUnitContext, ast: DeclaratorASTNode, name: LexicalIdentifier) {
+        super(context, ast);
+
+        this.name = name;
+        checkIdentifier(this, name, this.notes);
+        
+        if (isQualifiedName(name)) {
+            const name_prefix = getQualifiedNameBase(name);
+
+            // Handle cases like ::somename
+            if (name_prefix.components.length === 0) {
+                this.qualifiedPrefixContext = context.translationUnit.context;
+                return 
+            }
+
+            const prefix_namespace = context.translationUnit.qualifiedLookup(name_prefix);
+
+            if (!prefix_namespace) {
+                this.addNote(CPPError.declarator.name.qualified_prefix_not_found(this, name_prefix));
+                return;
+            }
+            
+            if (prefix_namespace.declarationKind === "class") {
+                if (prefix_namespace.isComplete()) {
+                    this.qualifiedPrefixContext = prefix_namespace.definition.context;
+                }
+                else {
+                    this.addNote(CPPError.declarator.name.qualified_incomplete_type_prefix(this, name_prefix));
+                }
+            }
+            else {
+                this.addNote(CPPError.declarator.name.qualified_invalid_prefix(this, name_prefix));
+            }
+        }
+
+        const effective_context = this.qualifiedPrefixContext ?? this.context;
+        if (isClassContext(effective_context)) {
+            let className = effective_context.containingClass.name;
+            className = className.replace(/<.*>/g, ""); // remove template parameters
+            this.isConstructorName = this.name === className;
+            this.isDestructorName = this.name === "~"+className;
+        }
+    }
+
+    public isUnqualifiedDeclaratorName() : this is UnqualifiedDeclaratorName {
+        return isUnqualifiedName(this.name);
+    }
+
+    public isQualifiedDeclaratorName() : this is QualifiedDeclaratorName {
+        return isQualifiedName(this.name);
+    }
+
+    public isSemanticallyEquivalent_impl(other: AnalyticConstruct, equivalenceContext: SemanticContext): boolean {
+        return other.construct_type === this.construct_type
+    }
+
+}
+
+export interface UnqualifiedDeclaratorName extends DeclaratorName {
+    readonly name: UnqualifiedName;
+    readonly qualifiedPrefixContext: undefined;
+}
+
+export interface QualifiedDeclaratorName extends DeclaratorName {
+    readonly name: QualifiedName;
+    readonly qualifiedPrefixContext?: TranslationUnitContext;
+}
+
+
+export interface CompiledDeclaratorName extends DeclaratorName, SuccessfullyCompiled {
+
 }

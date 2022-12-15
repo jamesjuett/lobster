@@ -145,3 +145,11 @@ export function isQualifiedIdentifier(id: LexicalIdentifier) : id is QualifiedNa
 export function qualifiedNamesEq(qid1: QualifiedName, qid2: QualifiedName) {
     return identifierToString(qid1) === identifierToString(qid2);
 }
+
+export function getQualifiedNameBase(qn: QualifiedName) : QualifiedName {
+    const base_components = qn.components.slice(0, -1);
+    return {
+        components: base_components,
+        str: base_components.join("::")
+    }
+}

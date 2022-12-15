@@ -3,10 +3,11 @@ import { asMutable, assert } from "../../util/util";
 import { CPPConstruct } from "../constructs/CPPConstruct";
 import { RuntimeExpression } from "../constructs/expressions/RuntimeExpression";
 import { AnalyticConstruct } from "../../analysis/predicates";
-import { AtomicType, CompleteClassType, CompleteObjectType, ExpressionType, ReferenceType } from "./types";
+import { AtomicType, CompleteClassType, CompleteObjectType, ExpressionType, FunctionType, ReferenceType } from "./types";
 import { ClassEntity, CompleteClassEntity, FunctionEntity, LocalObjectEntity, LocalReferenceEntity, LocalVariableEntity } from "./entities";
 import { Program, TranslationUnit } from "./Program";
 import { BlockScope, ClassScope, Scope } from "./scopes";
+import { FunctionDefinition } from "../constructs/declarations/function/FunctionDefinition";
 
 export interface ConstructDescription {
     name?: string;
@@ -27,6 +28,16 @@ export interface ProgramContext {
 
 export function createImplicitContext<ContextType extends ProgramContext>(context: ContextType): ContextType {
     return Object.assign({}, context, { implicit: true });
+}
+
+export function createQualifiedContext(occuring_context: TranslationUnitContext, qualified_prefix_context: TranslationUnitContext) {
+    return Object.assign({}, qualified_prefix_context, {
+        contextualScope: qualified_prefix_context.contextualScope.createAlternateParentsProxy([
+            qualified_prefix_context.contextualScope,
+            occuring_context.contextualScope
+        ]),
+        translationUnit: occuring_context.translationUnit
+    });
 }
 
 
@@ -59,20 +70,20 @@ export function createExpressionContextWithReceiverType(parentContext: Translati
 }
 
 export interface FunctionContext extends TranslationUnitContext {
-    readonly containingFunction: FunctionEntity;
+    readonly containingFunctionType: FunctionType;
     readonly functionLocals: ContextualLocals;
     readonly contextualReceiverType?: CompleteClassType;
 }
 
 export function isFunctionContext(context: TranslationUnitContext) : context is FunctionContext {
-    return !!((context as FunctionContext).containingFunction);
+    return !!((context as FunctionContext).containingFunctionType);
 }
 
-export function createFunctionContext(parentContext: TranslationUnitContext, containingFunction: FunctionEntity, contextualReceiverType: CompleteClassType): MemberFunctionContext;
-export function createFunctionContext(parentContext: TranslationUnitContext, containingFunction: FunctionEntity, contextualReceiverType?: CompleteClassType): FunctionContext;
-export function createFunctionContext(parentContext: TranslationUnitContext, containingFunction: FunctionEntity, contextualReceiverType?: CompleteClassType): FunctionContext {
+export function createFunctionContext(parentContext: TranslationUnitContext, containingFunctionType: FunctionType, contextualReceiverType: CompleteClassType): MemberFunctionContext;
+export function createFunctionContext(parentContext: TranslationUnitContext, containingFunctionType: FunctionType, contextualReceiverType?: CompleteClassType): FunctionContext;
+export function createFunctionContext(parentContext: TranslationUnitContext, containingFunctionType: FunctionType, contextualReceiverType?: CompleteClassType): FunctionContext {
     return Object.assign({}, parentContext, {
-        containingFunction: containingFunction,
+        containingFunctionType: containingFunctionType,
         functionLocals: new ContextualLocals(),
         contextualReceiverType: contextualReceiverType
     });
@@ -141,13 +152,6 @@ export function createClassContext(
 
 export function isMemberSpecificationContext(context: TranslationUnitContext) : context is MemberSpecificationContext {
     return isClassContext(context) && !!(context as MemberSpecificationContext).accessLevel;
-}
-
-export function createOutOfLineFunctionDefinitionContext(declarationContext: MemberSpecificationContext, newParent: TranslationUnitContext) {
-    return Object.assign({}, declarationContext, {
-        contextualScope: declarationContext.contextualScope.createAlternateParentProxy(newParent.contextualScope),
-        translationUnit: newParent.translationUnit
-    });
 }
 
 export interface MemberSpecificationContext extends ClassContext {

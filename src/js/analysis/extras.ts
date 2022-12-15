@@ -97,9 +97,9 @@ const EXTRAS : {[index: string]: readonly StaticAnalysisExtra[] | undefined} = {
     "eecs280_ex_swap_by_pointer": [
         (program: Program) => {
             let swapPtdInts = findConstructs(program, constructTest(FunctionDefinition))
-                .find(def => def.declaration.name === "swap");
+                .find(def => def.name === "swap");
             let main = findConstructs(program, constructTest(FunctionDefinition))
-                .find(def => def.declaration.name === "main");
+                .find(def => def.name === "main");
 
             if (!swapPtdInts || !main) {
                 return;
@@ -126,7 +126,7 @@ const EXTRAS : {[index: string]: readonly StaticAnalysisExtra[] | undefined} = {
                 && localDefs[0].type && localDefs[0].type.isPointerType()
                 && pointerAssignments.length >= 1) {
 
-                swapPtdInts.declaration.addNote(new CompilerNote(swapPtdInts.declaration, NoteKind.STYLE, "analysis.2", "Check out the visualization of your code. What kinds of things are being swapped? Is it the arrows (i.e. pointers) or the values? Which do you want? What does that mean about where you should have the * operator in your code?"));
+                swapPtdInts.addNote(new CompilerNote(swapPtdInts, NoteKind.STYLE, "analysis.2", "Check out the visualization of your code. What kinds of things are being swapped? Is it the arrows (i.e. pointers) or the values? Which do you want? What does that mean about where you should have the * operator in your code?"));
             }
 
             // Heuristic 3
@@ -143,7 +143,7 @@ const EXTRAS : {[index: string]: readonly StaticAnalysisExtra[] | undefined} = {
             if (program.isRunnable() && assignments.length >= 2) {
                 if (intParams.length >= 2) {
 
-                    swapPtdInts.declaration.addNote(new CompilerNote(swapPtdInts.declaration, NoteKind.STYLE, "analysis.4",
+                    swapPtdInts.addNote(new CompilerNote(swapPtdInts, NoteKind.STYLE, "analysis.4",
                         `It looks like you've got a fair bit of code written to do the swap. But take a moment now to go ahead and simulate what you have. Look at the variables on the stack frames for main and your swap function as it runs. Are the variables in main getting changed, as desired? If not, why not? Does it have anything to do with the way you're passing the function parameters?`));
                 }
             }

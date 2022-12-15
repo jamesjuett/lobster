@@ -3,7 +3,7 @@ import { assert } from "../../../util/util";
 import { isClassContext, TranslationUnitContext } from "../../compilation/contexts";
 import { CPPEntity } from "../../compilation/entities";
 import { CPPError } from "../../compilation/errors";
-import { getUnqualifiedName } from "../../compilation/lexical";
+import { getUnqualifiedName, isQualifiedName, UnqualifiedName } from "../../compilation/lexical";
 import { Type } from "../../compilation/types";
 import { SuccessfullyCompiled } from "../CPPConstruct";
 import { BasicCPPConstruct } from "../BasicCPPConstruct";
@@ -22,7 +22,7 @@ export abstract class SimpleDeclaration<ContextType extends TranslationUnitConte
     public readonly otherSpecifiers: OtherSpecifiers;
 
     public abstract readonly type?: Type;
-    public readonly name: string;
+    public readonly name: UnqualifiedName;
 
     public readonly initializer?: Initializer;
     public abstract readonly declaredEntity?: CPPEntity;
@@ -40,11 +40,22 @@ export abstract class SimpleDeclaration<ContextType extends TranslationUnitConte
         assert(declarator.name, "Simple declarations must have a name.");
         this.attach(this.declarator = declarator);
 
+        // It's an error to declare anything using a qualified name in the declarator.
+        // This also prevents a variety of other silly issues, e.g. trying to
+        // put a definition for some function from some other class inside a class
+        // (i.e. you can't use a qualified name to go defining some random other thing)
+        if (declarator.isQualifiedDeclarator()) {
+            this.addNote(CPPError.declaration.qualified_name_prohibited(this));
+        }
+
+        // Even if we had a qualified name and there was an error above, we
+        // can make a reasonable assumption to allow recovery for the puposes
+        // of continuing compilation - assume they meant the unqualified version
         this.name = getUnqualifiedName(declarator.name);
 
         if (otherSpecs.virtual) {
-            if (declarator.type?.isFunctionType() && isClassContext(context)) {
-                // ok, it's a member function
+            if (declarator.type?.isFunctionType() && !storageSpec.static && isClassContext(context)) {
+                // ok, it's a non-static member function
             }
             else {
                 this.addNote(CPPError.declaration.virtual_prohibited(this));

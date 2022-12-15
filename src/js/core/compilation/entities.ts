@@ -15,7 +15,7 @@ import { CPPError } from "./errors";
 import type { Expression } from "../constructs/expressions/Expression";
 import type { FunctionCall } from "../constructs/FunctionCall";
 import type { RuntimeFunction } from "./functions";
-import type { QualifiedName } from "./lexical";
+import type { QualifiedName, UnqualifiedName } from "./lexical";
 import type { NewObjectType, RuntimeNewArrayExpression, RuntimeNewExpression } from "../constructs/expressions/NewExpression";
 import type { AutoObject, CPPObject, StaticObject, TemporaryObject } from "../runtime/objects";
 import type { PotentialFullExpression } from "../constructs/PotentialFullExpression";
@@ -80,12 +80,12 @@ export function areEntitiesSemanticallyEquivalent(entity: CPPEntity | undefined,
 
 export abstract class NamedEntity<T extends Type = Type> extends CPPEntity<T> {
 
-    public readonly name: string;
+    public readonly name: UnqualifiedName;
 
     /**
      * All NamedEntitys will have a name, but in some cases this might be "". e.g. an unnamed namespace.
      */
-    public constructor(type: T, name: string) {
+    public constructor(type: T, name: UnqualifiedName) {
         super(type);
         this.name = name;
     }
@@ -96,9 +96,14 @@ export type DeclarationKind = "variable" | "function" | "class";
 abstract class DeclaredEntityBase<T extends Type = Type> extends NamedEntity<T> {
 
     public abstract readonly declarationKind: DeclarationKind;
+    public readonly isSuccessfullyDeclared: boolean = false;
 
-    public constructor(type: T, name: string) {
+    public constructor(type: T, name: UnqualifiedName) {
         super(type, name);
+    }
+
+    public setSuccessfullyDeclared() {
+        asMutable(this).isSuccessfullyDeclared = true;
     }
 
 };
@@ -139,12 +144,15 @@ function mergeDefinitionInto<T extends DeclaredEntity>(newEntity: T, existingEnt
 export class FunctionOverloadGroup {
     public readonly declarationKind = "function";
 
-    public readonly name: string;
+    public readonly name: UnqualifiedName;
+    public readonly qualifiedName: QualifiedName;
     private readonly _overloads: FunctionEntity[];
     public readonly overloads: readonly FunctionEntity[];
 
     public constructor(overloads: readonly FunctionEntity[]) {
+        assert(overloads.length > 0, "Can not create a function overload group with no functions.");
         this.name = overloads[0].name;
+        this.qualifiedName = overloads[0].qualifiedName;
         this.overloads = this._overloads = overloads.slice();
     }
 
@@ -279,13 +287,11 @@ export class LocalReferenceEntity<T extends ReferenceType = ReferenceType> exten
     public readonly firstDeclaration: LocalVariableDefinition | ParameterDefinition;
     public readonly declarations: readonly LocalVariableDefinition[] | readonly ParameterDefinition[];
     public readonly definition: LocalVariableDefinition | ParameterDefinition;
-    public readonly name: string;
 
     private readonly _isParameter: boolean;
 
     public constructor(type: T, def: LocalVariableDefinition | ParameterDefinition, isParameter: boolean = false) {
         super(type, def.name);
-        this.name = def.name;
         this.firstDeclaration = def;
         this.declarations = <readonly LocalVariableDefinition[] | readonly ParameterDefinition[]>[def];
         this.definition = def;
@@ -1112,7 +1118,7 @@ export class FunctionEntity<T extends FunctionType = FunctionType> extends Decla
             }
 
             // check return type
-            if (!this.type.sameReturnType(overload.declaration.type)) {
+            if (!this.type.sameReturnType(overload.type)) {
                 this.declarations.forEach((decl) => decl.addNote(CPPError.link.func.returnTypesMatch(decl, this)));
                 return;
             }
@@ -1331,7 +1337,7 @@ function convLen(args: readonly Expression[]) {
  * the provided function type. (Note there's no consideration of function names here.)
  */
 export function selectOverloadedDefinition(overloadGroup: readonly FunctionDefinition[], type: FunctionType) {
-    return overloadGroup.find(func => type.sameSignature(func.declaration.type));
+    return overloadGroup.find(func => type.sameSignature(func.type));
 }
 
 

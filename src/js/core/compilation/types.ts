@@ -1926,13 +1926,19 @@ export class FunctionType<ReturnType extends PotentialReturnType = PotentialRetu
     }
 
     public sameSignature(other: FunctionType) {
-        return this.sameReceiverType(other) && this.sameParamTypes(other);
+        return this.sameParamTypes(other)
+            && this.receiverType?.isConst === other.receiverType?.isConst
+            && this.receiverType?.isVolatile == other.receiverType?.isVolatile;
     }
 
     public isPotentialOverriderOf(other: FunctionType) {
         return this.sameParamTypes(other)
             && this.receiverType?.isConst === other.receiverType?.isConst
             && this.receiverType?.isVolatile == other.receiverType?.isVolatile;
+    }
+
+    public discardedReceiverType() {
+        return new FunctionType(this.returnType, this.paramTypes);
     }
 
     public typeString(excludeBase: boolean, varname: string, decorated: boolean = false) {

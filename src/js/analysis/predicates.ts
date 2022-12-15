@@ -34,6 +34,7 @@ import { AnalyticStatement } from "../core/constructs/statements/statements";
 import { TemporaryDeallocator } from "../core/constructs/TemporaryDeallocator";
 import { ExpressionType, Type } from "../core/compilation/types";
 import { AnalyticInitializer } from "../core/constructs/initializers/initializers";
+import { DeclaratorName } from "../core/constructs/declarations/Declarator";
 
 
 
@@ -41,6 +42,7 @@ export type ConstructKind<Cs extends {construct_type: string}> = Cs["construct_t
 
 export type AnalyticConstruct =
     AnalyticDeclaration |
+    DeclaratorName |
     TypeSpecifier |
     StorageSpecifier |
     AnalyticExpression |

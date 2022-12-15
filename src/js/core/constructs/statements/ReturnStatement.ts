@@ -31,7 +31,7 @@ export class ReturnStatement extends Statement<ReturnStatementASTNode> {
     public constructor(context: BlockContext, ast: ReturnStatementASTNode, expression?: Expression) {
         super(context, ast);
 
-        let returnType = this.context.containingFunction.type.returnType;
+        let returnType = this.context.containingFunctionType.returnType;
 
         if (returnType instanceof VoidType) {
             if (expression) {

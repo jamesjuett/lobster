@@ -20,6 +20,8 @@ import { t_OverloadableOperators } from "../constructs/expressions/selectOperato
 import { CPPObject } from "../runtime/objects";
 import { SourceReference } from "./Program";
 import { CompleteObjectType, ReferenceType, CompleteClassType, Type, AtomicType, PotentiallyCompleteArrayType, PotentiallyCompleteClassType, FunctionType, VoidType, PointerType, ExpressionType, sameType, PotentialParameterType, PotentialReturnType, IncompleteObjectType, BoundedArrayType } from "./types";
+import { getQualifiedNameBase, QualifiedName } from "./lexical";
+import { Declarator, DeclaratorName } from "../constructs/declarations/Declarator";
 
 export enum NoteKind {
     ERROR = "error",
@@ -269,6 +271,32 @@ export const CPPError = {
             return new CompilerNote(construct, NoteKind.ERROR, "class_def.dtor_def", "Sorry, but for now Lobster only supports destructors that are defined inline. (i.e. You need a body.)");
         }
     },
+    declarator: {
+        name : {
+            qualified_prefix_not_found: function (decl_name: DeclaratorName, prefix: QualifiedName) {
+                return new CompilerNote(decl_name, NoteKind.ERROR, "declarator.name.qualified_prefix_not_found", `Unable to find a declaration for the qualified prefix ${prefix.str} to match this function definition.`);
+            },
+            qualified_invalid_prefix: function (decl_name: DeclaratorName, prefix: QualifiedName) {
+                return new CompilerNote(decl_name, NoteKind.ERROR, "declarator.name.qualified_invalid_prefix", `The prefix ${prefix.str} is invalid because it is not a class, namespace, or enumeration.`);
+            },
+            qualified_incomplete_type_prefix: function (decl_name: DeclaratorName, prefix: QualifiedName) {
+                return new CompilerNote(decl_name, NoteKind.ERROR, "declarator.name.qualified_incomplete_type_prefix", `The prefix ${prefix.str} is invalid because the class it refers to is incomplete at this point.`);
+            },
+        }
+    },
+    definition: {
+        func : {
+            no_declaration: function (declarator: Declarator) {
+                return new CompilerNote(declarator, NoteKind.ERROR, "declaration.func.no_declaration", `Unable to find any previous declaration of ${declarator.name} to match this function definition.`);
+            },
+            static_member_const_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "definition.func.static_member_const_prohibited", "This definition signature matches to a previously declared static member function, which prohibits a trailing const qualification.");
+            },
+        },
+        symbol_mismatch: function (construct: TranslationUnitConstruct, newEntity: DeclaredEntity) {
+            return new CompilerNote(construct, NoteKind.ERROR, "definition.symbol_mismatch", `Cannot define ${newEntity.name} as a different kind of symbol than its previous definition.`);
+        },
+    },
     declaration: {
         ctor: {
             copy: {
@@ -306,8 +334,17 @@ export const CPPError = {
             virtual_prohibited: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.virtual_prohibited", "A constructor may not be declared as virtual.");
             },
+            pure_virtual_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.pure_virtual_prohibited", "A constructor may not be declared as pure virtual.");
+            },
+            override_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.override_prohibited", "A constructor may not be declared with the override keyword.");
+            },
             previous_declaration: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.previous_declaration", `Re-declaration of a constructor is not allowed (a previous declaration of a constructor with the same parameter types exists).`);
+            },
+            static_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.ctor.static_prohibited", `A constructor may not be declared as a static member function.`);
             },
         },
         dtor: {
@@ -332,9 +369,15 @@ export const CPPError = {
             no_destructor_temporary: function (construct: TranslationUnitConstruct, entity: TemporaryObjectEntity) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.no_destructor_temporary", "This expression creates a temporary object of type " + entity.type + " that needs to be destroyed, but I can't find a destructor for the " + entity.type + " class. The compiler sometimes provides one implicitly for you, but not if one of its members or its base class are missing a destructor.");
             },
+            const_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.const_prohibited", "A destructor is not allowed to have a const specification.");
+            },
             return_type_prohibited: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.return_type_prohibited", "A destructor is not allowed to specify a return type.");
-            }
+            },
+            static_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.dtor.static_prohibited", `A destructor may not be declared as a static member function.`);
+            },
             // TODO Add warning for non-virtual destructor if derived classes exist
         },
         // no_type : function(construct: TranslationUnitConstruct) {
@@ -374,6 +417,18 @@ export const CPPError = {
             void_param: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.void_param", "Function parameters may not have void type.");
             },
+            static_member_const_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.static_member_const_prohibited", "A static member function may not be const (there is no receiver object or this pointer for a static member function, so the const has nothing to apply to).");
+            },
+            static_member_virtual_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.static_member_virtual_prohibited", "A static member function may not be virtual (there is no receiver object or this pointer for a static member function, so there is no concept of dynamic binding or virtual functions).");
+            },
+            static_member_pure_virtual_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.static_member_pure_virtual_prohibited", "A static member function may not be pure virtual (there is no receiver object or this pointer for a static member function, so there is no concept of dynamic binding or virtual functions).");
+            },
+            static_member_override_prohibited: function (construct: TranslationUnitConstruct) {
+                return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.static_member_override_prohibited", "A static member function may not be override (there is no receiver object or this pointer for a static member function, so there is no concept of overriding or virtual functions).");
+            },
             op_member: function (construct: TranslationUnitConstruct) {
                 return new CompilerNote(construct, NoteKind.ERROR, "declaration.func.op_member", "This operator must be overloaded as a non-static member function.");
             },
@@ -400,7 +455,7 @@ export const CPPError = {
             },
             multiple_def: function (def: FunctionDefinition, prevDef: FunctionDefinition) {
                 return new CompilerNote(def, NoteKind.ERROR, "declaration.func.multiple_def", `The function ${def.name} cannot be defined more than once.`);
-            }
+            },
         },
         variable: {
             multiple_def: function (def: VariableDefinition | ParameterDefinition, prevDef: VariableDefinition | ParameterDefinition) {
@@ -610,6 +665,12 @@ export const CPPError = {
         },
         symbol_mismatch: function (construct: TranslationUnitConstruct, newEntity: DeclaredEntity) {
             return new CompilerNote(construct, NoteKind.ERROR, "declaration.symbol_mismatch", `Cannot redeclare ${newEntity.name} as a different kind of symbol.`);
+        },
+        missing_name: function (construct: TranslationUnitConstruct) {
+            return new CompilerNote(construct, NoteKind.ERROR, "declaration.missing_name", `Unable to determine the name of the declared entity.`);
+        },
+        qualified_name_prohibited: function (construct: TranslationUnitConstruct) {
+            return new CompilerNote(construct, NoteKind.ERROR, "declaration.qualified_name_prohibited", "A qualified name (i.e. using ::) is not allowed in this declaration.");
         },
         member : {
             incomplete_type_declaration_prohibited: function (construct: IncompleteTypeMemberVariableDeclaration) {
