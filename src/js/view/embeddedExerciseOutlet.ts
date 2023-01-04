@@ -3,8 +3,8 @@ export function createRunestoneExerciseOutlet(id: string) {
     return $(`
         <ul style="position: relative;" class="lobster-simulation-outlet-tabs nav nav-tabs">
             <li><a data-toggle="tab" href="#lobster-ex-${id}-compilation-pane">Compilation</a></li>
-            <li class="active"><a class="lobster-source-tab" data-toggle="tab" href="#lobster-ex-${id}-source-pane">Source Code</a></li>
-            <li><a class="lobster-simulate-tab" data-toggle="tab" href="#lobster-ex-${id}-sim-pane">Simulation</a></li>
+            <li class="nav-item nav-link active"><a class="lobster-source-tab" data-toggle="tab" href="#lobster-ex-${id}-source-pane">Source Code</a></li>
+            <li class="nav-item nav-link"><a class="lobster-simulate-tab" data-toggle="tab" href="#lobster-ex-${id}-sim-pane">Simulation</a></li>
 
         </ul>
 
@@ -13,17 +13,17 @@ export function createRunestoneExerciseOutlet(id: string) {
                 
             </div>
 
-            <div id="lobster-ex-${id}-source-pane" class="lobster-source-pane tab-pane fade active in" style="height: 100%; overflow-y: hidden;">
+            <div id="lobster-ex-${id}-source-pane" class="lobster-source-pane tab-pane fade active show" style="height: 100%; overflow-y: hidden;">
                 <div style="height: 100%; overflow-y: hidden; display: flex; flex-direction: column;">
-                    <div style="padding-top:5px; padding-bottom: 5px;">
-                        <ul style="display:inline-block; vertical-align: middle;" class="project-files nav nav-pills"></ul>
+                    <div style="position: relative; padding-top:5px; padding-bottom: 5px;">
+                        <ul style="position: absolute; bottom: 5px;" class="project-files nav nav-pills"></ul>
                         <div style="float: right;">
                             <div class = "compilation-status-outlet" style="display: inline-block;"></div>
                             <div style="display: inline-block; text-align: center;">
                                 Memory Diagram<br />
                                 <div class="btn-group btn-toggle lobster-instant-memory-diagram-buttons"> 
-                                    <button class="btn btn-xs btn-default">ON</button>
-                                    <button class="btn btn-xs btn-primary active">OFF</button>
+                                    <button class="btn btn-sm btn-default">ON</button>
+                                    <button class="btn btn-sm btn-primary active">OFF</button>
                                 </div>
                             </div>
                             <button class = "btn btn-primary-muted runButton" style="display: inline-block; margin-left: 1em"><span class="glyphicon glyphicon-play-circle"></span> Simulate</span></button>

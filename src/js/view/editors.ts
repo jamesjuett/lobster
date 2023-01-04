@@ -73,8 +73,8 @@ export class ProjectEditor {
         this.filesElem = element.find(".project-files");
         assert(this.filesElem.length > 0, "CompilationOutlet must contain an element with the 'translation-units-list' class.");
 
-        let addFileButton = $('<a data-toggle="modal" data-target="#lobster-project-add-file-modal"><i class="bi bi-file-earmark-plus"></i></a>');
-        let liContainer = $("<li></li>");
+        let addFileButton = $('<a class="nav-link" data-toggle="modal" data-target="#lobster-project-add-file-modal"><i class="bi bi-file-earmark-plus"></i></a>');
+        let liContainer = $('<li class="nav-item"></li>');
         liContainer.append(addFileButton);
         this.filesElem.append(liContainer);
 
@@ -170,8 +170,8 @@ export class ProjectEditor {
         addListener(fileEd, this);
 
         // Create tab to select this file for viewing/editing
-        let item = $('<li></li>');
-        let link = $('<a>' + file.name + '</a>');
+        let item = $('<li class="nav-item"></li>');
+        let link = $('<a class="nav-link">' + file.name + '</a>');
         link.on("click", () => this.selectFile(file.name));
         item.append(link);
         this.fileButtonsMap[file.name] = item;
@@ -179,7 +179,7 @@ export class ProjectEditor {
 
         if (Object.keys(this.fileButtonsMap).length === 1) {
             // The first file added
-            item.addClass("active");
+            link.addClass("active");
             this.selectFile(file.name);
         }
 

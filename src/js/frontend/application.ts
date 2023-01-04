@@ -455,7 +455,7 @@ export class ProjectSaveOutlet {
         (<Mutable<this>>this).isSaved = true;
         this.saveButtonElem.prop("disabled", true);
         this.removeButtonClasses();
-        this.saveButtonElem.addClass("btn-default");
+        this.saveButtonElem.addClass("btn-outline-secondary");
         this.saveButtonElem.html('<i class="lobster-save-button-icon bi bi-cloud-slash"></i>');
     }
 
@@ -487,7 +487,7 @@ export class ProjectSaveOutlet {
     }
 
     private removeButtonClasses() {
-        this.saveButtonElem.removeClass("btn-default");
+        this.saveButtonElem.removeClass("btn-outline-secondary");
         this.saveButtonElem.removeClass("btn-success-muted");
         this.saveButtonElem.removeClass("btn-warning-muted");
         this.saveButtonElem.removeClass("btn-danger-muted");
