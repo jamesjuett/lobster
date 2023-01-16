@@ -1,6 +1,6 @@
 import { assert } from "./util/util";
 import { decode } from "he";
-import { createRunestoneExerciseOutlet } from "./view/embeddedExerciseOutlet";
+import { createEmbeddedExerciseOutlet } from "./view/embeddedExerciseOutlet";
 import { Exercise, Project } from "./core/Project";
 import { Checkpoint } from "./analysis/checkpoints";
 import { DEFAULT_EXERCISE, getExerciseSpecification } from "./exercises";
@@ -8,13 +8,19 @@ import { DEFAULT_EXERCISE, getExerciseSpecification } from "./exercises";
 import "./lib/standard"
 import { SimpleExerciseLobsterOutlet } from "./view/SimpleExerciseLobsterOutlet";
 
+import "../../public/css/main.css";
+import "../../public/css/code.css";
+import "../../public/css/buttons.css";
+import "../../public/css/exercises.css";
+import "../../public/css/frontend.css";
+
 $(() => {
 
     let exID = 1;
 
     $(".lobster-ex").each(function() {
 
-        $(this).append(createRunestoneExerciseOutlet(""+exID));
+        $(this).append(createEmbeddedExerciseOutlet(""+exID));
 
         let filename = $(this).find(".lobster-ex-file-name").html()?.trim() ?? "file.cpp";
         let exKey = $(this).find(".lobster-ex-key").html()?.trim() ??
@@ -38,7 +44,22 @@ $(() => {
           new Exercise(exerciseSpec));
         project.turnOnAutoCompile(500);
 
+        if (exerciseSpec.checkpoints.length === 0) {
+          $(this).find(".lobster-embedded-height-control").addClass("lobster-ex-no-checkpoints");
+        }
+
         let exOutlet = new SimpleExerciseLobsterOutlet($(this), project);
+
+        // setInterval(() => {
+        //   try {
+        //     if ((<any>window).updateIframeCode) {
+        //       (<any>window).updateIframeCode(exOutlet.project.sourceFiles[0].text);
+        //     }
+        //   }
+        //   catch(e) {
+
+        //   }
+        // }, 1000);
 
         ++exID;
     });

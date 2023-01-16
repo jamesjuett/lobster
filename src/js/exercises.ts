@@ -1381,5 +1381,42 @@ int main() {
             //     // return isEqual(elts, [])
             // })
         ]
+    },
+    "eecs280_lec2_ex_testing": {
+        starterCode: `#include <iostream>
+#include <vector>
+using namespace std;
+
+double sum(const vector<double> &v) {
+    int total = 0;
+    for(size_t i = 0; i < v.size(); ++i) {
+        total += v[i];
     }
+    return total;
+}
+
+void test_mean_basic() {
+  vector<double> data = {1, 2, 3};
+  double expected = 2;
+  double actual = mean(data);
+  assert(actual == expected);
+}
+
+int main() {
+  test_mean_basic();
+  test_mean_edge();
+  test_median_basic();
+  ...
+}`,
+        checkpoints: [
+            new StaticAnalysisCheckpoint("Add 3 more test cases (6 total)", (program: Program) => {
+                let main = findFirstConstruct(program, Predicates.byFunctionName("main"));
+                if (!main) { return false; }
+                return findConstructs(main, Predicates.byKind("magic_function_call_expression")).filter(
+                    call => call.functionName === "assert"
+                ).length >= 6;
+
+            })
+        ]
+    },
 };

@@ -4,7 +4,7 @@ import { RuntimeExpression } from "../core/constructs/expressions/RuntimeExpress
 import { OpaqueExpressionImpl, registerOpaqueExpression, RuntimeOpaqueExpression } from "../core/constructs/expressions/OpaqueExpression";
 import { CPPObject, MemberSubobject } from "../core/runtime/objects";
 import { Value } from "../core/runtime/Value";
-import { ArithmeticType, ArrayPointerType, AtomicType, BoundedArrayType, CompleteClassType, Int, VoidType } from "../core/compilation/types";
+import { ArithmeticType, ArrayPointerType, AtomicType, Bool, BoundedArrayType, CompleteClassType, Int, VoidType } from "../core/compilation/types";
 import { assert } from "../util/util";
 
 
@@ -31,7 +31,19 @@ public:
         @vector::vector_int_elt;
     }
     
-    vector(initializer_list<${element_type}> elts) {
+    vector(initializer_list<int> elts) {
+        @vector::vector_initializer_list;
+    }
+    
+    vector(initializer_list<double> elts) {
+        @vector::vector_initializer_list;
+    }
+    
+    vector(initializer_list<char> elts) {
+        @vector::vector_initializer_list;
+    }
+    
+    vector(initializer_list<bool> elts) {
         @vector::vector_initializer_list;
     }
 
@@ -205,7 +217,12 @@ registerOpaqueExpression("vector::vector_initializer_list", <OpaqueExpressionImp
         
         let n_raw = n.rawValue;
         for(let i = 0; i < n_raw; ++i) {
-            arr.getArrayElemSubobject(i).writeValue(elems[i].getValue());
+            let list_elt_value = elems[i].getValue();
+            let dest_elt_type = arr.getArrayElemSubobject(i).type;
+            let newRawValue = dest_elt_type.similarType(Bool.BOOL)
+                ? (list_elt_value.rawValue === 0 ? 0 : 1)
+                : list_elt_value.rawValue;
+            arr.getArrayElemSubobject(i).writeValue(elems[i].getValue().clone(newRawValue));
         }
     }
 });

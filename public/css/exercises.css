@@ -48,3 +48,12 @@
     display: inline-block;
     padding: 5px 10px;
 }
+
+.lobster-embedded-height-control {
+    overflow: hidden;
+    height: calc(100vh - 200px);
+}
+
+.lobster-embedded-height-control.lobster-ex-no-checkpoints {
+    height: calc(100vh - 75px);
+}

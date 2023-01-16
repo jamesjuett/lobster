@@ -29,7 +29,7 @@ export abstract class MemoryObjectOutlet<T extends CompleteObjectType = Complete
 
     public readonly names: readonly string[];
 
-    public constructor(element: JQuery, object: CPPObject<T>, memoryOutlet: MemoryOutlet, name?: string) {
+    public constructor(element: JQuery, object: CPPObject<T>, memoryOutlet: MemoryOutlet, name: string | undefined) {
         this.element = element.addClass("code-memoryObject");
         this.object = object;
         this.memoryOutlet = memoryOutlet;
@@ -302,12 +302,13 @@ export class ArrayMemoryObjectOutlet<T extends ArrayElemType = ArrayElemType> ex
 
     public readonly addrElem: JQuery;
     public readonly objElem: JQuery;
+    protected readonly namesElem: JQuery;
 
     public readonly elemOutlets: MemoryObjectOutlet[];
     public readonly onePast: JQuery;
 
     public constructor(element: JQuery, object: CPPObject<BoundedArrayType<T>>, memoryOutlet: MemoryOutlet) {
-        super(element, object, memoryOutlet);
+        super(element, object, memoryOutlet, object.name);
 
         this.element.addClass("code-memoryObject-array");
 
@@ -316,9 +317,7 @@ export class ArrayMemoryObjectOutlet<T extends ArrayElemType = ArrayElemType> ex
         this.addrElem = $(`<div class='address'>${toHexadecimalString(this.object.address)}</div>`);
         leftContainer.append(this.addrElem);
 
-        if (this.object.name) {
-            leftContainer.append($("<div class='entity'>" + (this.object.name || "") + "</div>"));
-        }
+        leftContainer.append(this.namesElem = $("<div class='entity'>" + (this.object.name || "") + "</div>"));
 
         this.objElem = $("<div class='code-memoryObject-array-elements'></div>");
 
@@ -356,7 +355,7 @@ export class ArrayMemoryObjectOutlet<T extends ArrayElemType = ArrayElemType> ex
     }
 
     protected onNamesUpdate() {
-        // TODO
+        this.namesElem.html(this.names.join(", "));
     }
 
 }
@@ -366,7 +365,7 @@ export class ArrayElemMemoryObjectOutlet<T extends AtomicType> extends MemoryObj
     public readonly objElem: JQuery;
 
     public constructor(element: JQuery, object: CPPObject<T>, memoryOutlet: MemoryOutlet) {
-        super(element, object, memoryOutlet);
+        super(element, object, memoryOutlet, object.name);
 
         this.element.addClass("array");
         this.objElem = $('<span class="code-memoryObject-object"></span>');
@@ -398,9 +397,10 @@ export class ClassMemoryObjectOutlet<T extends CompleteClassType> extends Memory
 
     public readonly objElem: JQuery;
     private readonly addrElem?: JQuery;
+    protected readonly namesElem: JQuery;
 
     public constructor(element: JQuery, object: CPPObject<T>, memoryOutlet: MemoryOutlet) {
-        super(element, object, memoryOutlet);
+        super(element, object, memoryOutlet, object.name);
 
         this.element.addClass("code-memoryObjectClass");
 
@@ -410,18 +410,16 @@ export class ClassMemoryObjectOutlet<T extends CompleteClassType> extends Memory
         let classHeaderElem = $('<div class="classHeader"></div>');
         this.objElem.append(classHeaderElem);
 
-        // Only show name and address for object if not a base class subobject
+        // Only show address for object if not a base class subobject
         if (!(this.object instanceof BaseSubobject)) {
             if (this.object instanceof DynamicObject) {
                 this.addrElem = $("<td class='address'>" + toHexadecimalString(this.object.address) + "</td>");
                 classHeaderElem.append(this.addrElem);
             }
-
-            if (this.object.name) {
-                let entityElem = $("<div class='entity'>" + (this.object.name || "") + "</div>");
-                classHeaderElem.append(entityElem);
-            }
         }
+        
+        this.namesElem = $("<div class='entity'>" + (this.object.name || "") + "</div>");
+        classHeaderElem.append(this.namesElem);
 
         classHeaderElem.append($('<span class="className">' + className + '</span>'));
 
@@ -467,7 +465,7 @@ export class ClassMemoryObjectOutlet<T extends CompleteClassType> extends Memory
     }
 
     protected onNamesUpdate() {
-        // TODO
+        this.namesElem.html(this.names.join(", "));
     }
 }
 
@@ -477,9 +475,10 @@ export class StringMemoryObject<T extends CompleteClassType> extends MemoryObjec
 
     protected readonly addrElem: JQuery;
     public readonly objElem: JQuery;
+    protected readonly namesElem: JQuery;
 
     public constructor(element: JQuery, object: CPPObject<T>, memoryOutlet: MemoryOutlet) {
-        super(element, object, memoryOutlet);
+        super(element, object, memoryOutlet, object.name);
 
         this.element.addClass("code-memoryObjectSingle");
 
@@ -489,10 +488,8 @@ export class StringMemoryObject<T extends CompleteClassType> extends MemoryObjec
         this.objElem = $("<div class='code-memoryObject-object'>" + getValueString((<CPPObject<PointerType<Char>>>this.object.getMemberObject("data_ptr")).getValue()) + "</div>");
         this.element.append(this.objElem);
 
-        if (this.object.name) {
-            this.element.append("<span> </span>");
-            this.element.append($("<div class='entity'>" + (this.object.name || "") + "</div>"));
-        }
+        this.element.append("<span> </span>");
+        this.element.append(this.namesElem = $("<div class='entity'>" + (this.object.name || "") + "</div>"));
 
         this.updateObject();
 
@@ -515,7 +512,7 @@ export class StringMemoryObject<T extends CompleteClassType> extends MemoryObjec
     }
 
     protected onNamesUpdate() {
-        // TODO
+        this.namesElem.html(this.names.join(", "));
     }
 }
 
@@ -528,7 +525,7 @@ export class InlinePointedArrayOutlet extends MemoryObjectOutlet<PointerType> {
     private arrayOutlet?: ArrayMemoryObjectOutlet;
     // private dataPtr: 
     public constructor(element: JQuery, object: CPPObject<PointerType>, memoryOutlet: MemoryOutlet) {
-        super(element, object, memoryOutlet);
+        super(element, object, memoryOutlet, object.name);
 
         this.objElem = $("<span></span>").appendTo(this.element);
 
@@ -574,14 +571,13 @@ export class InlinePointedArrayOutlet extends MemoryObjectOutlet<PointerType> {
 export class VectorMemoryObject<T extends CompleteClassType> extends MemoryObjectOutlet<T> {
 
     public readonly objElem: JQuery;
+    protected readonly namesElem: JQuery;
 
     public constructor(element: JQuery, object: CPPObject<T>, memoryOutlet: MemoryOutlet) {
-        super(element, object, memoryOutlet);
+        super(element, object, memoryOutlet, object.name);
 
-        if (this.object.name) {
-            this.element.append("<span> </span>");
-            this.element.append($("<div class='entity'>" + (this.object.name || "") + "</div>"));
-        }
+        this.element.append("<span> </span>");
+        this.element.append(this.namesElem = $("<div class='entity'>" + (this.object.name || "") + "</div>"));
 
         this.objElem = $("<div></div>").appendTo(this.element);
 
@@ -594,7 +590,7 @@ export class VectorMemoryObject<T extends CompleteClassType> extends MemoryObjec
     }
 
     protected onNamesUpdate() {
-        // TODO
+        this.namesElem.html(this.names.join(", "));
     }
 }
 

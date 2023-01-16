@@ -1,6 +1,6 @@
 {
     "name": "lobster-vis",
-    "version": "1.0.22",
+    "version": "1.0.25",
     "description": "A C++ Program Visualization Tool",
     "main": "dist/lobster.js",
     "types": "dist/lobster.d.ts",

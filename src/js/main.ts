@@ -5,7 +5,7 @@ import { Users } from "./frontend/user";
 import { ProjectList } from "./frontend/projects";
 import { LobsterApplication } from "./frontend/application";
 
-
+export {LobsterApplication } from "./frontend/application";
 
 $(async () => {
 

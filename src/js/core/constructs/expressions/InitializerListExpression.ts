@@ -1,5 +1,5 @@
 import { CPPObject, TemporaryObject } from "../../runtime/objects";
-import { PointerType, BoundedArrayType, ArithmeticType, CompleteClassType } from "../../compilation/types";
+import { PointerType, BoundedArrayType, ArithmeticType, CompleteClassType, Double } from "../../compilation/types";
 import { ExpressionContext, ConstructDescription } from "../../compilation/contexts";
 import { SuccessfullyCompiled, RuntimeConstruct } from "../CPPConstruct";
 import { CPPError } from "../../compilation/errors";
@@ -13,6 +13,7 @@ import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
 import { CompiledTemporaryDeallocator } from "../TemporaryDeallocator";
 import { InitializerListExpressionASTNode } from "../../../ast/ast_expressions";
 import { createExpressionFromAST, createRuntimeExpression } from "./expressions";
+import { standardConversion } from "./ImplicitConversion";
 
 
 
@@ -45,10 +46,13 @@ export class InitializerListExpression extends Expression<InitializerListExpress
         }
 
         let eltType = elements[0].type;
-        if (!elements.every(arg => arg.type.sameType(eltType))) {
-            this.addNote(CPPError.declaration.init.list_same_type(this));
-            this.attachAll(this.elements = elements);
-            return;
+        if (!elements.every(arg => arg.type.similarType(eltType))) {
+            // HACK - for differing types, just convert everything to double
+            eltType = Double.DOUBLE;
+            elements = elements.map(elt => elt.type.similarType(eltType) ? elt : standardConversion(elt, eltType))
+            // this.addNote(CPPError.declaration.init.list_same_type(this));
+            // this.attachAll(this.elements = elements);
+            // return;
         }
 
         if (!eltType.isArithmeticType()) {

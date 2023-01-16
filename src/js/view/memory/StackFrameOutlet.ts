@@ -86,14 +86,14 @@ export class StackFrameOutlet {
         });
 
         this.func.model.context.functionLocals.localReferences.forEach(ref => {
-            this.referenceOutletsByEntityId[ref.entityId] = new ReferenceMemoryOutlet($("<div></div>").prependTo(body), ref);
+            // this.referenceOutletsByEntityId[ref.entityId] = new ReferenceMemoryOutlet($("<div></div>").prependTo(body), ref);
         });
     }
 
     @messageResponse("referenceBound")
     private referenceBound(msg: Message<{ entity: BoundReferenceEntity; object: CPPObject; }>) {
         let { entity, object } = msg.data;
-        this.referenceOutletsByEntityId[entity.entityId].bind(object);
+        // this.referenceOutletsByEntityId[entity.entityId].bind(object);
     }
 }
 export interface StackFrameCustomization {

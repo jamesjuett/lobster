@@ -1,5 +1,5 @@
 
-export function createRunestoneExerciseOutlet(id: string) {
+export function createEmbeddedExerciseOutlet(id: string) {
     return $(`
         <ul style="position: relative;" class="lobster-simulation-outlet-tabs nav nav-tabs">
             <li><a data-toggle="tab" href="#lobster-ex-${id}-compilation-pane">Compilation</a></li>
@@ -8,7 +8,7 @@ export function createRunestoneExerciseOutlet(id: string) {
 
         </ul>
 
-        <div class="tab-content" style="height: calc(100vh - 200px); overflow: hidden;">
+        <div class="tab-content lobster-embedded-height-control">
             <div id="lobster-ex-${id}-compilation-pane" class="lobster-compilation-pane tab-pane fade" style="height: 100%; overflow-y: scroll;">
                 
             </div>
