@@ -843,6 +843,81 @@ export class BaseSubobjectEntity extends CPPEntity<CompleteClassType> implements
     }
 }
 
+// export class MemberSubobjectEntity extends CPPEntity<CompleteClassType> implements ObjectEntity<CompleteClassType> {
+//     public readonly variableKind = "object";
+
+//     public readonly containingEntity: ObjectEntity<CompleteClassType>;
+//     public readonly name: string;
+
+//     constructor(containingEntity: ObjectEntity<CompleteClassType>, name: string) {
+//         const memEnt = 
+//         assert(containingEntity.type.classDefinition.memberVariableEntitiesByName[name], "invalid name for member");
+//         super(containingEntity.type.classDefinition.memberVariableEntitiesByName[name]?.type);
+//         this.containingEntity = containingEntity;
+
+//         // This should always be true as long as we don't allow multiple inheritance
+//         assert(this.containingEntity.type.classDefinition.baseType?.similarType(type))
+//     }
+
+//     public runtimeLookup(rtConstruct: RuntimeConstruct) {
+//         return this.containingEntity.runtimeLookup(rtConstruct).getMemberObject()!;
+//     }
+
+//     public isTyped<NarrowedT extends CompleteClassType>(predicate: (t:CompleteClassType) => t is NarrowedT) : this is MemberSubobjectEntity;
+//     public isTyped<NarrowedT extends Type>(predicate: (t:Type) => t is NarrowedT) : this is never;
+//     public isTyped<NarrowedT extends CompleteClassType>(predicate: (t:CompleteClassType) => t is NarrowedT) : this is MemberSubobjectEntity {
+//         return predicate(this.type);
+//     }
+
+//     public describe() {
+//         return {
+//             name: "the " + this.type.className + " base class of " + this.containingEntity.describe().name,
+//             message: "the " + this.type.className + " base class subobject of " + this.containingEntity.describe()
+//         };
+//     }
+
+//     public isSemanticallyEquivalent(other: CPPEntity, equivalenceContext: SemanticContext): boolean {
+//         return other instanceof BaseSubobjectEntity && sameType(other.type, this.type) && areEntitiesSemanticallyEquivalent(other.containingEntity, this.containingEntity, equivalenceContext);
+//     }
+// }
+
+
+
+// export class ArraySubobjectEntity<T extends ArrayElemType = ArrayElemType> extends CPPEntity<T> implements ObjectEntity<T> {
+//     public readonly variableKind = "object";
+
+//     public readonly arrayEntity: ObjectEntity<BoundedArrayType<T>>;
+//     public readonly index: number;
+
+//     constructor(arrayEntity: ObjectEntity<BoundedArrayType<T>>, index: number) {
+//         super(arrayEntity.type.elemType);
+//         this.arrayEntity = arrayEntity;
+//         this.index = index;
+//     }
+
+//     public runtimeLookup(rtConstruct: RuntimeConstruct) {
+//         return this.arrayEntity.runtimeLookup(rtConstruct).getArrayElemSubobject(this.index);
+//     }
+
+//     public isTyped<NarrowedT extends ArrayElemType>(predicate: (t:ArrayElemType) => t is NarrowedT) : this is ArraySubobjectEntity<NarrowedT>;
+//     public isTyped<NarrowedT extends Type>(predicate: (t:Type) => t is NarrowedT) : this is never;
+//     public isTyped<NarrowedT extends ArrayElemType>(predicate: (t:ArrayElemType) => t is NarrowedT) : this is ArraySubobjectEntity<NarrowedT> {
+//         return predicate(this.type);
+//     }
+
+//     public describe() {
+//         let arrDesc = this.arrayEntity.describe();
+//         return {
+//             name: arrDesc.name + "[" + this.index + "]",
+//             message: "element " + this.index + " of " + arrDesc.message
+//         };
+//     }
+
+//     public isSemanticallyEquivalent(other: CPPEntity, equivalenceContext: SemanticContext): boolean {
+//         return other instanceof ArraySubobjectEntity && sameType(other.type, this.type) && areEntitiesSemanticallyEquivalent(other.arrayEntity, this.arrayEntity, equivalenceContext);
+//     }
+// }
+
 abstract class MemberVariableEntityBase<T extends ObjectEntityType = ObjectEntityType> extends VariableEntityBase<T> {
 
     public readonly variableLocation = "member";
