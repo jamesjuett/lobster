@@ -2,7 +2,7 @@ import { CompiledArrayMemberInitializer, RuntimeArrayMemberInitializer } from ".
 import { CompiledArrayDefaultInitializer, CompiledClassDefaultInitializer, RuntimeArrayDefaultInitializer, RuntimeAtomicDefaultInitializer, RuntimeClassDefaultInitializer } from "../../core/constructs/initializers/DefaultInitializer";
 import { CompiledArrayDirectInitializer, CompiledAtomicDirectInitializer, CompiledClassDirectInitializer, CompiledDirectInitializer, CompiledReferenceDirectInitializer, RuntimeArrayDirectInitializer, RuntimeAtomicDirectInitializer, RuntimeClassDirectInitializer, RuntimeDirectInitializer, RuntimeReferenceDirectInitializer } from "../../core/constructs/initializers/DirectInitializer";
 import { CompiledInitializer, RuntimeInitializer } from "../../core/constructs/initializers/Initializer";
-import { CompiledArrayAggregateInitializer, RuntimeArrayAggregateInitializer } from "../../core/constructs/initializers/ListInitializer";
+import { CompiledArrayAggregateInitializer, CompiledClassAggregateInitializer, RuntimeArrayAggregateInitializer, RuntimeClassAggregateInitializer } from "../../core/constructs/initializers/ListInitializer";
 import { CompiledArrayValueInitializer, CompiledClassValueInitializer, RuntimeArrayValueInitializer, RuntimeAtomicValueInitializer, RuntimeClassValueInitializer } from "../../core/constructs/initializers/ValueInitializer";
 import { htmlDecoratedName } from "../../util/util";
 import { ConstructOutlet } from "./ConstructOutlet";
@@ -229,6 +229,23 @@ export class ArrayAggregateInitializerOutlet extends InitializerOutlet<RuntimeAr
                 this.element.append(", ");
             }
             return <DirectInitializerOutlet | ValueInitializerOutlet>createInitializerOutlet($("<span></span>").appendTo(this.element), elemInit, this);
+        });
+    }
+}
+
+
+export class ClassAggregateInitializerOutlet extends InitializerOutlet<RuntimeClassAggregateInitializer> {
+
+    public readonly memberInitializerOutlets: readonly (DirectInitializerOutlet | ValueInitializerOutlet)[];
+
+    public constructor(element: JQuery, construct: CompiledClassAggregateInitializer, parent?: ConstructOutlet) {
+        super(element, construct, parent);
+
+        this.memberInitializerOutlets = construct.memberInitializers.map((memberInit, i) => {
+            if (i > 0) {
+                this.element.append(", ");
+            }
+            return <DirectInitializerOutlet | ValueInitializerOutlet>createInitializerOutlet($("<span></span>").appendTo(this.element), memberInit, this);
         });
     }
 }

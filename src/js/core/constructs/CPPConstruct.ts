@@ -181,6 +181,7 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
      * instead we trick the type system and trust that this property will be used appropriately by the programmer.
      */
     public readonly containingRuntimeFunction!: RuntimeFunction;
+    private _contextualReceiver?: CPPObject<CompleteClassType>; 
 
     public readonly stepsTakenAtStart: number;
     public readonly isActive: boolean = false;
@@ -222,8 +223,8 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
         (<Mutable<this>>this).containingRuntimeFunction = func;
     }
 
-    protected setContextualReceiver(obj: CPPObject<CompleteClassType>) {
-        (<Mutable<this>>this).contextualReceiver = obj;
+    public setContextualReceiver(obj: CPPObject<CompleteClassType>) {
+        this._contextualReceiver = obj;
     }
 
     /**
@@ -235,7 +236,7 @@ export abstract class RuntimeConstruct<C extends CompiledConstruct = CompiledCon
      * be used appropriately by the programmer.
      */
     public get contextualReceiver() {
-        return this.containingRuntimeFunction?.receiver!;
+        return this._contextualReceiver ?? this.containingRuntimeFunction?.receiver! ?? this.parent?._contextualReceiver;
     }
 
     /**
