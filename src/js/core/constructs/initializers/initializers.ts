@@ -1,6 +1,6 @@
 import { ArrayDefaultInitializer, AtomicDefaultInitializer, ClassDefaultInitializer } from "./DefaultInitializer";
 import { ReferenceDirectInitializer, AtomicDirectInitializer, ArrayDirectInitializer, ClassDirectInitializer } from "./DirectInitializer";
-import { ArrayAggregateInitializer } from "./ListInitializer";
+import { ArrayAggregateInitializer, ClassAggregateInitializer } from "./ListInitializer";
 import { AtomicValueInitializer, ReferenceValueInitializer, ArrayValueInitializer, ClassValueInitializer } from "./ValueInitializer";
 
 export type AnalyticDefaultInitializer =
@@ -22,7 +22,8 @@ export type AnalyticValueInitializer =
   | ClassValueInitializer;
 
 export type AnalyticListInitializer =
-  | ArrayAggregateInitializer;
+  | ArrayAggregateInitializer
+  | ClassAggregateInitializer;
 
 export type AnalyticInitializer =
   | AnalyticDefaultInitializer
