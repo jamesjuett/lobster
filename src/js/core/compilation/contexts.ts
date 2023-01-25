@@ -200,6 +200,10 @@ export function isAnythingConstruct(construct: CPPConstruct | undefined) : boole
         return true;
     }
 
+    if (ac?.construct_type === "expression_statement" && isAnythingConstruct(ac.expression)){
+        return true;
+    }
+
     return false;
 }
 

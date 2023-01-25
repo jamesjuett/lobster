@@ -11,10 +11,13 @@ export function findLoopControlVars(loop: WhileStatement | ForStatement) {
     let vars = loop.body.context.contextualScope.availableVars();
 
     if (loop.construct_type === "while_statement") {
-        // candidates are used in the condition and the body
+        // candidates are used in the condition
         let candidates = vars.filter(
-            v => containsConstruct(loop.condition, Predicates.byVariableIdentifier(v))
-                && containsConstruct(loop.body, Predicates.byVariableIdentifier(v))
+            v => containsConstruct(loop.condition, Predicates.byVariableIdentifier(v));
+
+            // Note we do not require them to be used in the body, since we might
+            // have some fancy thing like strcpy implemented as "while(*dst++ = *src++);"
+            // && containsConstruct(loop.body, Predicates.byVariableIdentifier(v))
         );
 
         // candidates must be incremented in some way within the loop
