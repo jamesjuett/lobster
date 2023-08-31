@@ -13,7 +13,7 @@ export function findLoopControlVars(loop: WhileStatement | ForStatement) {
     if (loop.construct_type === "while_statement") {
         // candidates are used in the condition
         let candidates = vars.filter(
-            v => containsConstruct(loop.condition, Predicates.byVariableIdentifier(v));
+            v => containsConstruct(loop.condition, Predicates.byVariableIdentifier(v))
 
             // Note we do not require them to be used in the body, since we might
             // have some fancy thing like strcpy implemented as "while(*dst++ = *src++);"
