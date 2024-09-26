@@ -782,6 +782,10 @@ ul.codeStack li{
 	text-overflow: ellipsis;
 }
 
+.lobster-compilation-pane .compilation-notes-list .list-group-item {
+	overflow-wrap: break-word;
+}
+
 .lobster-save-button-icon {
 	font-size: 1.5em;
 	line-height: 50%;
