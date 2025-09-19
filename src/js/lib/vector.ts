@@ -222,7 +222,7 @@ registerOpaqueExpression("vector::vector_initializer_list", <OpaqueExpressionImp
             let newRawValue = dest_elt_type.similarType(Bool.BOOL)
                 ? (list_elt_value.rawValue === 0 ? 0 : 1)
                 : list_elt_value.rawValue;
-            arr.getArrayElemSubobject(i).writeValue(elems[i].getValue().clone(newRawValue));
+            arr.getArrayElemSubobject(i).writeValue(new Value(elems[i].getValue().rawValue, arr.getArrayElemSubobject(i).type, elems[i].isValueValid()));
         }
     }
 });
