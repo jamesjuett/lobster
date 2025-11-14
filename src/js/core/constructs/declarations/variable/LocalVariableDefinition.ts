@@ -41,7 +41,7 @@ export class LocalVariableDefinition extends VariableDefinitionBase<BlockContext
 
         this.declaredEntity =
             type.isReferenceType() ? new LocalReferenceEntity(type, this) : new LocalObjectEntity(type, this);
-
+        
 
         // Note extern unsupported error is added in the base Declaration class, so no need to add here
         // All local declarations are also definitions, with the exception of a local declaration of a function

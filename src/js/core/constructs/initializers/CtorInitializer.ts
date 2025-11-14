@@ -3,8 +3,8 @@ import { asMutable, assert } from "../../../util/util";
 import { ArrayMemberInitializerOutlet } from "../../../view/constructs/InitializerOutlet";
 import { CtorInitializerOutlet } from "../../../view/constructs/CtorInitializerOutlet";
 import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
-import { areAllSemanticallyEquivalent, createImplicitContext, MemberBlockContext, SemanticContext, TranslationUnitContext } from "../../compilation/contexts";
-import { ArraySubobjectEntity, BaseSubobjectEntity, MemberObjectEntity, ReceiverEntity } from "../../compilation/entities";
+import { areAllSemanticallyEquivalent, areSemanticallyEquivalent, createImplicitContext, MemberBlockContext, SemanticContext, TranslationUnitContext } from "../../compilation/contexts";
+import { areEntitiesSemanticallyEquivalent, ArraySubobjectEntity, BaseSubobjectEntity, MemberObjectEntity, ReceiverEntity } from "../../compilation/entities";
 import { CPPError } from "../../compilation/errors";
 import { CPPObject } from "../../runtime/objects";
 import { OpaqueExpression } from "../expressions/OpaqueExpression";
@@ -204,9 +204,26 @@ export class CtorInitializer extends BasicCPPConstruct<MemberBlockContext, CtorI
     }
 
     public isSemanticallyEquivalent_impl(other: AnalyticConstruct, ec: SemanticContext): boolean {
-        return other.construct_type === this.construct_type
-            && areAllSemanticallyEquivalent(this.children, other.children, ec);
-        // TODO semantic equivalence
+        if (other.construct_type !== this.construct_type) {
+            return false;
+        }
+        
+        if (!areEntitiesSemanticallyEquivalent(this.target, other.target, ec)) {
+            return false;
+        }
+
+        // If either has a malformed initializer from a bad name, do not consider them equivalent.
+        // This could otherwise cause an issue where one has an extra malformed intializer that
+        // is ignored and the constructs are falsely considered equivalent.
+        // We can do this by just checking if they have the same errors.
+        if (this.notes.allNotes.length !== other.notes.allNotes.length
+            || !this.notes.allNotes.every((n,i) => n.id === other.notes.allNotes[i].id)) {
+            return false;
+        }
+
+        return areSemanticallyEquivalent(this.delegatedConstructorInitializer, other.delegatedConstructorInitializer, ec)
+            && areSemanticallyEquivalent(this.baseInitializer, other.baseInitializer, ec)
+            && areAllSemanticallyEquivalent(this.memberInitializers, other.memberInitializers, ec);
     }
 }
 

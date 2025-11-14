@@ -1,6 +1,6 @@
 import { CPPObject } from "../../runtime/objects";
 import { isType, Bool, ArithmeticType, Int, isArithmeticType, PointerToCompleteType as PointerToCompleteObjectType, isPointerToCompleteObjectType } from "../../compilation/types";
-import { ExpressionContext, ConstructDescription } from "../../compilation/contexts";
+import { ExpressionContext, ConstructDescription, areSemanticallyEquivalent, SemanticContext } from "../../compilation/contexts";
 import { SuccessfullyCompiled, RuntimeConstruct } from "../CPPConstruct";
 import { CPPError } from "../../compilation/errors";
 import { Value } from "../../runtime/Value";
@@ -8,7 +8,7 @@ import { Expression, CompiledExpression, TypedExpression, t_TypedExpression } fr
 import { RuntimeExpression } from "./RuntimeExpression";
 import { PostfixIncrementExpressionOutlet } from "../../../view/constructs/ExpressionOutlets";
 import { ConstructOutlet } from "../../../view/constructs/ConstructOutlet";
-import { Predicates } from "../../../analysis/predicates";
+import { AnalyticConstruct, Predicates } from "../../../analysis/predicates";
 import { CompiledTemporaryDeallocator } from "../TemporaryDeallocator";
 import { PostfixIncrementExpressionASTNode } from "../../../ast/ast_expressions";
 import { SimpleRuntimeExpression } from "./SimpleRuntimeExpression";
@@ -67,6 +67,31 @@ export class PostfixIncrementExpression extends Expression<PostfixIncrementExpre
 
     public describeEvalResult(depth: number): ConstructDescription {
         throw new Error("Method not implemented.");
+    }
+
+    public override isSemanticallyEquivalent_impl(other: AnalyticConstruct, ec: SemanticContext): boolean {
+
+        if (other.construct_type !== "prefix_increment_expression"
+            && other.construct_type !== "postfix_increment_expression") { 
+            return false;
+        }
+
+        if (other.operator !== this.operator) {
+            return false;
+        }
+
+        if (other.construct_type === this.construct_type) {
+            // both prefix or both postfix, equiv depends on operands
+            return areSemanticallyEquivalent(this.operand, other.operand, ec);
+        }
+
+        if (this.isFullExpression() && other.isFullExpression()) {
+            // both are full expressions, not subexpressions, so
+            // prefix vs postfix doesn't matter
+            return areSemanticallyEquivalent(this.operand, other.operand, ec);
+        }
+        
+        return false;
     }
 }
 
