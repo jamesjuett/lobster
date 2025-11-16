@@ -318,6 +318,12 @@ export class Declarator extends BasicCPPConstruct<TranslationUnitContext, Declar
             return;
         }
 
+        // If the function name is a string type(Array type for out-of-line definition)
+        // and it is not in a class(containingClass == undefined). It is a non-member function
+        if (postfix.const && (typeof(this.name) == "string" && !this.context.containingClass)) {
+            notes.addNote(CPPError.declaration.func.non_member_func_const(this));
+        }
+
         // TODO clean up error immediately above and get rid of yucky cast below
         return new FunctionType(type, <PotentialParameterType[]>paramTypes, this.context.containingClass?.type.cvQualified(!!postfix.const));
     }
