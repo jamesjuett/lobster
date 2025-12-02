@@ -54,16 +54,16 @@ export class SimpleExerciseLobsterOutlet {
         let program = this.project.program;
         if (program.isRunnable()) {
           let sim = new Simulation(program);
+          this.setSimulation(sim);
           while (!sim.globalAllocator.isDone) {
             sim.stepForward(); // TODO: put this loop in simulation runners in function to skip stuff before main
           }
-          this.setSimulation(sim);
         }
         this.simulateTabElem.tab("show");
       }
     );
 
-    
+
     element.find(".lobster-return-to-source").on("click", () => {
       this.clearSimulation();
       this.element.find(".lobster-source-tab").tab("show");
